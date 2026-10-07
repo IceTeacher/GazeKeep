@@ -5,7 +5,7 @@
 | 文档版本 | v1.1 |
 | 上游文档 | [GazeKeep-规划文档.md](./GazeKeep-规划文档.md)（产品范围、里程碑、风险以它为准） |
 | 本文定位 | 把规划落到模块、接口、线程、时序、清单和测试上，作为 M0–M4 的实现依据 |
-| 状态 | M3 主链路回归通过。M0–M2 主链路已落地；LSPosed 设置页抢占回调已修复，60 秒超时下连续周期、退出设置页后保亮及转头后熄屏通过，钩点失配和禁用作用域安全矩阵待补齐 |
+| 状态 | M3 与 M4 功能及实机验证通过。M0–M2 主链路已落地；M3 LSPosed 安全加固与连续保亮、退出后保亮、默认熄屏实机通过；M4 miuix 全量设置页、DataStore 单一配置存储、分步自检向导实机通过，冷重启持久化回读与启停控制验证通过；更长超时与异常钩点矩阵待补齐 |
 | 首要验证机 | 小米 12 Pro（HyperOS，Android 13/14） |
 | 适用范围 | 没有系统级「注视不熄屏」能力的 Android 手机；机型适配以实测为准 |
 
@@ -734,7 +734,9 @@ oneway interface IGazeKeepClient {
 ```
 
 - v2 回调新增 `screenDimAtUptime`，未知值传 `-1`；App 只接受正数且不晚于真实熄屏的值。
-- `linkToDeath`：App 进程死亡 → 清空 `client`，取消待发消息。此后系统完全按原逻辑运行。
+- `linkToDeath`：App 进程死亡 → 仅清空对应的 `client`，取消待发消息并作废待执行令牌；旧客户端的迟到死亡通知不得清掉新客户端。此后系统完全按原逻辑运行。
+- Extend 令牌仅在本轮真实熄屏时间前可消费一次；注册、注销、死亡及关闭均作废令牌，重复或迟到请求返回 STALE。PMS 钩子路径使用原子状态与 Handler 投递，不获取额外锁。
+- 钩子熔断立即停止接受 deadline 和桥接请求，再向 Handler 投递清理，避免在 PMS 锁内执行 binder 注销。服务销毁时同步完成 LSPosed 注销和无障碍 overlay 移除；Shizuku 在独立的 IO 清理协程中先恢复超时再解绑，不依赖即将取消的 lifecycleScope。
 - App 侧拿 `power` binder：`HiddenApiBypass.addHiddenApiExemptions("Landroid/os/ServiceManager;")` 后 `ServiceManager.getService("power")`。
 - 协议版本不一致（App 升级但未重启）：`ping` 返回旧版本 → readiness = `NeedsSetup(Reboot)`。
 
@@ -1046,6 +1048,15 @@ data class DecisionRecord(
 ---
 
 ## 12. UI 架构（`:shared`）
+
+### M4 首轮实现决议（2026-10-07）
+
+- 页面按照总开关、后端、检测、范围、保护、隐私与自检组织，采用 miuix 0.9.4 的 Preference 控件（原 Super* 名称的当前对应组件）。不使用其导航模块，回退栈保持本节设计。
+- engine 的 ConfigStore 为应用进程唯一 DataStore 实例，持久化 enabled、backendLock、leadMillis、sensitivity、whitelistEnabled、packages、maxHoldMinutes 与 selfTestPassedAt。UI 与 GazeService 通过同一实例读取，不根据 run-as 的旧 XML 推断运行状态。
+- 旧配置只通过 SharedPreferences API 迁移后端选择；首次 M4 迁移不继承 enabled 或白名单关闭状态，也不把历史人工测试当作新用户自检通过。旧 XML 与当前 API 状态不一致的根因需诊断，不能先认定为某个 ROM 行为。
+- 修改设置先完成 DataStore 写入，再重新配置引擎。关闭总开关必须取消未执行的启动任务并停止服务；后端切换期间默认放行熄屏。设置页的 Shizuku 检测只查询服务/权限，不绑定或解绑 UserService。
+- 自检独占相机，进入时先停止运行引擎。必须依次得到 Looking、Away，Unknown 不推进步骤；预览只绑定在自检页的短时采集期间，页面离开或生命周期停止时取消采集。
+- 启动器应用列表只使用 MAIN/LAUNCHER 查询；仅白名单默认开启，列表为空或无法确定前台包名时不保亮。隐私三句话与规划 §10 逐字一致。
 
 ### 12.1 边界
 

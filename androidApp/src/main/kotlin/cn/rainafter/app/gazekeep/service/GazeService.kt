@@ -40,6 +40,9 @@ import cn.rainafter.app.gazekeep.core.policy.GateContext
 import cn.rainafter.app.gazekeep.core.policy.GatePolicy
 import cn.rainafter.app.gazekeep.engine.EngineEffectRunner
 import cn.rainafter.app.gazekeep.engine.GazeEngine
+import cn.rainafter.app.gazekeep.engine.EngineRuntime
+import cn.rainafter.app.gazekeep.engine.RuntimeStatus
+import cn.rainafter.app.gazekeep.engine.config.ConfigStore
 import cn.rainafter.app.gazekeep.engine.camera.CaptureOutcome
 import cn.rainafter.app.gazekeep.engine.camera.CameraXFrameSource
 import cn.rainafter.app.gazekeep.engine.classify.MlKitFrameClassifier
@@ -49,6 +52,8 @@ import cn.rainafter.app.gazekeep.engine.m0.M0CaptureSession
 import cn.rainafter.app.gazekeep.engine.oracle.IdleClockOracle
 import cn.rainafter.app.gazekeep.platform.BackendSelector
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.collectLatest
@@ -83,7 +88,24 @@ class GazeService : LifecycleService() {
         createNotificationChannel()
         promoteForeground()
 
-        val config = loadConfig()
+        lifecycleScope.launch {
+            try {
+                val settings = ConfigStore(applicationContext).settings.first()
+                if (!settings.config.enabled || settings.selfTestPassedAt == null) {
+                    stopSelf()
+                    return@launch
+                }
+                initializeEngine(settings.config)
+            } catch (error: kotlinx.coroutines.CancellationException) { throw error }
+            catch (_: Exception) {
+                notifyAlert(Alert.BackendUnavailable)
+                stopSelf()
+            }
+        }
+    }
+
+    private fun initializeEngine(config: GazeConfig) {
+        EngineRuntime.intentionalStop = false
         activeConfig = config
         val permission = checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         val a11yBackend = GazeA11yService.current?.backend
@@ -92,7 +114,7 @@ class GazeService : LifecycleService() {
         } else {
             ShizukuKeepAwakeBackend(applicationContext)
         }
-        lsposedBackend = LsposedKeepAwakeBackend(applicationContext)
+        lsposedBackend = LsposedKeepAwakeBackend(applicationContext, config.leadMillis)
         val candidates = mutableMapOf<BackendId, KeepAwakeBackend>().apply {
             a11yBackend?.let { put(BackendId.Accessibility, it) }
             shizukuBackend?.let { put(BackendId.Shizuku, it) }
@@ -137,6 +159,7 @@ class GazeService : LifecycleService() {
         configureOracle(backend, config)
         lifecycleScope.launch {
             engine?.snapshot?.collectLatest { snapshot ->
+                EngineRuntime.publish(EngineRuntime.status.value.copy(running = true, backend = snapshot.backend))
                 if (config.debugLogEnabled) Log.d(TAG, "state=${snapshot.state::class.simpleName} backend=${snapshot.backend}")
             }
         }
@@ -158,6 +181,7 @@ class GazeService : LifecycleService() {
         }
         a11yBackend?.let { a11y ->
             lifecycleScope.launch {
+                a11y.attach()
                 a11y.readiness.collectLatest {
                     switchBackend(selector, config)
                 }
@@ -167,7 +191,12 @@ class GazeService : LifecycleService() {
 
     override fun dump(fd: FileDescriptor, writer: PrintWriter, args: Array<out String>) {
         val snapshot = engine?.snapshot?.value
+        writer.println("configSource=DataStore")
         writer.println("enabled=${snapshot?.config?.enabled}")
+        writer.println("leadMillis=${snapshot?.config?.leadMillis}")
+        writer.println("sensitivity=${snapshot?.config?.sensitivity}")
+        writer.println("whitelistEnabled=${snapshot?.config?.whitelistEnabled}")
+        writer.println("maxHoldMinutes=${snapshot?.config?.maxHoldMinutes}")
         writer.println("backend=${snapshot?.backend}")
         writer.println("state=${snapshot?.state?.let { it::class.simpleName }}")
         writer.println("backendReadiness=${backend?.readiness?.value?.let { it::class.simpleName }}")
@@ -190,7 +219,7 @@ class GazeService : LifecycleService() {
             GazeA11yService.current?.backend?.let { backendSelector?.register(it) }
             backendSelector?.let { selector ->
                 lifecycleScope.launch {
-                    switchBackend(selector, activeConfig ?: loadConfig())
+                    activeConfig?.let { switchBackend(selector, it) }
                 }
             }
         }
@@ -278,14 +307,19 @@ class GazeService : LifecycleService() {
         classifier = null
         frameSource?.close()
         frameSource = null
-        if (getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getBoolean(KEY_ENABLED, false)) {
+        if (activeConfig?.enabled == true && !EngineRuntime.intentionalStop) {
             notifyAlert(Alert.BackendUnavailable)
         }
-        val selectedBackend = backend
-        lifecycleScope.launch {
-            runCatching { selectedBackend?.detach() }
-            if (shizukuBackend !== selectedBackend) runCatching { shizukuBackend?.detach() }
-            if (lsposedBackend !== selectedBackend) runCatching { lsposedBackend?.detach() }
+        lsposedBackend?.detachImmediately()
+        GazeA11yService.current?.backend?.detachImmediately()
+        val shellBackend = shizukuBackend
+        // 销毁回调返回后 lifecycleScope 会取消；超时恢复必须拥有独立的清理任务。
+        if (shellBackend != null) CoroutineScope(Dispatchers.IO).launch {
+            try {
+                shellBackend.release()
+            } finally {
+                runCatching { shellBackend.detach() }
+            }
         }
         GazeA11yService.current?.onExternalActivity = null
         GazeA11yService.onServiceUnavailable = null
@@ -294,6 +328,7 @@ class GazeService : LifecycleService() {
         lsposedBackend = null
         backendSelector = null
         activeConfig = null
+        EngineRuntime.publish(RuntimeStatus())
         super.onDestroy()
     }
 
@@ -361,7 +396,11 @@ class GazeService : LifecycleService() {
                 emit(EngineEvent.ExtendFinished(result))
             }
             EngineEffect.Release -> lifecycleScope.launch { runCatching { backend?.release() } }
-            is EngineEffect.Record -> Unit
+            is EngineEffect.Record -> {
+                effect.record.attention?.let { attention ->
+                    EngineRuntime.publish(EngineRuntime.status.value.copy(lastDecision = attention))
+                }
+            }
             is EngineEffect.Notify -> notifyAlert(effect.alert)
         }
     }
@@ -423,28 +462,6 @@ class GazeService : LifecycleService() {
         screenReceiver = receiver
     }
 
-    private fun loadConfig(): GazeConfig {
-        val preferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-        val enabled = preferences.getBoolean(KEY_ENABLED, false)
-        // 白名单页尚未接入；空白名单不能把每轮检测静默判为不在允许范围。
-        val testMode = preferences.getBoolean(KEY_M1_TEST, false)
-        val backendLock = runCatching {
-            cn.rainafter.app.gazekeep.core.model.BackendLock.valueOf(
-                preferences.getString(
-                    KEY_BACKEND_LOCK,
-                    if (testMode) cn.rainafter.app.gazekeep.core.model.BackendLock.Accessibility.name
-                    else cn.rainafter.app.gazekeep.core.model.BackendLock.Auto.name,
-                ) ?: cn.rainafter.app.gazekeep.core.model.BackendLock.Auto.name,
-            )
-        }.getOrDefault(cn.rainafter.app.gazekeep.core.model.BackendLock.Auto)
-        return GazeConfig(
-            enabled = enabled,
-            backendLock = backendLock,
-            whitelistEnabled = false,
-            debugLogEnabled = testMode,
-        )
-    }
-
     private fun promoteForeground() {
         if (Build.VERSION.SDK_INT >= 29) {
             startForeground(NOTIFICATION_ID, serviceNotification(), foregroundType())
@@ -453,7 +470,7 @@ class GazeService : LifecycleService() {
         }
     }
 
-    private fun foregroundType(): Int = if (Build.VERSION.SDK_INT >= 29) ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA else 0
+    private fun foregroundType(): Int = if (Build.VERSION.SDK_INT >= 30) ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA else 0
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= 26) {

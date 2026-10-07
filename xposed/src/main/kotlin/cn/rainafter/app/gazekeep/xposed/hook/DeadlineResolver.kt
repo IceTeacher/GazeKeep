@@ -44,16 +44,17 @@ class DeadlineResolver(private val classLoader: ClassLoader) {
     fun resolveBridge(): Method? = runCatching {
         val clazz = Class.forName("android.os.IPowerManager\$Stub", false, classLoader)
         clazz.declaredMethods.firstOrNull { method ->
-            method.name == "onTransact" &&
-                method.returnType == Boolean::class.javaPrimitiveType &&
-                method.parameterTypes.contentEquals(
-                    arrayOf(
-                        Int::class.javaPrimitiveType,
-                        android.os.Parcel::class.java,
-                        android.os.Parcel::class.java,
-                        Int::class.javaPrimitiveType,
-                    ),
-                )
+            matchesHookSignature(
+                method,
+                "onTransact",
+                arrayOf<Class<*>>(
+                    Int::class.javaPrimitiveType!!,
+                    android.os.Parcel::class.java,
+                    android.os.Parcel::class.java,
+                    Int::class.javaPrimitiveType!!,
+                ),
+                Boolean::class.javaPrimitiveType!!,
+            )
         }
     }.getOrNull()
 
@@ -71,9 +72,15 @@ class DeadlineResolver(private val classLoader: ClassLoader) {
     ): Method? = runCatching {
         val clazz = Class.forName(className, false, classLoader)
         clazz.declaredMethods.firstOrNull { method ->
-            method.name == methodName &&
-                method.returnType == returnType &&
-                method.parameterTypes.contentEquals(parameterTypes)
+            matchesHookSignature(method, methodName, parameterTypes, returnType)
         }
     }.getOrNull()
 }
+
+internal fun matchesHookSignature(
+    method: Method,
+    name: String,
+    parameters: Array<Class<*>>,
+    returnType: Class<*>,
+): Boolean = method.name == name && method.returnType == returnType &&
+    method.parameterTypes.contentEquals(parameters)

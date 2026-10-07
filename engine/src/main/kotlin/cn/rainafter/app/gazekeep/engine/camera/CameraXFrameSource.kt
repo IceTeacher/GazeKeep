@@ -6,6 +6,7 @@ import android.os.Looper
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
+import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -22,6 +23,8 @@ class CameraXFrameSource(context: Context) : FrameSource, AutoCloseable {
     private val appContext = context.applicationContext
     private val mainHandler = Handler(Looper.getMainLooper())
     private val providerFuture = ProcessCameraProvider.getInstance(appContext)
+
+    var previewSurfaceProvider: Preview.SurfaceProvider? = null
 
     override suspend fun capture(plan: CapturePlan, onFrame: (ImageProxy) -> Boolean): CaptureOutcome {
         require(plan.maxFrames > 0)
@@ -103,7 +106,9 @@ class CameraXFrameSource(context: Context) : FrameSource, AutoCloseable {
 
             try {
                 owner.resume()
-                provider.bindToLifecycle(owner, CameraSelector.DEFAULT_FRONT_CAMERA, analysis)
+                val preview = previewSurfaceProvider?.let { surface -> Preview.Builder().build().also { it.setSurfaceProvider(surface) } }
+                if (preview == null) provider.bindToLifecycle(owner, CameraSelector.DEFAULT_FRONT_CAMERA, analysis)
+                else provider.bindToLifecycle(owner, CameraSelector.DEFAULT_FRONT_CAMERA, analysis, preview)
             } catch (_: Throwable) {
                 analysis.clearAnalyzer()
                 finish(CaptureOutcome.Aborted(AbortReason.Error))
@@ -112,6 +117,7 @@ class CameraXFrameSource(context: Context) : FrameSource, AutoCloseable {
     }
 
     override fun close() {
+        previewSurfaceProvider = null
         // providerFuture 由 ProcessCameraProvider 管理；每轮 capture 都会 unbindAll。
     }
 

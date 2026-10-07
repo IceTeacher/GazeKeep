@@ -23,6 +23,8 @@ dependencies {
     implementation(libs.shizuku.api)
     implementation(libs.shizuku.provider)
 
+    implementation(libs.androidx.camera.view)
+    implementation(libs.androidx.camera.core)
     implementation(libs.androidx.activity.compose)
 
     implementation(libs.compose.uiToolingPreview)

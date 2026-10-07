@@ -9,6 +9,8 @@ import android.os.Parcel
 import android.os.PowerManager
 import android.os.SystemClock
 import android.util.Log
+import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.AtomicLong
 import cn.rainafter.app.gazekeep.xposed.protocol.BridgeProtocol
 import cn.rainafter.app.gazekeep.xposed.protocol.IGazeKeepClient
 
@@ -23,8 +25,9 @@ class PowerHookCore(private val systemContext: Context) {
             false
         }
     }
-    @Volatile private var client: ClientRecord? = null
-    @Volatile private var currentSeq = 0L
+    private val client = AtomicReference<ClientRecord?>(null)
+    private val tickets = ExtendTicketGate()
+    private val currentSeq = AtomicLong(0L)
     @Volatile private var lastScreenOffAt = Long.MIN_VALUE
     @Volatile private var ourLastEventTime = -1L
     @Volatile private var appUid: Int? = null
@@ -32,11 +35,12 @@ class PowerHookCore(private val systemContext: Context) {
 
     /** 在 PMS 锁内调用；这里只计算并向自己的 Handler 投递消息。 */
     fun onDeadlineComputed(screenOffAt: Long, lastActivityTime: Long, screenDimAt: Long = -1L) {
-        val current = client ?: return
+        if (closed) return
+        val current = client.get() ?: return
         if (screenOffAt == lastScreenOffAt) return
+        tickets.invalidate()
         lastScreenOffAt = screenOffAt
-        val seq = currentSeq + 1L
-        currentSeq = seq
+        val seq = currentSeq.incrementAndGet()
         val external = if (lastActivityTime != ourLastEventTime) lastActivityTime else -1L
         handler.removeMessages(MSG_PRE_TIMEOUT)
         val dimAt = screenDimAt.takeIf { it > 0L && it <= screenOffAt } ?: -1L
@@ -76,10 +80,18 @@ class PowerHookCore(private val systemContext: Context) {
         }
     }
 
+    fun disable() {
+        closed = true
+        tickets.invalidate()
+        currentSeq.incrementAndGet()
+        handler.post { close() }
+    }
+
     fun close() {
         closed = true
-        client?.let { runCatching { it.binder.unlinkToDeath(it.deathRecipient, 0) } }
-        client = null
+        tickets.invalidate()
+        currentSeq.incrementAndGet()
+        client.getAndSet(null)?.let { runCatching { it.binder.unlinkToDeath(it.deathRecipient, 0) } }
         lastScreenOffAt = Long.MIN_VALUE
         handler.removeCallbacksAndMessages(null)
         thread.quitSafely()
@@ -99,12 +111,26 @@ class PowerHookCore(private val systemContext: Context) {
             reply.writeInt(BridgeProtocol.RESULT_UNAVAILABLE)
             return
         }
-        client?.let { runCatching { it.binder.unlinkToDeath(it.deathRecipient, 0) } }
+        tickets.invalidate()
+        currentSeq.incrementAndGet()
+        client.getAndSet(null)?.let { runCatching { it.binder.unlinkToDeath(it.deathRecipient, 0) } }
         lastScreenOffAt = Long.MIN_VALUE
-        val deathRecipient = IBinder.DeathRecipient { client = null; handler.removeMessages(MSG_PRE_TIMEOUT) }
-        val record = ClientRecord(binder, callback, leadMillis, deathRecipient)
-        binder.linkToDeath(deathRecipient, 0)
-        client = record
+        lateinit var record: ClientRecord
+        val deathRecipient = IBinder.DeathRecipient {
+            if (client.compareAndSet(record, null)) {
+                tickets.invalidate()
+                currentSeq.incrementAndGet()
+                handler.removeMessages(MSG_PRE_TIMEOUT)
+            }
+        }
+        record = ClientRecord(binder, callback, leadMillis, deathRecipient)
+        client.set(record)
+        try {
+            binder.linkToDeath(deathRecipient, 0)
+        } catch (error: Throwable) {
+            client.compareAndSet(record, null)
+            throw error
+        }
         reply.writeNoException()
         reply.writeInt(BridgeProtocol.RESULT_OK)
     }
@@ -113,7 +139,8 @@ class PowerHookCore(private val systemContext: Context) {
         val seq = data.readLong()
         val result = when {
             !isOurUid(callingUid) -> BridgeProtocol.RESULT_DENIED
-            seq != currentSeq -> BridgeProtocol.RESULT_STALE
+            closed || client.get() == null || seq != currentSeq.get() -> BridgeProtocol.RESULT_STALE
+            !tickets.consume(seq, SystemClock.uptimeMillis()) -> BridgeProtocol.RESULT_STALE
             invokeUserActivity() -> BridgeProtocol.RESULT_OK
             else -> BridgeProtocol.RESULT_UNAVAILABLE
         }
@@ -123,8 +150,9 @@ class PowerHookCore(private val systemContext: Context) {
 
     private fun unregister(reply: Parcel, callingUid: Int) {
         if (isOurUid(callingUid)) {
-            client?.let { runCatching { it.binder.unlinkToDeath(it.deathRecipient, 0) } }
-            client = null
+            tickets.invalidate()
+            currentSeq.incrementAndGet()
+            client.getAndSet(null)?.let { runCatching { it.binder.unlinkToDeath(it.deathRecipient, 0) } }
             lastScreenOffAt = Long.MIN_VALUE
             handler.removeMessages(MSG_PRE_TIMEOUT)
         }
@@ -133,8 +161,10 @@ class PowerHookCore(private val systemContext: Context) {
     }
 
     private fun dispatch(timeout: PreTimeout) {
-        val current = client ?: return
-        if (timeout.seq != currentSeq) return
+        if (closed) return
+        val current = client.get() ?: return
+        if (timeout.seq != currentSeq.get() || SystemClock.uptimeMillis() >= timeout.screenOffAt) return
+        tickets.offer(timeout.seq, timeout.screenOffAt)
         runCatching {
             current.callback.onPreTimeout(
                 timeout.seq,
@@ -143,7 +173,15 @@ class PowerHookCore(private val systemContext: Context) {
                 null,
                 timeout.lastExternalActivity,
             )
-        }.onFailure { error -> Log.w(TAG, "pre-timeout callback failed", error) }
+        }.onFailure { error ->
+            tickets.invalidate()
+            currentSeq.incrementAndGet()
+            if (client.compareAndSet(current, null)) {
+                runCatching { current.binder.unlinkToDeath(current.deathRecipient, 0) }
+                handler.removeMessages(MSG_PRE_TIMEOUT)
+            }
+            Log.w(TAG, "pre-timeout callback failed", error)
+        }
     }
 
     private fun invokeUserActivity(): Boolean {

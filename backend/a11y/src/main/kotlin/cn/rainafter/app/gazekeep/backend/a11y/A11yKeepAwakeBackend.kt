@@ -65,7 +65,10 @@ class A11yKeepAwakeBackend(
         _readiness.value = Readiness.Ready
     }
 
-    override suspend fun detach() = withContext(Dispatchers.Main.immediate) {
+    override suspend fun detach() = withContext(Dispatchers.Main.immediate) { detachImmediately() }
+
+    /** 引擎或无障碍服务销毁时由主线程直接移除，防止保亮标记残留。 */
+    fun detachImmediately() {
         val view = overlay
         if (view != null) runCatching { windowManager?.removeViewImmediate(view) }
         overlay = null
@@ -151,14 +154,7 @@ class GazeA11yService : AccessibilityService() {
         scope.launch {
             runCatching { backend.attach() }
         }
-        if (getSharedPreferences("gazekeep_config", MODE_PRIVATE).getBoolean("enabled", false)) {
-            val engineIntent = Intent().setClassName(
-                packageName,
-                "cn.rainafter.app.gazekeep.service.GazeService",
-            ).putExtra("cn.rainafter.app.gazekeep.backend_ready", true)
-            if (android.os.Build.VERSION.SDK_INT >= 26) startForegroundService(engineIntent)
-            else startService(engineIntent)
-        }
+
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {

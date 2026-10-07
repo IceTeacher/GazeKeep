@@ -1,45 +1,24 @@
 package cn.rainafter.app.gazekeep
 
-import android.Manifest
-import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.activity.compose.setContent
 
 class MainActivity : ComponentActivity() {
-    private lateinit var shizukuController: AndroidM2ShizukuController
-
+    private lateinit var controller: AndroidGazeKeepController
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-
-        shizukuController = AndroidM2ShizukuController(this)
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), CAMERA_PERMISSION_REQUEST)
-        }
-
-        setContent {
-            App(shizukuController)
-        }
+        controller = AndroidGazeKeepController(this)
+        val actions = AndroidPlatformActions(this, controller)
+        setContent { App(controller, actions) }
     }
-
-    override fun onDestroy() {
-        shizukuController.close()
-        super.onDestroy()
+    override fun onResume() { super.onResume(); if (::controller.isInitialized) controller.refresh() }
+    override fun onPause() { if (::controller.isInitialized) controller.pauseSelfTest(); super.onPause() }
+    override fun onDestroy() { if (::controller.isInitialized) controller.close(); super.onDestroy() }
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        controller.refresh()
     }
-
-    private companion object {
-        const val CAMERA_PERMISSION_REQUEST = 1001
-    }
-}
-
-@Preview
-@Composable
-fun AppAndroidPreview() {
-    App()
 }

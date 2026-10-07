@@ -64,3 +64,26 @@
 - 转头阶段先采到 0x2，随后查询确认 `mWakefulness=Dozing`、`mLastSleepReason=timeout`。熄屏后对应 PowerGroup 的 `lastUserActivityTime` 仍为 298503 ms，查询时已空闲约 69.7 秒。
 - 转头观察过程中一次无线 ADB 查询中断，重连后读取到上述息屏状态；未据此猜测相机分类结果，未采集或保存图像。
 - 已停止测试应用并恢复安装前配置：`enabled=false`、`backend_lock=Auto`、`m1_test_mode=false`；没有运行中的 GazeService。再次读取系统 `screen_off_timeout` 为 60000 ms。
+
+## 2026-10-07 安全收尾实现（实机回归待完成）
+
+- 新增单次 Extend 令牌门控：只接受当前 seq 且早于真实熄屏时间的请求；重复、过期、注销后的请求不执行 userActivity。并发消费使用 CAS，不在 PMS 锁内获取其他锁。
+- 旧客户端的死亡通知使用客户端身份 CAS，避免清除替换后的新客户端；注册、注销、死亡、回调失败与关闭均作废当前令牌。
+- 每个钩子累计五次异常后停止执行，核心先拒绝请求，再通过 Handler 清理。异常上报或清理自身抛出 Throwable 也不会逃逸到系统回调。
+- GazeService 销毁时同步注销 LSPosed 并移除无障碍 overlay；Shizuku 使用独立 IO 清理任务恢复待还原超时，再解绑。重新启动引擎时重新 attach 无障碍后端。
+- 自动验证通过：core 24 项、xposed 11 项（新增单次消费、并发唯一胜者、截止/替换/失效、五次累计熔断、异常隔离、签名名称/参数/返回值失配检查），assembleDebug、lintDebug 与 git diff --check 通过。
+- APK 已安装成功并发起设备重启。安装前 ROM 为 OS2.0.6.0.ULGCNXM，screen_off_timeout=60000，配置 enabled=false、backend_lock=Auto、m1_test_mode=false。
+- 本次自动测试不能替代「错误钩点版本仍能开机」「禁用作用域后熄屏」实机矩阵；这些项目继续标为待验证。新安全实现的停止服务、再次启用与正常保亮回归等待设备解锁。重启后无线 ADB 一度返回 No route to host，随后已恢复；sys.boot_completed=1、screen_off_timeout=60000，设备仍 showing=true（锁屏）。新版桥接握手与运行回归等待首次手动解锁。
+
+## 2026-10-07 安全新版实机回归
+
+- 用户解锁后，无线 ADB 192.168.12.46:5555 正常。MCP 只读 UI 确认“LSPosed 系统框架作用域已就绪”，运行服务报告 backend=Lsposed、backendReadiness=Ready。
+- 用户确认正视后，PowerGroup 的 lastUserActivityTime 为 279020 → 313702 → 348315 ms，两次间隔分别为 34682、34613 ms，观察均为 Awake / userActivitySummary=0x1。新版令牌单次消费未阻断正常 Looking 保亮。
+- 在后端选择页点击 Shizuku 后，第一时间查询显示 GazeService 已不存在，应用的 1×1 无障碍 overlay 同时消失，验证正常服务销毁的清理。随后 Shizuku 建立连接并重新创建服务，该切换不能作为“没有引擎运行”的熄屏证据。
+- 普通 shell 的 am stopservice 未能停止此服务，未据此宣称销毁成功；临时诊断程序也未成功执行，手机端诊断 jar 已删除。
+- 单独执行 am force-stop 后，应用进程及 GazeService 不再运行，浮层不再存在。期间系统活动时间有一次更新，来源未判定；以之后最后一次活动为基准验收，未把它归因于 GazeKeep。
+- 最后一次 PowerGroup 活动时间为 571529 ms，mLastSleepTime=631531 ms（相差 60002 ms），mWakefulness=Dozing、mLastSleepReason=timeout；查询时 idle≈73 秒。服务仍不存在，screen_off_timeout=60000，进程退出后默认熄屏通过。
+- 用户再次解锁后打开页面，选择 LSPosed 并执行 Back；后续焦点核查发现 GazeKeep 再次处于前台，未确定是否有人重新打开页面，故不将这一阶段作为桌面验收。新建服务报告 enabled=true、backend=Lsposed、backendReadiness=Ready；PowerGroup 活动时间为 719565 → 754541 → 789215 ms，两次间隔分别为 34976、34674 ms，观察均 Awake / summary=0x1。重新启用后连续保亮通过。
+- 随后明确执行 HOME，前后均核查 mCurrentFocus 和 mFocusedApp 为 com.miui.home/.launcher.Launcher。活动时间 865297 → 899968 → 934819 ms（34671 / 34851 ms），三次焦点查询均为 Launcher，保持 Awake / summary=0x1，GazeService 仍为 LSPosed / Ready，桌面连续两个周期保亮通过。
+- 本轮结束时 LSPosed 服务保持启用（来自运行服务的状态），系统超时仍为 60000 ms，用户可正常使用。run-as 读取到的旧配置文件内容与重启应用后的实际选择不一致，不再把该文件的 enabled=false / Auto 当作当前运行状态或恢复成功证据；配置持久化路径差异留待设置层核查。
+- 错误钩点版本、禁用作用域、长于 60 秒系统超时及采集期间触摸的实机矩阵仍待验证；本轮没有修改钩点候选、作用域或用户系统超时。

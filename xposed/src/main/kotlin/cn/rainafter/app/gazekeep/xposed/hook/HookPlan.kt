@@ -2,6 +2,7 @@ package cn.rainafter.app.gazekeep.xposed.hook
 
 import android.os.Binder
 import android.os.Parcel
+import android.util.Log
 import cn.rainafter.app.gazekeep.xposed.core.PowerHookCore
 
 data class HookInstallResult(
@@ -35,29 +36,43 @@ object HookPlan {
         val bridgeMethod = resolver.resolveBridge()
             ?: return HookInstallResult(resolution, installed = false)
 
+        val deadlineGuard = HookCallbackGuard(
+            onFailure = { Log.w("GazeKeepXposed", "deadline hook failed", it) },
+            onDisabled = core::disable,
+        )
+        val bridgeGuard = HookCallbackGuard(
+            onFailure = { Log.w("GazeKeepXposed", "bridge hook failed", it) },
+            onDisabled = core::disable,
+        )
         // A 是目标 ROM 的主路径；只有 A 不存在时才启用 C，避免两个候选同时刷新 seq。
         val selected = resolutions.firstOrNull { it.first == HookCandidate.A_ATTENTION }
             ?: resolutions.firstOrNull { it.first == HookCandidate.C_INACTIVITY }
         if (selected != null) {
             when (selected.first) {
                 HookCandidate.A_ATTENTION -> facade.hookAfter(selected.second) { args, _ ->
-                    val nextDimming = args.firstOrNull() as? Long ?: return@hookAfter
-                    val dimDuration = args.getOrNull(1) as? Long ?: 0L
-                    core.onDeadlineComputed(nextDimming + dimDuration, -1L, nextDimming)
+                    deadlineGuard.run {
+                        val nextDimming = args.firstOrNull() as? Long ?: return@run
+                        val dimDuration = args.getOrNull(1) as? Long ?: 0L
+                        core.onDeadlineComputed(nextDimming + dimDuration, -1L, nextDimming)
+                    }
                 }
                 HookCandidate.C_INACTIVITY -> facade.hookBefore(selected.second) { param ->
-                    val timeout = param.args.firstOrNull() as? Long ?: return@hookBefore
-                    core.onDeadlineComputed(timeout, -1L)
+                    deadlineGuard.run {
+                        val timeout = param.args.firstOrNull() as? Long ?: return@run
+                        core.onDeadlineComputed(timeout, -1L)
+                    }
                 }
                 HookCandidate.B_SUMMARY -> Unit
             }
         }
         facade.hookBefore(bridgeMethod) { param ->
-            val code = param.args.getOrNull(0) as? Int ?: return@hookBefore
-            val data = param.args.getOrNull(1) as? Parcel ?: return@hookBefore
-            val reply = param.args.getOrNull(2) as? Parcel ?: return@hookBefore
-            if (core.handleTransaction(code, data, reply, Binder.getCallingUid())) {
-                param.setResult(true)
+            bridgeGuard.run {
+                val code = param.args.getOrNull(0) as? Int ?: return@run
+                val data = param.args.getOrNull(1) as? Parcel ?: return@run
+                val reply = param.args.getOrNull(2) as? Parcel ?: return@run
+                if (core.handleTransaction(code, data, reply, Binder.getCallingUid())) {
+                    param.setResult(true)
+                }
             }
         }
         return HookInstallResult(resolution, installed = true)

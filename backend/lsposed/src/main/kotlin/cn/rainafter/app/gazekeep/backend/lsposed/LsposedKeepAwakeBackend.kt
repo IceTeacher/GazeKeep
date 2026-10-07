@@ -20,7 +20,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-class LsposedKeepAwakeBackend(context: Context) : KeepAwakeBackend {
+class LsposedKeepAwakeBackend(context: Context, private val leadMillis: Long = 8_000L) : KeepAwakeBackend {
     private val resolver = SystemPowerBinderResolver()
     private val _readiness = MutableStateFlow<Readiness>(Readiness.NeedsSetup(SetupStep.InstallFramework))
     private val _deadlines = MutableSharedFlow<TimeoutDeadline>(extraBufferCapacity = 8)
@@ -60,12 +60,15 @@ class LsposedKeepAwakeBackend(context: Context) : KeepAwakeBackend {
         }
         val result = transact(power, BridgeProtocol.TX_REGISTER) { data ->
             data.writeStrongBinder(client.asBinder())
-            data.writeLong(8_000L)
+            data.writeLong(leadMillis)
         }
         _readiness.value = if (result == BridgeProtocol.RESULT_OK) Readiness.Ready else Readiness.NeedsSetup(SetupStep.Reboot)
     }
 
-    override suspend fun detach() {
+    override suspend fun detach() = detachImmediately()
+
+    /** Service 生命周期结束时不再启动会被立即取消的协程。 */
+    fun detachImmediately() {
         val power = binder ?: return
         transact(power, BridgeProtocol.TX_UNREGISTER)
         binder = null
