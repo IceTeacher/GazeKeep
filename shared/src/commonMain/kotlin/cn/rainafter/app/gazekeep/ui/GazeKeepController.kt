@@ -40,4 +40,5 @@ interface PlatformActions {
     fun openShizukuApp()
     @Composable fun HandleBack(enabled: Boolean, onBack: () -> Unit)
     @Composable fun SelfTestPreview(modifier: Modifier)
+    @Composable fun AppIcon(packageName: String, modifier: Modifier)
 }

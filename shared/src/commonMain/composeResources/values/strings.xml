@@ -109,4 +109,13 @@
     <string name="settings_open_shizuku">打开 Shizuku</string>
     <string name="settings_ready">已就绪</string>
     <string name="settings_not_ready">尚未就绪，请检查授权或服务</string>
+    <string name="settings_group_basic">基础配置</string>
+    <string name="settings_group_security">安全与隐私</string>
+    <string name="settings_group_tools">诊断与工具</string>
+    <string name="settings_last_decision">最近检测</string>
+    <string name="settings_apps_selected">已选 %1$d 个应用</string>
+    <string name="settings_search_clear">清空</string>
+    <string name="settings_notice_title">需要注意</string>
+    <string name="settings_auto_current">自动选择（当前：%1$s）</string>
+    <string name="settings_privacy_commitments">隐私承诺</string>
 </resources>

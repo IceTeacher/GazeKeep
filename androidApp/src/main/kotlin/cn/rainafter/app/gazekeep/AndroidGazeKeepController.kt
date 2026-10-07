@@ -163,6 +163,9 @@ class AndroidGazeKeepController(context: Context) : GazeKeepController, AutoClos
 
     fun pauseSelfTest() { testJob?.cancel(); testJob = null }
 
+    private var appsJob: Job? = null
+    private var iconPreloadJob: Job? = null
+
     override fun cancelSelfTest() {
         testJob?.cancel()
         testJob = null
@@ -170,16 +173,47 @@ class AndroidGazeKeepController(context: Context) : GazeKeepController, AutoClos
     }
 
     override suspend fun loadApps() {
-        val apps = withContext(Dispatchers.IO) {
-            context.packageManager.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)
-                .map { AppEntry(it.activityInfo.packageName, it.loadLabel(context.packageManager).toString()) }
-                .distinctBy { it.packageName }.sortedBy { it.label.lowercase() }
+        if (mutableState.value.apps.isEmpty()) {
+            val existing = appsJob
+            if (existing?.isActive == true) {
+                existing.join()
+            } else {
+                val job = scope.launch {
+                    val apps = withContext(Dispatchers.IO) {
+                        val pm = context.packageManager
+                        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+                        pm.queryIntentActivities(intent, 0)
+                            .map { AppEntry(it.activityInfo.packageName, it.loadLabel(pm).toString()) }
+                            .distinctBy { it.packageName }
+                            .sortedBy { it.label.lowercase() }
+                    }
+                    mutableState.update { it.copy(apps = apps) }
+                }
+                appsJob = job
+                job.join()
+            }
         }
-        mutableState.update { it.copy(apps = apps) }
+        startPreloadIcons(mutableState.value.apps)
+    }
+
+    private fun startPreloadIcons(apps: List<AppEntry>) {
+        if (apps.isEmpty()) return
+        if (iconPreloadJob?.isActive == true) return
+        iconPreloadJob = scope.launch(Dispatchers.IO) {
+            val sizePx = (40 * context.resources.displayMetrics.density).toInt().coerceAtLeast(96)
+            for (app in apps) {
+                if (!isActive) break
+                if (AppIconManager.get(app.packageName) == null) {
+                    AppIconManager.loadBitmap(context, app.packageName, sizePx)
+                }
+            }
+        }
     }
 
     override fun close() {
         cancelSelfTest()
+        appsJob?.cancel()
+        iconPreloadJob?.cancel()
         Shizuku.removeRequestPermissionResultListener(permissionListener)
         Shizuku.removeBinderReceivedListener(binderReceived)
         Shizuku.removeBinderDeadListener(binderDead)
