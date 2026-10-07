@@ -1,0 +1,7 @@
+{
+  "printWidth": 100,
+  "proseWrap": "preserve",
+  "plugins": ["@prettier/plugin-xml"],
+  "xmlWhitespaceSensitivity": "strict",
+  "xmlSortAttributesByKey": false
+}

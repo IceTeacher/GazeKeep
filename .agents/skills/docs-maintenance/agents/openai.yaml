@@ -1,0 +1,3 @@
+interface:
+  display_name: "docs-maintenance"
+  short_description: "按任务渐进加载 GazeKeep 活动文档，维护索引、计划日期、历史归档和引用；用于创建、修改、评审或迁移仓库文档。"

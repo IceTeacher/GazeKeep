@@ -1,17 +1,19 @@
 # M1 无障碍后端验证
 
+> 证据说明：本页保留历史版本与日期。2026-10-08 最新结构重构后的实机回归尚未完成；当前缺口见[维护导航](../maintenance/overview.md)。
+
 代码已加入 `:backend:a11y`，透明无障碍 overlay 同时提供保亮和触摸探针；服务声明 `canRetrieveWindowContent=false`，事件回调不读取 `event.source` 或文本。小米 12 Pro（HyperOS V816）实测脉冲释放不会重置完整熄屏周期，因此当前默认使用持有 `FLAG_KEEP_SCREEN_ON`，在下一轮非注视或息屏时释放；脉冲实现仍保留在后端代码中供其他 ROM 验证。
 
 ## 小米 12 Pro 手工矩阵
 
-| 项目 | 结果 | 备注 |
-|---|---|---|
-| 服务可在系统无障碍列表中发现 | 已通过 | `dumpsys accessibility` 显示 GazeKeep 服务已启用 |
-| 启用服务后 overlay 可附着 | 已通过 | WindowManager 出现 1×1、`TYPE_ACCESSIBILITY_OVERLAY` 窗口 |
+| 项目                           | 结果   | 备注                                                                                   |
+| ------------------------------ | ------ | -------------------------------------------------------------------------------------- |
+| 服务可在系统无障碍列表中发现   | 已通过 | `dumpsys accessibility` 显示 GazeKeep 服务已启用                                       |
+| 启用服务后 overlay 可附着      | 已通过 | WindowManager 出现 1×1、`TYPE_ACCESSIBILITY_OVERLAY` 窗口                              |
 | 脉冲后重新获得一个系统超时周期 | 未通过 | 2207122MC / HyperOS V816 / Android 14：300 ms 脉冲后仍约一个系统周期熄屏，改用持有模式 |
-| 持有模式跨两个系统超时周期 | 已通过 | 03:32:09、03:33:02、03:33:54 连续正视三轮均 Extend，期间未熄屏 |
-| 熄屏时服务仍存活且不访问相机 | 已通过 | `mWakefulness=Dozing` 时进程、服务和 overlay 仍在；相机 Active Clients 为空 |
-| `ACTION_OUTSIDE` 能报告触摸 | 待测 | HyperOS / Android 14 行为需确认 |
+| 持有模式跨两个系统超时周期     | 已通过 | 03:32:09、03:33:02、03:33:54 连续正视三轮均 Extend，期间未熄屏                         |
+| 熄屏时服务仍存活且不访问相机   | 已通过 | `mWakefulness=Dozing` 时进程、服务和 overlay 仍在；相机 Active Clients 为空            |
+| `ACTION_OUTSIDE` 能报告触摸    | 待测   | HyperOS / Android 14 行为需确认                                                        |
 
 2026-10-05 首轮 M1 引擎实测：日志出现 `Armed → Gating → Capturing → Release → Yielded`，Camera service 记录到 GazeKeep 前摄连接与断开；本轮未产生 `Extend`。
 

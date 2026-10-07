@@ -17,6 +17,7 @@ coroutines = "1.10.2"
 shizuku = "13.1.5"
 xposedApi = "82"
 hiddenApiBypass = "6.1"
+ktlint = "1.8.0"
 
 [libraries]
 miuix-ui = { module = "top.yukonga.miuix.kmp:miuix-ui", version.ref = "miuix" }

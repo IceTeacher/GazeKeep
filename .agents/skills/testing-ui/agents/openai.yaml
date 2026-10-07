@@ -1,0 +1,3 @@
+interface:
+  display_name: "testing-ui"
+  short_description: "定义、执行或评审 GazeKeep miuix 页面、导航、自检、权限和生命周期交互验收时使用；不把 NO-SOURCE 当成 UI 通过。"

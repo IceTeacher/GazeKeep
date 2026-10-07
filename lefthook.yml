@@ -1,0 +1,31 @@
+min_version: "2.1.17"
+lefthook: ./node_modules/.bin/lefthook
+glob_matcher: doublestar
+
+pre-commit:
+  parallel: false
+  jobs:
+    - name: kotlin
+      glob: "**/*.{kt,kts}"
+      exclude: "**/build/**"
+      run: python3 scripts/hook_files.py kotlin {staged_files}
+      stage_fixed: true
+    - name: text
+      glob: "**/*.{md,json,yml,yaml,js,cjs,mjs,xml}"
+      exclude: "{docs/archive/**,**/build/**,pnpm-lock.yaml}"
+      run: python3 scripts/hook_files.py text {staged_files}
+      stage_fixed: true
+    - name: python
+      glob: "**/*.py"
+      exclude: "**/build/**"
+      run: python3 scripts/hook_files.py python {staged_files}
+      stage_fixed: true
+    - name: toml
+      glob: "**/*.toml"
+      exclude: "**/build/**"
+      run: python3 scripts/hook_files.py toml {staged_files}
+
+commit-msg:
+  jobs:
+    - name: commitlint
+      run: ./node_modules/.bin/commitlint --edit "{1}"

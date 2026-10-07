@@ -1,5 +1,7 @@
 # M2 Shizuku 后端验证
 
+> 证据说明：本页保留历史版本与日期。2026-10-08 最新结构重构后的实机回归尚未完成；当前缺口见[维护导航](../maintenance/overview.md)。
+
 ## 当前实现
 
 - 新增 `:backend:shizuku`，使用 Shizuku API `13.1.5`。
@@ -13,14 +15,14 @@
 
 ## 小米 12 Pro 环境
 
-| 项目 | 结果 | 备注 |
-|---|---|---|
-| 无线 ADB | 已开启 | `192.168.12.46:5555` |
-| Shizuku 包 | 已安装 | `moe.shizuku.privileged.api` |
-| Shizuku server 进程 | 已发现 | 设备进程表显示 `shizuku_server` |
-| UserService `userActivity` | 已通过 | 授权后 UI 显示“Shizuku 已就绪”；点击测试按钮后 shell 进程保持存活，`mLastUserActivityTime` 更新 |
-| `DEVICE_POWER` 权限 | 已通过 | 小米 12 Pro / HyperOS V816 上一次调用未抛出异常，未触发超时退路 |
-| UserService `readPower` | 已通过调用链验证 | 测试按钮先读取结构化电源状态，再调用 `userActivity`；shell 进程保持存活且无异常 |
+| 项目                       | 结果             | 备注                                                                                            |
+| -------------------------- | ---------------- | ----------------------------------------------------------------------------------------------- |
+| 无线 ADB                   | 已开启           | `192.168.12.46:5555`                                                                            |
+| Shizuku 包                 | 已安装           | `moe.shizuku.privileged.api`                                                                    |
+| Shizuku server 进程        | 已发现           | 设备进程表显示 `shizuku_server`                                                                 |
+| UserService `userActivity` | 已通过           | 授权后 UI 显示“Shizuku 已就绪”；点击测试按钮后 shell 进程保持存活，`mLastUserActivityTime` 更新 |
+| `DEVICE_POWER` 权限        | 已通过           | 小米 12 Pro / HyperOS V816 上一次调用未抛出异常，未触发超时退路                                 |
+| UserService `readPower`    | 已通过调用链验证 | 测试按钮先读取结构化电源状态，再调用 `userActivity`；shell 进程保持存活且无异常                 |
 
 Auto 模式现在按 LSPosed → Shizuku → 无障碍选择已就绪后端；后端切换先进入无后端状态，避免切换窗口继续保亮。M1 测试页可显式锁定 Shizuku 或无障碍，选择在下一次启动 M1 时生效。`pendingTimeoutRestore` 的落盘与写回框架已加入。
 

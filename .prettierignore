@@ -1,0 +1,11 @@
+docs/archive/
+**/build/
+.gradle/
+.kotlin/
+node_modules/
+.cache/
+.venv/
+pnpm-lock.yaml
+gradle/wrapper/
+gradlew
+gradlew.bat

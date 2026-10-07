@@ -1,0 +1,3 @@
+interface:
+  display_name: "testing-unit"
+  short_description: "编写、修复或评审 GazeKeep 纯规则、reducer、解析、协议、配置及隔离协作的主机测试时使用，强调风险覆盖与测试先行。"
