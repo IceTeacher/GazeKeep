@@ -1,0 +1,4 @@
+<resources>
+    <string name="a11y_service_name">GazeKeep 注视保亮</string>
+    <string name="a11y_service_description">在用户注视屏幕时延后熄屏</string>
+</resources>

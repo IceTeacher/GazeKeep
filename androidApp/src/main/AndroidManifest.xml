@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove" />
+    <uses-feature android:name="android.hardware.camera.front" android:required="false" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
             android:allowBackup="true"
@@ -17,6 +27,33 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <service
+                android:name="cn.rainafter.app.gazekeep.backend.a11y.GazeA11yService"
+                android:exported="true"
+                android:label="@string/app_name"
+                android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                    android:name="android.accessibilityservice"
+                    android:resource="@xml/accessibility_service_config" />
+        </service>
+        <service
+                android:name=".service.GazeService"
+                android:exported="false"
+                android:foregroundServiceType="camera" />
+        <provider
+                android:name="rikka.shizuku.ShizukuProvider"
+                android:authorities="${applicationId}.shizuku"
+                android:enabled="true"
+                android:exported="true"
+                android:multiprocess="false"
+                android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+        <meta-data android:name="xposedmodule" android:value="true" />
+        <meta-data android:name="xposeddescription" android:resource="@string/xposed_description" />
+        <meta-data android:name="xposedminversion" android:value="93" />
+        <meta-data android:name="xposedscope" android:resource="@array/xposed_scope" />
     </application>
 
 </manifest>

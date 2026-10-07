@@ -12,11 +12,23 @@ kotlin {
 }
 dependencies {
     implementation(project(":shared"))
+    implementation(project(":engine"))
+    implementation(project(":backend:a11y"))
+    implementation(project(":backend:shizuku"))
+    implementation(project(":backend:lsposed"))
+    implementation(project(":xposed"))
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.androidx.lifecycle.service)
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.shizuku.api)
+    implementation(libs.shizuku.provider)
 
     implementation(libs.androidx.activity.compose)
 
     implementation(libs.compose.uiToolingPreview)
     debugImplementation(libs.compose.uiTooling)
+    testImplementation(libs.kotlin.test)
+    testImplementation(libs.junit)
 }
 
 android {

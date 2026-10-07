@@ -2,13 +2,16 @@
 
 | 项 | 内容 |
 |---|---|
-| 文档版本 | v1.0 |
+| 文档版本 | v1.1 |
 | 上游文档 | [GazeKeep-规划文档.md](./GazeKeep-规划文档.md)（产品范围、里程碑、风险以它为准） |
 | 本文定位 | 把规划落到模块、接口、线程、时序、清单和测试上，作为 M0–M4 的实现依据 |
-| 状态 | 设计稿。工程目前只有 KMP 模板（`androidApp` + `shared`），本文描述目标结构 |
-| 目标机 | 小米 12 Pro（HyperOS，Android 13/14） |
+| 状态 | M3 主链路回归通过。M0–M2 主链路已落地；LSPosed 设置页抢占回调已修复，60 秒超时下连续周期、退出设置页后保亮及转头后熄屏通过，钩点失配和禁用作用域安全矩阵待补齐 |
+| 首要验证机 | 小米 12 Pro（HyperOS，Android 13/14） |
+| 适用范围 | 没有系统级「注视不熄屏」能力的 Android 手机；机型适配以实测为准 |
 
 > 约定：标记 **【待验证】** 的内容来自 AOSP 源码阅读或经验，必须在指定里程碑上用 12 Pro 实测或反编译目标 ROM 确认后，才能当作事实写进代码注释。
+
+本设计的目标是为缺少系统级「注视不熄屏」能力的 Android 手机提供接近原生系统级的注视保亮体验。架构按跨厂商、跨 Android 版本的适配来组织，不能把某一款手机的系统行为写成通用前提；小米 12 Pro 仅作为首要验证基线，用于收敛首批相机、时序、功耗和特权后端的实现细节。
 
 ---
 
@@ -16,11 +19,25 @@
 
 | 项 | 规划文档 | 本文决议 | 理由 |
 |---|---|---|---|
+| 产品目标 | 原表述为面向小米 12 Pro 及同类老机 | **面向缺少系统级「注视不熄屏」能力的 Android 手机，提供接近原生系统级的体验；12 Pro 为首要验证基线** | 避免把验证设备误写成产品边界，便于后续扩展厂商与 Android 版本 |
 | 包名 | `dev.gazekeep.app` | **`cn.rainafter.app.gazekeep`** | 现有工程已使用；LSPosed 作用域、Shizuku Provider authority 都绑定 applicationId，开工前定死，之后不改 |
 | `minSdk` | 建议 26 | **26**（模板当前为 24，需改） | 与规划一致；开放问题「26 还是 28」维持 26，通知渠道差异成本很小 |
 | 工程模块 | `composeApp/engine/backend-*/xposed/app` | 保留模板的 `androidApp`（application）与 `shared`（KMP UI），新增 `core`、`engine`、`backend/*`、`xposed`、`hidden-api` | 不推翻已生成的 KMP 脚手架；`backend-api` 并入 `core`（纯 Kotlin，UI 也要用这些类型） |
 | `AttentionClassifier` 签名 | `analyze(frames: List<ImageProxy>)` | 拆成「逐帧分类」+「纯函数投票」 | 投票可在 commonTest 里测；支持提前结束（2 帧一致即停），少开一帧相机 |
 | 无障碍保亮手段 | 挂 `FLAG_KEEP_SCREEN_ON` | 优先「脉冲」模式，退路「持有」模式（§9.3） | 让三种后端的语义都统一为「相当于用户碰了一下」 |
+| M1 脉冲实测 | 以 300 ms `FLAG_KEEP_SCREEN_ON` 释放模拟一次用户活动 | **小米 12 Pro（2207122MC，HyperOS V816，Android 14）实测未重置完整熄屏周期；无障碍后端默认使用持有模式，保留脉冲实现供其他 ROM 验证** | 该 ROM 的 WMS 未表现出文档假设的 `ON_AFTER_RELEASE` 语义，持有模式才能兑现 M1 的默认熄屏与单周期检测约束 |
+| 无障碍 M1 首个 deadline | 服务启动时直接启动空闲时钟 | **先向 reducer 提交后端就绪，再启动 `IdleClockOracle`** | oracle 启动会立即发出首个 deadline；顺序反过来会被 `Disabled` 状态丢弃，导致引擎永远不进入门控 |
+| HyperOS 触摸信号 | 仅依赖 overlay 的 `ACTION_OUTSIDE` | **同时消费 `TYPE_TOUCH_INTERACTION_START`，仍只使用事件类型和包名** | 目标 ROM 对跨窗口 `ACTION_OUTSIDE` 的投递不稳定；无障碍触摸事件作为同链路补充 |
+| M2 后端入口 | 仅在调试卡片中单次调用 `userActivity` | **持久化后端锁定值（Auto / Shizuku / Accessibility），M1 启动时由 `GazeService` 按该值选择并启动对应后端** | M2 必须能参与完整门控、采帧和保亮链路，单次测试不能代表实际运行 |
+| 调试页入口 | 分别提供 M0 自检、M1 引擎测试和 M2 Shizuku 能力卡片 | **统一为后端选择页；选择无障碍时自动启动引擎并显示服务状态，未启用时提供系统设置入口；切换其他后端时停止当前引擎** | 后端选择本身就是运行配置，测试入口不应继续暴露为产品操作 |
+| 白名单配置 | M1 测试页关闭白名单门控 | **正式白名单页接入前固定关闭白名单门控** | 当前没有可编辑的白名单，空列表若开启门控会让所有检测静默跳过 |
+| HyperOS 电源字段 | 按 AOSP 解析 `mLastUserActivityTime=` | **同时兼容 `mLastUserActivityTime(excludingAttention)=`** | 小米 12 Pro / HyperOS V816 的括号后缀会导致 Shizuku 无法产生 deadline，必须按实机格式解析 |
+| Shizuku deadline 轮询 | 每次读取 power 都发射当前 deadline | **同一 `ExtendToken` 只发射一次，系统活动时间变化后才发射新 deadline** | 进入采集窗口后重复事件会取消上一轮采帧，导致 `userActivity` 来不及执行 |
+| M3 钩点签名 | 直接按 AOSP 猜测方法签名 | **12 Pro / HyperOS V816 的 `AttentionDetector.updateUserActivity(long,long):long`、`PowerManagerService.updateUserActivitySummaryLocked(long,int):void`、`scheduleUserInactivityTimeout(long):void` 已从 `/system/framework/services.jar` 确认；运行时仍逐候选解析，优先只安装 A，A 不存在才用 C** | A 候选在设备上持续产生有效 deadline；同一绝对熄屏时间只推进一次 seq，避免重复系统回调使采集令牌过期；PowerManager 在 Extend 时懒获取，避开 system_server 启动早期服务尚未注册 |
+| LSPosed 降亮前检测 | 固定在熄屏前 5 / 8 秒检测 | **候选 A 保留 `screenDimAt` 和真实 `screenOffAt`，系统通知与 reducer 都在 `screenDimAt − lead` 调度；未知降亮时刻时仍用 `screenOffAt − lead`** | 长超时的降亮阶段可能超过提前量，只按熄屏调度会先变暗再恢复；失败仍放行原始降亮与熄屏，不更改系统设置。桥接升为 v2，升级后需重启使 system_server 加载新协议；修复效果待实机验证 |
+| Shizuku / 无障碍降亮前检测 | 按熄屏时刻减提前量调度 | **Shizuku 用 power 的有效超时和 `dimDurationMs`；无障碍读 framework 的最大降亮时长 / 比例，以 `min(maxDuration, timeout × ratio)` 估算降亮时刻；共同交给 reducer 调度** | 不新增权限、不改亮度或熄屏设置；无障碍拿不到运行时覆盖值，仍是估算。任一降亮字段缺失 / 非法就回退原调度，不伪造已知时刻；12 Pro 当前资源 18000 ms / 约 30% 已通过只读查询确认，后端完整效果待回归 |
+| 无障碍触摸事件顺序 | 先发新 deadline，再取消旧轮次 | **先向 reducer 提交 UserActivity，再让 IdleClockOracle 发布新 deadline** | SharedFlow 在主线程可能立即恢复收集器，反序会先 Armed 再取消，导致之后再无检测；顺序修复不延长系统计时，只取消旧采集并启动新的检测等待 |
+| 重复前台启动 | 只在 onCreate 中 startForeground | **onCreate 和每次 onStartCommand 都立即调用同一前台注册方法** | 无障碍连接与页面就绪会重复启动同一服务；本轮 12 Pro 记录 ForegroundServiceDidNotStartInTimeException，已创建的服务需再次兑现前台启动要求，不能只依赖首次注册 |
 | 息屏后停服务 | 息屏可停、亮屏再拉起 | **息屏不停前台服务，只让它完全空转** | Android 11+ 从后台启动的前台服务拿不到相机（while-in-use 限制）；亮屏广播拉起属于后台启动（§10.3） |
 | 连续注视退避 | 跳过一轮 / 提前量改 4 秒 | 只缩提前量与帧数，**不跳轮** | `userActivity` 语义下跳一轮就等于熄屏；每个超时周期至少一次检测是物理下限（§7.5） |
 
@@ -262,11 +279,14 @@ interface TimeoutOracle {
 
 data class TimeoutDeadline(
     val screenOffAtUptime: Long,
+    val screenDimAtUptime: Long? = null, // 已知降亮时刻；未知则按熄屏时刻调度
     val token: ExtendToken,
     val foregroundPackage: String?,     // LSPosed 由 system_server 给出；其他为 null，交给 ForegroundAppSource
     val lastExternalActivityUptime: Long?, // 最近一次「真实用户活动」，用于保亮上限计数
 )
 ```
+
+> 已知有效降亮时刻时，检测基准为 `screenDimAtUptime`，否则为 `screenOffAtUptime`；`wakeAt = 检测基准 − lead`。采集超时与最小可用窗口仍按真实熄屏时刻计算。
 
 > 规划中 `millisUntilScreenOff()` 的拉取模型改为推送为主：引擎需要「在 deadline − lead 时醒来」，拉取模型会迫使引擎自己轮询。拉取接口保留用于调试显示。
 
@@ -291,7 +311,7 @@ data class TimeoutDeadline(
 sealed interface EngineState {
     data object Disabled : EngineState                         // 总开关关 / 无可用后端 / 缺相机权限
     data object ScreenOff : EngineState                        // 息屏或锁屏：空转
-    data class Armed(val deadline: TimeoutDeadline, val wakeAt: Long) : EngineState   // 等待 deadline − lead
+    data class Armed(val deadline: TimeoutDeadline, val wakeAt: Long) : EngineState   // 等待检测基准 − lead
     data class Gating(val deadline: TimeoutDeadline) : EngineState
     data class Capturing(val deadline: TimeoutDeadline, val abortAt: Long) : EngineState
     data class Extending(val deadline: TimeoutDeadline) : EngineState
@@ -354,7 +374,7 @@ data class CapturePlan(val maxFrames: Int, val frameIntervalMs: Long, val abortA
 | 任意 | `ConfigChanged(enabled=false)` / `BackendSelected(null)` / `CameraPermissionLost` | — | Disabled | CancelCapture, CancelWake, Release |
 | ScreenOff | `ScreenOn` / `KeyguardDismissed` | 未锁屏 | Yielded(WaitingDeadline) | 清 `holdStartUptime` |
 | 任意亮屏态 | `ScreenOff` | — | ScreenOff | CancelCapture, CancelWake, Release |
-| Yielded / Armed | `DeadlineUpdated(d)` | `d.screenOffAt − now > lead` | Armed(d, wakeAt = d.screenOffAt − lead) | ScheduleWake |
+| Yielded / Armed | `DeadlineUpdated(d)` | `(d.screenDimAt ?: d.screenOffAt) − lead > now` | Armed(d, wakeAt = 检测基准 − lead) | ScheduleWake |
 | Yielded / Armed | `DeadlineUpdated(d)` | 已在 lead 内且 > 最小可用窗口（2.5 s） | Gating(d) | RunGates |
 | Yielded / Armed | `DeadlineUpdated(d)` | 剩余 < 2.5 s | Yielded(TooLate) | Record |
 | Armed | `WakeTimerFired` | — | Gating | RunGates |
@@ -373,16 +393,20 @@ data class CapturePlan(val maxFrames: Int, val frameIntervalMs: Long, val abortA
 - `Yielded(WaitingDeadline)` 后，后端会因为 extend（或用户活动）产生新的 `DeadlineUpdated`，于是自然进入下一轮。引擎从不主动「补拍」：**屏幕已经灭了就不为补拍亮屏**。
 - 无障碍「持有」模式下 extend 不会让系统产生新 deadline，此时 `IdleClockOracle` 自己基于 extend 时间推出下一个 deadline（§9.3.3）。
 
-### 4.5 时序（LSPosed，系统超时 30 s，lead 8 s）
+### 4.5 时序（LSPosed 候选 A，系统超时 60 s，降亮阶段 12 s，lead 8 s）
 
-```
-t(s)  0 ─────────────── 22 ───── 22.2 ── 23.3 ─── 23.35 ───────── 52 ...
-      │ 最后一次触摸      │ PreTimeout│ 门控通过 │ 2/2 Looking│ extend    │ 下一次 PreTimeout
-      │ system_server    │ 推到 App   │ 开相机   │ 关相机     │ userActivity
-      │ 算出 off@30      │ (seq=17)   │          │            │ (seq=17 仍有效)
-```
+以下时刻仅为计算示例，实际降亮时刻由系统参数给出，不固定假设 ROM 的降亮比例。
 
-无特权（无障碍）路径相同，只是 `PreTimeout` 来自 App 自己的空闲时钟，有 ±1–2 s 误差。
+| 相对时间 | 动作 |
+|---|---|
+| 0 s | 最后一次触摸；系统给出 dim@48、off@60 |
+| 40 s | system_server 推送 PreTimeout；reducer 立即门控，不再等到 52 s |
+| 40.2 s | 门控通过，开相机 |
+| 41.3 s | 两帧 Looking，关闭相机 |
+| 41.35 s | extend；在原降亮时刻前重置超时 |
+| 48 / 60 s | 若本轮 Away / Unknown / 失败，不重置，仍按系统原时刻降亮 / 熄屏 |
+
+无障碍路径用 framework 资源估算降亮时刻，读不到时回退熄屏前提前量；保留 §9.3.4 所述误差。
 
 ---
 
@@ -617,7 +641,7 @@ readiness 流（三个后端各一条）+ config.backendLock
 
 system_server 侧（`:xposed`）只做：
 
-1. 计算每次空闲计时的熄屏时刻，在 `screenOff − lead` 时把 `PreTimeout(seq, screenOffAt, topPackage, lastExternalActivity)` 推给已注册的 App 客户端。
+1. 计算每次空闲计时的降亮与熄屏时刻，在 `(screenDimAt ?: screenOffAt) − lead` 时把 `PreTimeout(seq, screenOffAt, screenDimAt, topPackage, lastExternalActivity)` 推给已注册的 App 客户端。候选 A 的 `nextScreenDimming` 必须传到 App；不能只提前系统通知，否则 reducer 会再次等待熄屏窗口。
 2. 收到 App 的 `extend(seq)` 后，若 `seq` 仍是当前序号，以 system 身份调用一次 `userActivity`。
 3. 应答 `ping`，报告钩子状态。
 
@@ -629,7 +653,7 @@ AOSP 中熄屏时刻在 `PowerManagerService.updateUserActivitySummaryLocked(lon
 
 | 候选 | 钩子 | 拿到什么 | 备注 |
 |---|---|---|---|
-| A | `com.android.server.power.AttentionDetector#updateUserActivity(long nextScreenDimming, long dimDurationMillis)` 的 after | `screenOff = nextScreenDimming + dimDurationMillis` | Android 10+ 存在；系统自带 Screen Attention 就是从这里介入。参数直接给时刻，最不依赖字段名 **【待验证：HyperOS 是否保留且在亮屏状态下每次重算都会调用】** |
+| A | `com.android.server.power.AttentionDetector#updateUserActivity(long nextScreenDimming, long dimDurationMillis)` 的 after | `screenDimAt = nextScreenDimming`，`screenOff = nextScreenDimming + dimDurationMillis` | **已验证：小米 12 Pro / HyperOS V816 / Android 14 亮屏时持续调用并可驱动完整 deadline → Looking → Extend 链路** |
 | B | `PowerManagerService#updateUserActivitySummaryLocked(long, int)` 的 after | 反射读最近活动时间 + 调 `getScreenOffTimeoutLocked`/`getScreenDimDurationLocked` 推算 | Android 13+ 最近活动时间移到 `PowerGroup`，字段/方法名随版本变化，按版本表尝试 |
 | C | `PowerManagerService#scheduleUserInactivityTimeout(long)` 的 before | 下一次超时消息时刻（可能是 dim 时刻或 off 时刻） | 需结合当前 summary 区分 dim/off |
 
@@ -651,13 +675,13 @@ internal class PowerHookCore(private val systemContext: Context) {
     @Volatile private var ourLastEventTime = -1L
 
     /** 在 PMS 锁内被钩子调用：只做计算与投递。 */
-    fun onDeadlineComputed(screenOffAt: Long, lastActivityTime: Long) {
+    fun onDeadlineComputed(screenOffAt: Long, lastActivityTime: Long, screenDimAt: Long? = null) {
         val c = client ?: return
         val seq = ++currentSeq
         handler.removeMessages(MSG_PRE_TIMEOUT)
         val external = if (lastActivityTime != ourLastEventTime) lastActivityTime else null
-        val at = screenOffAt - c.leadMillis
-        handler.sendMessageAtTime(Message.obtain(handler, MSG_PRE_TIMEOUT, PreTimeout(seq, screenOffAt, external)), at)
+        val at = (screenDimAt ?: screenOffAt) - c.leadMillis
+        handler.sendMessageAtTime(Message.obtain(handler, MSG_PRE_TIMEOUT, PreTimeout(seq, screenOffAt, screenDimAt, external)), at)
     }
 
     /** handler 线程：查询前台包名，然后 oneway 回调 App。 */
@@ -694,7 +718,7 @@ object BridgeProtocol {
     const val TX_REGISTER = TX_BASE + 2             // (IGazeKeepClient binder, leadMillis) → ok
     const val TX_EXTEND = TX_BASE + 3               // (seq) → OK | STALE | DENIED
     const val TX_UNREGISTER = TX_BASE + 4
-    const val PROTOCOL_VERSION = 1
+    const val PROTOCOL_VERSION = 2
 }
 ```
 
@@ -704,16 +728,19 @@ object BridgeProtocol {
 
 ```aidl
 oneway interface IGazeKeepClient {
-    void onPreTimeout(long seq, long screenOffAtUptime, String topPackage, long lastExternalActivityUptime);
+    void onPreTimeout(long seq, long screenOffAtUptime, long screenDimAtUptime, String topPackage, long lastExternalActivityUptime);
     void onHookStatus(int status);
 }
 ```
 
+- v2 回调新增 `screenDimAtUptime`，未知值传 `-1`；App 只接受正数且不晚于真实熄屏的值。
 - `linkToDeath`：App 进程死亡 → 清空 `client`，取消待发消息。此后系统完全按原逻辑运行。
 - App 侧拿 `power` binder：`HiddenApiBypass.addHiddenApiExemptions("Landroid/os/ServiceManager;")` 后 `ServiceManager.getService("power")`。
 - 协议版本不一致（App 升级但未重启）：`ping` 返回旧版本 → readiness = `NeedsSetup(Reboot)`。
 
 #### 9.1.5 App 侧 `LsposedKeepAwakeBackend`
+
+设置页仅调用 `checkReadiness()` 执行 `TX_PING`，不得注册或注销客户端。只有 `GazeService` 的后端实例执行 `attach()` / `detach()`；否则设置页刷新会覆盖单客户端回调，页面退出会切断运行链路。2026-10-05 的单次 Extend 成功记录不代表连续周期稳定，需补充系统活动时间变化与多周期验收。
 
 readiness 判定：
 
@@ -727,13 +754,10 @@ readiness 判定：
 
 #### 9.1.6 打包：同一 APK 承载模块
 
-- 现代入口（优先）：`androidApp/src/main/resources/META-INF/xposed/`
-  - `java_init.list`：`cn.rainafter.app.gazekeep.xposed.entry.ModernEntry`
-  - `scope.list`：系统框架（`system` / `android`，按所用 API 版本的约定 **【待验证 M3】**）
-  - `module.prop`：`minApiVersion`、`targetApiVersion`、`staticScope=true`
+- 现代入口（预留）：`androidApp/src/main/resources/META-INF/xposed/` 保留 `scope.list` 和 `module.prop`；`java_init.list` 要等 libxposed 入口 API 在目标 LSPosed 版本上确认后再加入，避免把不兼容的类声明为入口。
 - 旧式入口（兜底）：`assets/xposed_init` 指向 `LegacyEntry`，Manifest `<meta-data>`：`xposedmodule=true`、`xposedminversion=93`、`xposeddescription`、`xposedscope=@array/xposed_scope`。
-- 两个入口都只做一件事：构造 `HookFacade` 适配器 → 交给 `HookPlan.install(facade, classLoader)`。`ModernEntry` 仅在 `onSystemServerLoaded`（或对应回调）里安装；包名不是 `android` 的加载回调一律直接返回。
-- 两个入口同时存在时，框架只会走其一；`PowerHookCore` 用静态标志保证只初始化一次。
+- 旧式入口只做一件事：构造 `HookFacade` 适配器 → 交给 `HookPlan.install(facade, classLoader)`；`ModernEntry` 保留同一适配点供后续 libxposed 入口转发。包名不是 `android` 的加载回调一律直接返回。
+- 入口适配器用静态标志保证 `PowerHookCore` 只初始化一次。
 - **M3 第一天验收**：同一 debug APK 既能进启动器、又能被 LSPosed 识别并在勾选系统框架后生效。不过 → 拆 `:xposedApp` 独立 APK（`:xposed` 模块原样复用），App 与模块通过同一 binder 协议通信，配置格式不变。
 
 #### 9.1.7 冷启动恢复
@@ -788,7 +812,7 @@ shell 进程内对 `power` binder 调 `dump(fd, args)`，在 shell 侧用 `Power
 | 字段 | dumpsys 线索（AOSP） |
 |---|---|
 | `lastUserActivityUptime` | `mLastUserActivityTime=`（Android 13+ 在 PowerGroup 段内） |
-| `screenOffTimeoutMs` | `mScreenOffTimeoutSetting=`，以及 `Screen off timeout:` 计算值 |
+| `screenOffTimeoutMs` | 优先 `Screen off timeout:` 有效计算值，缺失才用 `mScreenOffTimeoutSetting=` |
 | `dimDurationMs` | `Screen dim duration:` |
 | `hasScreenWakeLock` | Wake Locks 段中存在 `SCREEN_BRIGHT_WAKE_LOCK`/`FULL_WAKE_LOCK`，或 summary 含 `WAKE_LOCK_STAY_AWAKE`/`WAKE_LOCK_SCREEN_BRIGHT` |
 
@@ -798,8 +822,10 @@ shell 进程内对 `power` binder 调 `dump(fd, args)`，在 shell 侧用 `Power
 loop while interactive:
     s = readPower()
     if s.hasScreenWakeLock: 下一次 = now + 系统超时; 不发 deadline（应用自己常亮，引擎休眠）
-    else deadline = s.lastUserActivityUptime + s.screenOffTimeoutMs; 发 DeadlineUpdated
-         下一次读取 = deadline − lead − 1_000（在门控前再确认一次）
+    else screenOffAt = s.lastUserActivityUptime + s.screenOffTimeoutMs
+         screenDimAt = screenOffAt − s.dimDurationMs（缺失或不在 0..timeout 内则未知）
+         发 DeadlineUpdated(screenOffAt, screenDimAt)
+         下一次读取 = (screenDimAt ?: screenOffAt) − lead − 1_000（在门控前再确认一次）
     若 TouchSensor 可用：任何触摸立即触发重读
 ```
 
@@ -838,7 +864,7 @@ val lp = WindowManager.LayoutParams(
 ```
 
 - 1×1 透明窗口，亮屏期间常挂，不带 `FLAG_KEEP_SCREEN_ON` 时对系统零影响。
-- `FLAG_WATCH_OUTSIDE_TOUCH`：任何落在窗口外的按下都会给我们一个 `ACTION_OUTSIDE`（跨 uid 时坐标被清零，我们只要时间戳）。这是无特权下最可靠的「用户碰了屏幕」信号，`TouchSensor` 据此发 `UserActivity`。**【待验证 M1】** 在 HyperOS / Android 14 上 `ACTION_OUTSIDE` 仍会投递。
+- `FLAG_WATCH_OUTSIDE_TOUCH`：任何落在窗口外的按下都会给我们一个 `ACTION_OUTSIDE`（跨 uid 时坐标被清零，我们只要时间戳）。这是无特权下的补充「用户碰了屏幕」信号；服务同时消费 `TYPE_TOUCH_INTERACTION_START`，两者都只发出 `UserActivity`，不读取 `event.source` 或文本。**【待验证 M1】** 在 HyperOS / Android 14 上 `ACTION_OUTSIDE` 仍会投递。
 - 不能加 `FLAG_NOT_TOUCHABLE`（会连 `ACTION_OUTSIDE` 一起收不到）。1 像素的可触摸区域放在左上角状态栏内，实际不影响操作。
 - 不需要 `SYSTEM_ALERT_WINDOW`。
 
@@ -858,14 +884,20 @@ lastActivity = max(ScreenOn 时刻, KeyguardDismissed 时刻, TouchSensor 最近
                    最近一次用户型无障碍事件, 我们最近一次 extend 完成时刻)
 timeout      = Settings.System.SCREEN_OFF_TIMEOUT（ContentObserver 监听变化）
 deadline     = lastActivity + timeout
+dimDuration  = min(config_maximumScreenDimDuration, timeout × config_maximumScreenDimRatio)
+screenDimAt  = deadline − dimDuration（资源缺失 / 非法时未知）
 ```
 
 - 每次 `lastActivity` 前进就发新的 `DeadlineUpdated`。
 - `typeViewScrolled`/`typeViewTextChanged` 可能由应用自身产生（自动滚动、计时器），只有在 1 s 内伴随 `ACTION_OUTSIDE` 或 `typeViewClicked` 时才算用户活动。
 - 启发式休眠：`AudioManager.isMusicActive()` 且前台在白名单里 → 本轮不检测（视频播放器通常自己常亮）。
-- 已知误差：系统 dim 阶段、应用自身的 `FLAG_KEEP_SCREEN_ON`、按键事件（音量键不产生无障碍事件）。接受「可能早几秒拍，或晚到已经开始变暗」。
+- framework 资源经 `Resources.getIdentifier` + `getInteger` / `getFraction` 读取，资源缺失、异常或非法返回未知，不写死厂商比例。计算放在 `core` 的纯函数并测试。
+- 已知误差：系统运行时 dim / 超时覆盖、应用自身的 `FLAG_KEEP_SCREEN_ON`、按键事件（音量键不产生无障碍事件）。无障碍仍可能早几秒拍，或晚到已经开始变暗。
+- 估算公式依据 [AOSP framework 配置](https://android.googlesource.com/platform/frameworks/base/+/android16-qpr2-release/core/res/res/values/config.xml)，不将 AOSP 公式视为所有 ROM 的保证。
 
 ---
+
+无障碍回归诊断：`GazeService.dump` 只输出开关、后端、状态 / 原因枚举及时间戳，供 ADB 显式查询；不输出帧、分类概率或人脸信息，不写入持久日志。
 
 ## 10. Android 组件与清单
 
@@ -1083,7 +1115,7 @@ data class ControllerState(
 ### 13.3 R8 keep
 
 ```
-# Xposed 入口与 system_server 侧代码：类名写在 java_init.list / xposed_init 里
+# Xposed 入口与 system_server 侧代码：旧式类名写在 xposed_init 里；现代入口清单待 API 确认后加入
 -keep class cn.rainafter.app.gazekeep.xposed.entry.** { *; }
 -keep class cn.rainafter.app.gazekeep.xposed.core.** { *; }
 # AIDL 与 Shizuku UserService（由 Shizuku 按类名反射构造）

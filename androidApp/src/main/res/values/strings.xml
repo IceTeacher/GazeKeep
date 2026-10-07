@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">GazeKeep</string>
+    <string name="xposed_description">GazeKeep system framework hooks</string>
 </resources>
