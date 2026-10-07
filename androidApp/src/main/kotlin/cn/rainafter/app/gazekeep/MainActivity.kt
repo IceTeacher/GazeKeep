@@ -1,5 +1,9 @@
 package cn.rainafter.app.gazekeep
 
+import cn.rainafter.app.gazekeep.controller.AndroidGazeKeepController
+import cn.rainafter.app.gazekeep.platform.AndroidPlatformActions
+import cn.rainafter.app.gazekeep.ui.App
+import cn.rainafter.app.gazekeep.app.AppGraph
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
@@ -10,7 +14,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        controller = AndroidGazeKeepController(this)
+        controller = AppGraph(applicationContext).createController()
         val actions = AndroidPlatformActions(this, controller)
         setContent { App(controller, actions) }
     }

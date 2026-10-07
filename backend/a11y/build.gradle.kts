@@ -1,5 +1,5 @@
 plugins {
-    id("com.android.library")
+    alias(libs.plugins.androidLibrary)
 }
 
 android {
@@ -15,4 +15,6 @@ android {
 dependencies {
     api(project(":core"))
     implementation(libs.kotlinx.coroutines.android)
+    testImplementation(libs.kotlin.testJunit)
+    testImplementation(libs.junit)
 }

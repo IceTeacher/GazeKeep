@@ -1,5 +1,5 @@
 plugins {
-    id("com.android.library")
+    alias(libs.plugins.androidLibrary)
 }
 
 android {
@@ -10,10 +10,10 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    buildFeatures { aidl = true }
 }
 
 dependencies {
+    implementation(project(":bridge:protocol"))
     compileOnly(libs.xposed.api)
     testImplementation(libs.kotlin.testJunit)
     testImplementation(libs.junit)

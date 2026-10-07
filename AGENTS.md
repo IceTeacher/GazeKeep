@@ -19,13 +19,13 @@
 
 ```bash
 ./gradlew :androidApp:assembleDebug          # 构建 APK
-./gradlew :shared:testAndroidHostTest        # shared 的 host 测试
-./gradlew :core:allTests                     # core 加入后：纯逻辑测试（主力）
+./gradlew :shared:testAndroidHostTest        # 当前无行为测试，NO-SOURCE 不代表 UI 验收
+./gradlew :core:allTests                     # 纯逻辑测试（主力）
 ./gradlew :androidApp:lintDebug
 ```
 
 - 环境：Gradle 9.5（wrapper）、AGP 9.1、Kotlin 2.4、compileSdk/targetSdk 37、JVM target 11。版本统一在 `gradle/libs.versions.toml`，不要在模块脚本里写死版本号。
-- `minSdk` 目标是 26（模板仍是 24，引入 `core`/`engine` 时一并改）。
+- `minSdk` 目标是 26（已落地）。
 - AGP 9 内置 Kotlin：Android application/library 模块不要再应用 `org.jetbrains.kotlin.android`。
 - 不要使用 `applicationIdSuffix`：LSPosed 作用域和 Shizuku Provider 都绑定包名 `cn.rainafter.app.gazekeep`。
 
@@ -35,13 +35,14 @@
 androidApp ─▶ shared ─▶ core
 androidApp ─▶ engine ─▶ core
 androidApp ─▶ backend:{a11y,shizuku,lsposed} ─▶ core
-backend:lsposed ─▶ xposed(protocol)
-backend:shizuku, xposed ─compileOnly▶ hidden-api
+backend:lsposed ─▶ bridge:protocol ◀─ xposed
+androidApp ─▶ xposed（打包入口；hidden-api 存根尚未建立）
 ```
 
 - `core`：KMP 纯 Kotlin，**不得依赖 Android**。状态机（reducer）、投票、门控判定、保亮上限、退避都放这里，用虚拟时钟测试。
 - `shared`：KMP UI（miuix）。只依赖 `core` 和 `GazeKeepController` / `PlatformActions` 接口；`commonMain` 里不得 import `android.*`。
 - `engine`：相机、分类、传感器、超时估算、配置、决策日志。不依赖任何具体后端。
+- `bridge:protocol`：只放 LSPosed 协议常量与 AIDL；保留 `.xposed.protocol` 包名，不依赖 core、协程或 UI。
 - `xposed`：运行在 `system_server`。**禁止协程、DataStore、Compose、相机、模型、文件 I/O**；只做「报告即将超时」和「执行 userActivity」。
 - 包名根为 `cn.rainafter.app.gazekeep`，子包 `.core` / `.engine` / `.backend.a11y` / `.backend.shizuku` / `.backend.lsposed` / `.xposed` / `.ui`。
 
@@ -75,6 +76,10 @@ backend:shizuku, xposed ─compileOnly▶ hidden-api
 - `core` 的以下不变量必须有单测（§14）：Unknown 不产生 Extend；采帧中用户触摸会取消且不 Extend；达到保亮上限下一轮必 Yield；ScreenOff 后释放且不再采帧；多脸非 Looking；切换后端期间不 Extend；过期 seq 的 extend 返回 STALE。
 - 设备相关（相机、无障碍、Shizuku、LSPosed）没有自动化条件，按规划 §14 手工矩阵在小米 12 Pro 上验证，结果记到 `docs/testing/`。改分类器或阈值必须重跑 M0 计数表。
 - 不要为了让测试通过而放宽「默认熄屏」相关断言。
+
+## 维护导航
+
+先看 `docs/maintenance/维护导航.md` 按功能定位入口、组件和验证；`scripts/check_architecture.py` 检查模块/源码边界。里程碑提案保留为历史分析，当前目录以维护导航和架构设计为准。
 
 ## 文档
 

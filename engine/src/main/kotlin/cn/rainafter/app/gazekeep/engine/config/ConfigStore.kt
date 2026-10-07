@@ -1,11 +1,12 @@
 package cn.rainafter.app.gazekeep.engine.config
 
 import android.content.Context
-import androidx.datastore.core.DataMigration
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
-import cn.rainafter.app.gazekeep.core.model.*
+import cn.rainafter.app.gazekeep.core.model.BackendLock
+import cn.rainafter.app.gazekeep.core.model.GazeConfig
+import cn.rainafter.app.gazekeep.core.model.Sensitivity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -65,19 +66,4 @@ class ConfigStore internal constructor(private val store: DataStore<Preferences>
             values[MAX_HOLD] = config.maxHoldMinutes
         }
     }
-}
-
-private class LegacyMigration(private val context: Context) : DataMigration<Preferences> {
-    override suspend fun shouldMigrate(currentData: Preferences) = currentData[ConfigStore.MIGRATED] != true
-    override suspend fun migrate(currentData: Preferences): Preferences {
-        val legacy = context.getSharedPreferences("gazekeep_config", Context.MODE_PRIVATE)
-        val backend = legacy.getString("backend_lock", BackendLock.Auto.name)
-        return currentData.toMutablePreferences().apply {
-            this[booleanPreferencesKey("enabled")] = false
-            this[stringPreferencesKey("backend_lock")] = runCatching { BackendLock.valueOf(backend.orEmpty()) }.getOrDefault(BackendLock.Auto).name
-            this[booleanPreferencesKey("whitelist_enabled")] = true
-            this[ConfigStore.MIGRATED] = true
-        }
-    }
-    override suspend fun cleanUp() = Unit
 }

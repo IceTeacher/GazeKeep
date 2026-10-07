@@ -1,4 +1,13 @@
 <resources>
     <string name="app_name">GazeKeep</string>
     <string name="xposed_description">GazeKeep system framework hooks</string>
+    <string name="alert_backend_unavailable">保亮后端不可用，请打开设置检查。</string>
+    <string name="alert_camera_permission_lost">相机权限不可用，本轮不会保亮。</string>
+    <string name="alert_camera_unavailable">相机暂时不可用，本轮不会保亮。</string>
+    <string name="alert_backend_failed">保亮后端未响应，请打开设置检查。</string>
+    <string name="alert_title">注视保亮需要处理</string>
+    <string name="notification_service_channel">注视保亮</string>
+    <string name="notification_alert_channel">注视保亮提醒</string>
+    <string name="notification_service_title">注视保亮运行中</string>
+    <string name="notification_service_waiting">正在等待系统超时</string>
 </resources>

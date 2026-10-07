@@ -3,7 +3,6 @@ package cn.rainafter.app.gazekeep.backend.lsposed
 import android.content.Context
 import android.os.IBinder
 import android.os.Parcel
-import org.lsposed.hiddenapibypass.HiddenApiBypass
 import cn.rainafter.app.gazekeep.core.backend.ExtendResult
 import cn.rainafter.app.gazekeep.core.backend.ExtendToken
 import cn.rainafter.app.gazekeep.core.backend.KeepAwakeBackend
@@ -139,13 +138,4 @@ class LsposedKeepAwakeBackend(context: Context, private val leadMillis: Long = 8
 
         override fun onHookStatus(status: Int) = Unit
     }
-}
-
-private class SystemPowerBinderResolver {
-    fun resolve(): IBinder? = runCatching {
-        HiddenApiBypass.addHiddenApiExemptions("Landroid/os/ServiceManager;")
-        val serviceManager = Class.forName("android.os.ServiceManager")
-        serviceManager.getDeclaredMethod("getService", String::class.java)
-            .invoke(null, "power") as? IBinder
-    }.getOrNull()
 }

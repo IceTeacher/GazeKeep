@@ -1,5 +1,5 @@
 plugins {
-    id("com.android.library")
+    alias(libs.plugins.androidLibrary)
 }
 
 android {
@@ -14,7 +14,7 @@ android {
 
 dependencies {
     api(project(":core"))
-    api(project(":xposed"))
+    implementation(project(":bridge:protocol"))
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.hidden.api.bypass)
 }

@@ -17,7 +17,7 @@ class LegacyEntry : IXposedHookLoadPackage {
             if (context == null) {
                 return
             }
-            ModernEntry.onSystemServerLoaded(context, param.classLoader, XposedHookFacade())
+            HookBootstrap.onSystemServerLoaded(context, param.classLoader, XposedHookFacade())
         }.onFailure {
             XposedBridge.log(it)
         }

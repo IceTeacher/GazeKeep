@@ -21,7 +21,7 @@
 |---|---|---|---|
 | 产品目标 | 原表述为面向小米 12 Pro 及同类老机 | **面向缺少系统级「注视不熄屏」能力的 Android 手机，提供接近原生系统级的体验；12 Pro 为首要验证基线** | 避免把验证设备误写成产品边界，便于后续扩展厂商与 Android 版本 |
 | 包名 | `dev.gazekeep.app` | **`cn.rainafter.app.gazekeep`** | 现有工程已使用；LSPosed 作用域、Shizuku Provider authority 都绑定 applicationId，开工前定死，之后不改 |
-| `minSdk` | 建议 26 | **26**（模板当前为 24，需改） | 与规划一致；开放问题「26 还是 28」维持 26，通知渠道差异成本很小 |
+| `minSdk` | 建议 26 | **26**（已落地） | 与规划一致；开放问题「26 还是 28」维持 26，通知渠道差异成本很小 |
 | 工程模块 | `composeApp/engine/backend-*/xposed/app` | 保留模板的 `androidApp`（application）与 `shared`（KMP UI），新增 `core`、`engine`、`backend/*`、`xposed`、`hidden-api` | 不推翻已生成的 KMP 脚手架；`backend-api` 并入 `core`（纯 Kotlin，UI 也要用这些类型） |
 | `AttentionClassifier` 签名 | `analyze(frames: List<ImageProxy>)` | 拆成「逐帧分类」+「纯函数投票」 | 投票可在 commonTest 里测；支持提前结束（2 帧一致即停），少开一帧相机 |
 | 无障碍保亮手段 | 挂 `FLAG_KEEP_SCREEN_ON` | 优先「脉冲」模式，退路「持有」模式（§9.3） | 让三种后端的语义都统一为「相当于用户碰了一下」 |
@@ -42,6 +42,16 @@
 | 连续注视退避 | 跳过一轮 / 提前量改 4 秒 | 只缩提前量与帧数，**不跳轮** | `userActivity` 语义下跳一轮就等于熄屏；每个超时周期至少一次检测是物理下限（§7.5） |
 
 ---
+
+### 可维护性重构决议（2026-10-08）
+
+- 采用[可维护性重构提案](../maintenance/可维护性分析与重构提案.md)，保留 KMP、现有后端与唯一 APK；删除无入口的里程碑控制器及模板。
+- UI 按页面、导航、契约与复用组件组织；控制器委托自检、应用列表、就绪探测和应用级启停组件。
+- GazeService 仅适配 Android 生命周期；BackendSession 管理后端/oracle/订阅，engine 的副作用执行器仅使用注入的接口，结果回灌 reducer。通知独立组件，文案进入 Android 资源。
+- 独立 `:bridge:protocol`，保持原 protocol 包名、AIDL、编号和版本；backend:lsposed 不依赖 xposed 实现。外部反射入口类名保持稳定。
+- 检测算法、阈值、Pulse/Hold、配置迁移与超时恢复语义不变；传感器/前台来源/日志功能债务不属于此次结构重构。
+- 应用运行状态放 androidApp/runtime；禁止它绕过 reducer 驱动保亮。各会话的所有者负责取消与关闭。
+- 副作用提取中的安全修正：CancellationException 继续传播，不把已取消的旧采集回灌为 CaptureAborted(Error)，避免污染新轮次；其余采集失败仍默认熄屏。无障碍信号保持主线程同步投递，订阅以 AutoCloseable 明确归属。
 
 ## 1. 总体架构
 
@@ -97,48 +107,19 @@
 
 ### 2.1 模块
 
-```
+```text
 GazeKeep/
-├── androidApp/                 # com.android.application；唯一 APK
-│   └── src/main/
-│       ├── AndroidManifest.xml # 聚合：服务、Provider、权限、<queries>
-│       ├── kotlin/.../app/     # GazeKeepApp, AppGraph, MainActivity
-│       ├── kotlin/.../service/ # GazeService, GazeA11yService, BootRecoveryReceiver
-│       ├── kotlin/.../platform/# ControllerImpl, PlatformActionsImpl, Notifier
-│       ├── res/xml/            # accessibility_service_config.xml
-│       └── resources/META-INF/xposed/   # 现代 LSPosed 入口（见 §9.1.6）
-├── shared/                     # KMP UI（仅 android target）
-│   └── src/
-│       ├── commonMain/kotlin/.../ui/    # screens, components, nav, viewmodel
-│       ├── commonMain/composeResources/ # 中文字符串（默认）、图标
-│       └── androidMain/kotlin/          # 极少：Preview、平台 actual（若有）
-├── core/                       # KMP，commonMain 纯 Kotlin，无 Android 依赖
-│   └── src/commonMain/kotlin/.../core/
-│       ├── model/              # Attention, BackendId, Readiness, GazeConfig, DecisionRecord…
-│       ├── backend/            # KeepAwakeBackend, TimeoutOracle 接口
-│       ├── policy/             # AttentionVoter, GatePolicy, HoldPolicy, LeadBackoff
-│       └── engine/             # EngineState, EngineEvent, EngineEffect, EngineReducer
-├── engine/                     # com.android.library
-│   └── src/main/kotlin/.../engine/
-│       ├── GazeEngine.kt       # 事件循环，执行 reducer 产出的 Effect
-│       ├── camera/             # FrameSource (CameraX 实现)，CaptureLifecycleOwner
-│       ├── classify/           # FrameClassifier, MlKitFrameClassifier, LumaProbe
-│       ├── gate/               # SensorProbe, CameraAvailability, CallState, ScreenState
-│       ├── oracle/             # IdleClockOracle, OracleSelector
-│       ├── foreground/         # ForegroundAppSource 及其实现
-│       ├── config/             # ConfigRepository (DataStore)
-│       └── log/                # DecisionLog（内存环形缓冲 + 可选 24h 文件）
+├── androidApp/          # 唯一 APK：app/controller/selftest/apps/platform/runtime/service/notification
+├── shared/              # KMP UI：ui/{contract,navigation,screens,components,text}
+├── core/                # KMP 纯逻辑：model/backend/engine/policy
+├── engine/              # Android：runtime/capture/camera/classify/gate/oracle/config
 ├── backend/
-│   ├── a11y/                   # A11yKeepAwakeBackend, OverlayController, TouchSensor
-│   ├── shizuku/                # ShizukuKeepAwakeBackend, ShellService, PowerDumpParser, AIDL
-│   └── lsposed/                # LsposedKeepAwakeBackend, SystemBridgeClient（App 侧）
-├── xposed/                     # 运行在 system_server 的代码 + 双方共享的协议
-│   └── src/main/kotlin/.../xposed/
-│       ├── protocol/           # BridgeProtocol 常量、AIDL（IGazeKeepClient）
-│       ├── entry/              # ModernEntry (libxposed), LegacyEntry (XposedBridge)
-│       ├── hook/               # HookFacade, HookPlan, DeadlineResolver
-│       └── core/               # PowerHookCore（与 Hook 框架无关的逻辑）
-└── hidden-api/                 # compileOnly 存根：IPowerManager, ServiceManager 等
+│   ├── a11y/            # 服务、overlay 与同步信号订阅
+│   ├── shizuku/         # client/shell/protocol/oracle/restore（保留原包名）
+│   └── lsposed/         # App 侧桥接客户端与 Binder resolver
+├── bridge/protocol/     # LSPosed 协议常量与 AIDL，无协程/UI依赖
+├── xposed/              # system_server：entry/hook/core
+└── scripts/             # 架构边界检查
 ```
 
 依赖方向（只允许向下）：
@@ -147,22 +128,28 @@ GazeKeep/
 androidApp ─▶ shared ─▶ core
 androidApp ─▶ engine ─▶ core
 androidApp ─▶ backend:{a11y,shizuku,lsposed} ─▶ core
-backend:lsposed ─▶ xposed(protocol 包)
-backend:shizuku, xposed ─compileOnly▶ hidden-api
+backend:lsposed ─▶ bridge:protocol ◀─ xposed
+androidApp ─▶ xposed（唯一 APK 打包入口）
 ```
 
 - `shared` 不依赖 `engine`/`backend`：UI 只认识 `core` 的类型与 `GazeKeepController` 接口。
 - `engine` 不依赖任何具体后端：它只拿到 `KeepAwakeBackend` 与 `TimeoutOracle`。
 - `xposed` 不依赖 `engine`/`core`：它运行在 system_server，类越少越好，不拉 kotlinx-coroutines。**`xposed` 模块里禁止使用协程、DataStore、Compose。** Kotlin 标准库可以用，但注意它会被打进同一 APK，由模块 ClassLoader 加载，不污染系统。
 
-### 2.2 Gradle 约定
+### 2.2 当前维护结构（2026-10-08）
+
+目录详见重构提案 §5；`androidApp` 包按 app/controller/selftest/apps/platform/runtime/service/notification 分工，`shared/ui` 按 contract/navigation/screens/components/text 分工。`core/engine` 按 State/Event/Effect/Snapshot/Reducer 分文件；采集会话从 engine/m0 改为 engine/capture。
+
+新增 protocol 模块为无协程的 Android library（AIDL）。依赖为 `backend:lsposed → bridge:protocol ← xposed`，androidApp 仍直接打包 xposed。其余模块依赖方向不变。hidden-api、日志、部分传感器组件为目标设计，未全部落地；实际反射实现保留，不为补齐树而添加空模块。
+
+### 2.3 Gradle 约定
 
 - AGP 9 内置 Kotlin 支持（模板里 `androidApp` 已不再单独应用 `kotlin-android`）。新增 Android library 用 `com.android.library`；`core` 与 `shared` 用 `kotlin-multiplatform` + `com.android.kotlin.multiplatform.library`。
-- 在 `libs.versions.toml` 增加 `androidLibrary` 插件别名。
-- `minSdk` 改为 26，`compileSdk`/`targetSdk` 保持模板的 37。
+- `androidLibrary` 插件别名已在版本目录定义，由根项目 apply false 管理。
+- `minSdk` 为 26，`compileSdk`/`targetSdk` 为 37。
 - JVM target 统一 11（与模板一致）。
-- `backend:shizuku`、`xposed` 打开 `buildFeatures { aidl = true }`。
-- release 开 R8，keep 规则见 §13.3。
+- `bridge:protocol` 打开 AIDL；Shizuku 目前保留手写 Binder 协议。
+- release 开 R8 为后续发布门禁，当前尚未开启；keep 规则见 §13.3。
 
 版本目录新增项（版本号开工时取最新稳定版并锁定，不在本文写死）：
 
@@ -182,7 +169,7 @@ backend:shizuku, xposed ─compileOnly▶ hidden-api
 | `hiddenapibypass` | `org.lsposed.hiddenapibypass:hiddenapibypass` | App 进程访问 `ServiceManager` |
 | `miuix-ui` | `top.yukonga.miuix.kmp:miuix-ui`（及可选 `miuix-preference`） | UI |
 
-### 2.3 包名约定
+### 2.4 包名约定
 
 根包 `cn.rainafter.app.gazekeep`，各模块子包：`.core`、`.engine`、`.backend.a11y`、`.backend.shizuku`、`.backend.lsposed`、`.xposed`、`.ui`。namespace 与子包一致（例如 `cn.rainafter.app.gazekeep.engine`）。
 
@@ -1057,6 +1044,10 @@ data class DecisionRecord(
 - 修改设置先完成 DataStore 写入，再重新配置引擎。关闭总开关必须取消未执行的启动任务并停止服务；后端切换期间默认放行熄屏。设置页的 Shizuku 检测只查询服务/权限，不绑定或解绑 UserService。
 - 自检独占相机，进入时先停止运行引擎。必须依次得到 Looking、Away，Unknown 不推进步骤；预览只绑定在自检页的短时采集期间，页面离开或生命周期停止时取消采集。
 - 启动器应用列表只使用 MAIN/LAUNCHER 查询；仅白名单默认开启，列表为空或无法确定前台包名时不保亮。隐私三句话与规划 §10 逐字一致。
+
+### 可维护性实现（2026-10-08）
+
+App 只订阅状态并装配主题/导航。八个页面各自成文件，共享 Scaffold、标题和提示卡集中在 components；用户判定/后端文案映射放 text。契约位于 ui/contract，保留 GazeKeepController 与 PlatformActions 门面。导航仍使用可保存的极简回退栈，不新增导航库。
 
 ### 12.1 边界
 
