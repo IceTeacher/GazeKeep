@@ -1,6 +1,6 @@
 package cn.rainafter.app.gazekeep.controller
 
-import cn.rainafter.app.gazekeep.apps.LaunchableAppsRepository
+import cn.rainafter.app.gazekeep.applist.LaunchableAppsRepository
 import cn.rainafter.app.gazekeep.selftest.SelfTestCoordinator
 import cn.rainafter.app.gazekeep.runtime.RuntimeStatusStore
 import cn.rainafter.app.gazekeep.runtime.ServiceActivation

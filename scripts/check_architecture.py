@@ -26,7 +26,7 @@ FORBIDDEN_IMPORTS = {
                "cn.rainafter.app.gazekeep.engine."),
     "bridge:protocol": ("kotlinx.coroutines.", "androidx.", "com.google.mlkit.",
                         "cn.rainafter.app.gazekeep.core.", "cn.rainafter.app.gazekeep.engine."),
-    "backend:lsposed": ("cn.rainafter.app.gazekeep.xposed.core.", "cn.rainafter.app.gazekeep.xposed.hook.",
+    "backend:lsposed": ("cn.rainafter.app.gazekeep.xposed.power.", "cn.rainafter.app.gazekeep.xposed.hook.",
                         "cn.rainafter.app.gazekeep.xposed.entry."),
 }
 
@@ -43,11 +43,18 @@ def violations():
             yield f"{module} 不应依赖 :{dependency}"
         for source in (directory / "src").rglob("*.kt"):
             relative = source.relative_to(directory / "src")
+            contents = source.read_text()
+            package = re.search(r"^package\s+([\w.]+)", contents, re.MULTILINE)
+            if package and "kotlin" in relative.parts:
+                kotlin_root = relative.parts.index("kotlin") + 1
+                actual_directory = relative.parts[kotlin_root:-1]
+                if actual_directory != tuple(package.group(1).split(".")):
+                    yield f"{source.relative_to(ROOT)}: 目录与包名 {package.group(1)} 不一致"
             if "test" in relative.parts[0].lower():
                 continue
             if module in {"core", "shared"} and relative.parts[0] != "commonMain":
                 continue
-            for number, line in enumerate(source.read_text().splitlines(), 1):
+            for number, line in enumerate(contents.splitlines(), 1):
                 match = re.match(r"\s*import\s+([\w.]+)", line)
                 if match and match.group(1).startswith(FORBIDDEN_IMPORTS.get(module, ())):
                     yield f"{source.relative_to(ROOT)}:{number}: 越界导入 {match.group(1)}"
@@ -58,4 +65,4 @@ if __name__ == "__main__":
     if errors:
         print("\n".join(errors), file=sys.stderr)
         sys.exit(1)
-    print("架构边界检查通过（9 个 Gradle 模块）")
+    print("架构边界与目录/包名检查通过（9 个 Gradle 模块）")

@@ -1,5 +1,6 @@
-package cn.rainafter.app.gazekeep.backend.shizuku
+package cn.rainafter.app.gazekeep.backend.shizuku.oracle
 
+import cn.rainafter.app.gazekeep.backend.shizuku.protocol.PowerSnapshot
 import android.os.SystemClock
 import cn.rainafter.app.gazekeep.core.backend.ExtendToken
 import cn.rainafter.app.gazekeep.core.backend.OracleSource

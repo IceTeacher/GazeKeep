@@ -1,5 +1,6 @@
-package cn.rainafter.app.gazekeep.backend.shizuku
+package cn.rainafter.app.gazekeep.backend.shizuku.oracle
 
+import cn.rainafter.app.gazekeep.backend.shizuku.protocol.PowerSnapshot
 import cn.rainafter.app.gazekeep.core.backend.TimeoutDeadline
 import cn.rainafter.app.gazekeep.core.model.BackendId
 import kotlinx.coroutines.CoroutineScope

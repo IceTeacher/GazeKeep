@@ -1,4 +1,4 @@
-package cn.rainafter.app.gazekeep.backend.shizuku
+package cn.rainafter.app.gazekeep.backend.shizuku.protocol
 
 import android.os.Binder
 import android.os.IBinder

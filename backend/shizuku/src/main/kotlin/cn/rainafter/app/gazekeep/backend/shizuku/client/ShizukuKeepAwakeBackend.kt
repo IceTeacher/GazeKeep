@@ -1,5 +1,9 @@
-package cn.rainafter.app.gazekeep.backend.shizuku
+package cn.rainafter.app.gazekeep.backend.shizuku.client
 
+import cn.rainafter.app.gazekeep.backend.shizuku.ShellService
+import cn.rainafter.app.gazekeep.backend.shizuku.protocol.IGazeKeepShell
+import cn.rainafter.app.gazekeep.backend.shizuku.protocol.PowerSnapshot
+import cn.rainafter.app.gazekeep.backend.shizuku.restore.PendingTimeoutRestoreStore
 import android.content.ComponentName
 import android.content.Context
 import android.content.ServiceConnection

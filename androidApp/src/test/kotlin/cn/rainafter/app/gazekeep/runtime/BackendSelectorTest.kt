@@ -1,4 +1,4 @@
-package cn.rainafter.app.gazekeep.platform
+package cn.rainafter.app.gazekeep.runtime
 
 import cn.rainafter.app.gazekeep.core.backend.ExtendResult
 import cn.rainafter.app.gazekeep.core.backend.ExtendToken

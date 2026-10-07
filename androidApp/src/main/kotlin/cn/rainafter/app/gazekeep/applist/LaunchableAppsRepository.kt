@@ -1,4 +1,4 @@
-package cn.rainafter.app.gazekeep.apps
+package cn.rainafter.app.gazekeep.applist
 
 import android.content.Context
 import android.content.Intent

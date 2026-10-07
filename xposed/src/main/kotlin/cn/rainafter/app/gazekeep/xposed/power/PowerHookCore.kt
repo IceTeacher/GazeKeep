@@ -1,4 +1,4 @@
-package cn.rainafter.app.gazekeep.xposed.core
+package cn.rainafter.app.gazekeep.xposed.power
 
 import android.content.Context
 import android.os.Binder

@@ -1,4 +1,4 @@
-package cn.rainafter.app.gazekeep.backend.shizuku
+package cn.rainafter.app.gazekeep.backend.shizuku.oracle
 
 import kotlin.test.Test
 import kotlin.test.assertEquals

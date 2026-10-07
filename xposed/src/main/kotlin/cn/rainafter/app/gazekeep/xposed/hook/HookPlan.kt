@@ -3,7 +3,7 @@ package cn.rainafter.app.gazekeep.xposed.hook
 import android.os.Binder
 import android.os.Parcel
 import android.util.Log
-import cn.rainafter.app.gazekeep.xposed.core.PowerHookCore
+import cn.rainafter.app.gazekeep.xposed.power.PowerHookCore
 
 data class HookInstallResult(
     val resolution: HookResolution,

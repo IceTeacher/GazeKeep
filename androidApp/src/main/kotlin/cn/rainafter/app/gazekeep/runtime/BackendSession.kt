@@ -12,8 +12,8 @@ import android.os.Build
 import android.os.SystemClock
 import android.util.Log
 import cn.rainafter.app.gazekeep.backend.a11y.GazeA11yService
-import cn.rainafter.app.gazekeep.backend.shizuku.PowerDumpOracle
-import cn.rainafter.app.gazekeep.backend.shizuku.ShizukuKeepAwakeBackend
+import cn.rainafter.app.gazekeep.backend.shizuku.oracle.PowerDumpOracle
+import cn.rainafter.app.gazekeep.backend.shizuku.client.ShizukuKeepAwakeBackend
 import cn.rainafter.app.gazekeep.backend.lsposed.LsposedKeepAwakeBackend
 import cn.rainafter.app.gazekeep.core.backend.KeepAwakeBackend
 import cn.rainafter.app.gazekeep.core.backend.TimeoutOracle
@@ -28,7 +28,6 @@ import cn.rainafter.app.gazekeep.engine.classify.MlKitFrameClassifier
 import cn.rainafter.app.gazekeep.engine.gate.AndroidGateProbe
 import cn.rainafter.app.gazekeep.engine.gate.ForegroundAppSource
 import cn.rainafter.app.gazekeep.engine.oracle.IdleClockOracle
-import cn.rainafter.app.gazekeep.platform.BackendSelector
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

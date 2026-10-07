@@ -1,14 +1,6 @@
-package cn.rainafter.app.gazekeep.backend.shizuku
+package cn.rainafter.app.gazekeep.backend.shizuku.oracle
 
-/** shell 侧只回传结构化电源状态，避免把原始 dumpsys 文本跨进程带回 App。 */
-data class PowerSnapshot(
-    val lastUserActivityUptime: Long?,
-    val screenOffTimeoutMs: Int?,
-    val dimDurationMs: Int?,
-    val hasScreenWakeLock: Boolean,
-    val interactive: Boolean,
-)
-
+import cn.rainafter.app.gazekeep.backend.shizuku.protocol.PowerSnapshot
 object PowerDumpParser {
     // HyperOS 在字段名后追加了 (excludingAttention)，AOSP 则没有括号后缀。
     private val lastActivity = Regex("mLastUserActivityTime(?:\\([^)]*\\))?\\s*=\\s*(\\d+)")

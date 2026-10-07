@@ -3,7 +3,7 @@ package cn.rainafter.app.gazekeep.platform
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import cn.rainafter.app.gazekeep.controller.AndroidGazeKeepController
-import cn.rainafter.app.gazekeep.apps.AppIconCache
+import cn.rainafter.app.gazekeep.applist.AppIconCache
 import android.Manifest
 import android.content.Intent
 import android.os.Build

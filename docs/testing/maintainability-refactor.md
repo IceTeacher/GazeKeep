@@ -75,3 +75,21 @@ shared 两个模板测试已删除，host test 为 NO-SOURCE，没有新增 UI �
 | 通知权限/限频 | 成功保亮不提示，异常按同类 10 分钟抑制 |
 
 功能债务仍包括部分传感器采样、前台应用来源、完整日志、现代 libxposed 入口和 R8 发布验证。此次重构不宣称它们已验收。
+
+## 目录与包名对齐（2026-10-08）
+
+本轮完成 apps → applist、BackendSelector 与测试归入 runtime、xposed/core → power（含测试、导入与混淆规则），以及 Shizuku 的 client/protocol/oracle/restore 分包。PowerSnapshot 单独放 protocol，ShellService 文件回到根包对应目录，反射入口类名保持不变。
+
+验证命令：
+
+```bash
+python3 scripts/check_architecture.py
+./gradlew :androidApp:assembleDebug :backend:shizuku:testDebugUnitTest :xposed:testDebugUnitTest :androidApp:testDebugUnitTest :androidApp:lintDebug
+git diff --check HEAD
+```
+
+结果：构建与 lint 通过，androidApp 2 项、Shizuku 6 项、xposed 11 项测试通过；9 个模块的架构边界与普通源码/测试的目录包名一致性检查通过。
+
+去除 package/import/空白后，对比基线确认移动类的实现正文不变，PowerSnapshot 字段不变，Shizuku Binder descriptor、事务编号、版本及序列化正文不变，LSPosed 协议文件逐字不变。检查最终 APK 确认 ShellService、LegacyEntry 和新包类存在，旧 xposed.core.PowerHookCore 不再打包。
+
+本轮 APK 尚未安装到设备，也未进行新一轮实机回归；上方安装记录对应前一轮结构重构。Release R8 未在本轮验证。

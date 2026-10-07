@@ -1,4 +1,4 @@
-package cn.rainafter.app.gazekeep.xposed.core
+package cn.rainafter.app.gazekeep.xposed.power
 
 import java.util.concurrent.atomic.AtomicReference
 

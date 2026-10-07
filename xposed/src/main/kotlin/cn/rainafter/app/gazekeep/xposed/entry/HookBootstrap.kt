@@ -1,7 +1,7 @@
 package cn.rainafter.app.gazekeep.xposed.entry
 
 import android.content.Context
-import cn.rainafter.app.gazekeep.xposed.core.PowerHookCore
+import cn.rainafter.app.gazekeep.xposed.power.PowerHookCore
 import cn.rainafter.app.gazekeep.xposed.hook.HookFacade
 import cn.rainafter.app.gazekeep.xposed.hook.HookPlan
 

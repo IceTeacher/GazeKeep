@@ -1,4 +1,4 @@
-package cn.rainafter.app.gazekeep.xposed.core
+package cn.rainafter.app.gazekeep.xposed.power
 
 import kotlin.test.Test
 import kotlin.test.assertFalse

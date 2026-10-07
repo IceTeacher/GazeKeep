@@ -46,6 +46,8 @@
 ### 可维护性重构决议（2026-10-08）
 
 - 采用[可维护性重构提案](../maintenance/可维护性分析与重构提案.md)，保留 KMP、现有后端与唯一 APK；删除无入口的里程碑控制器及模板。
+- 应用装配目录为 `app`，启动器应用列表与图标目录为 `applist`，避免 app/apps 混淆。
+- 目录与 Kotlin 包名保持一致：BackendSelector 归入 androidApp/runtime，xposed 电源逻辑归入 power，Shizuku 普通类按 client/protocol/oracle/restore 分包。ShellService 留在 shizuku 根包与对应目录，保持反射入口类名；Binder descriptor、版本与字段顺序不变，PowerSnapshot 归入 protocol。
 - UI 按页面、导航、契约与复用组件组织；控制器委托自检、应用列表、就绪探测和应用级启停组件。
 - GazeService 仅适配 Android 生命周期；BackendSession 管理后端/oracle/订阅，engine 的副作用执行器仅使用注入的接口，结果回灌 reducer。通知独立组件，文案进入 Android 资源。
 - 独立 `:bridge:protocol`，保持原 protocol 包名、AIDL、编号和版本；backend:lsposed 不依赖 xposed 实现。外部反射入口类名保持稳定。
@@ -109,16 +111,16 @@
 
 ```text
 GazeKeep/
-├── androidApp/          # 唯一 APK：app/controller/selftest/apps/platform/runtime/service/notification
+├── androidApp/          # 唯一 APK：app/controller/selftest/applist/platform/runtime/service/notification
 ├── shared/              # KMP UI：ui/{contract,navigation,screens,components,text}
 ├── core/                # KMP 纯逻辑：model/backend/engine/policy
 ├── engine/              # Android：runtime/capture/camera/classify/gate/oracle/config
 ├── backend/
 │   ├── a11y/            # 服务、overlay 与同步信号订阅
-│   ├── shizuku/         # client/shell/protocol/oracle/restore（保留原包名）
+│   ├── shizuku/         # ShellService + client/protocol/oracle/restore（目录与包名一致）
 │   └── lsposed/         # App 侧桥接客户端与 Binder resolver
 ├── bridge/protocol/     # LSPosed 协议常量与 AIDL，无协程/UI依赖
-├── xposed/              # system_server：entry/hook/core
+├── xposed/              # system_server：entry/hook/power
 └── scripts/             # 架构边界检查
 ```
 
@@ -138,7 +140,7 @@ androidApp ─▶ xposed（唯一 APK 打包入口）
 
 ### 2.2 当前维护结构（2026-10-08）
 
-目录详见重构提案 §5；`androidApp` 包按 app/controller/selftest/apps/platform/runtime/service/notification 分工，`shared/ui` 按 contract/navigation/screens/components/text 分工。`core/engine` 按 State/Event/Effect/Snapshot/Reducer 分文件；采集会话从 engine/m0 改为 engine/capture。
+目录详见重构提案 §5；`androidApp` 包按 app/controller/selftest/applist/platform/runtime/service/notification 分工，`shared/ui` 按 contract/navigation/screens/components/text 分工。`core/engine` 按 State/Event/Effect/Snapshot/Reducer 分文件；采集会话从 engine/m0 改为 engine/capture。
 
 新增 protocol 模块为无协程的 Android library（AIDL）。依赖为 `backend:lsposed → bridge:protocol ← xposed`，androidApp 仍直接打包 xposed。其余模块依赖方向不变。hidden-api、日志、部分传感器组件为目标设计，未全部落地；实际反射实现保留，不为补齐树而添加空模块。
 
@@ -594,7 +596,7 @@ class AttentionVoter(private val maxFrames: Int = 3, private val need: Int = 2) 
 
 ---
 
-## 8. 后端选择（`BackendSelector`，位于 `:androidApp/platform`）
+## 8. 后端选择（`BackendSelector`，位于 `:androidApp/runtime`）
 
 ```
 readiness 流（三个后端各一条）+ config.backendLock
@@ -1119,7 +1121,7 @@ data class ControllerState(
 ```
 # Xposed 入口与 system_server 侧代码：旧式类名写在 xposed_init 里；现代入口清单待 API 确认后加入
 -keep class cn.rainafter.app.gazekeep.xposed.entry.** { *; }
--keep class cn.rainafter.app.gazekeep.xposed.core.** { *; }
+-keep class cn.rainafter.app.gazekeep.xposed.power.** { *; }
 # AIDL 与 Shizuku UserService（由 Shizuku 按类名反射构造）
 -keep class cn.rainafter.app.gazekeep.backend.shizuku.ShellService { <init>(...); }
 -keep class * implements android.os.IInterface { *; }
