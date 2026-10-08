@@ -30,38 +30,36 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
-internal fun PrivacyScreen(
-    onBack: () -> Unit,
-) {
-    AppScaffold(
-        title = stringResource(Res.string.settings_privacy),
-        onBack = onBack,
-    ) { padding, scrollBehavior ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .nestedScroll(scrollBehavior.nestedScrollConnection)
-                .verticalScroll(rememberScrollState())
-                .padding(padding)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            SettingsGroupTitle(text = stringResource(Res.string.settings_privacy_commitments))
-            Card(modifier = Modifier.fillMaxWidth()) {
-                BasicComponent(title = stringResource(Res.string.privacy_line_1))
-                BasicComponent(title = stringResource(Res.string.privacy_line_2))
-                BasicComponent(title = stringResource(Res.string.privacy_line_3))
-            }
+internal fun PrivacyScreen(onBack: () -> Unit) {
+  AppScaffold(
+    title = stringResource(Res.string.settings_privacy),
+    onBack = onBack,
+  ) { padding, scrollBehavior ->
+    Column(
+      modifier = Modifier
+        .fillMaxSize()
+        .nestedScroll(scrollBehavior.nestedScrollConnection)
+        .verticalScroll(rememberScrollState())
+        .padding(padding)
+        .padding(horizontal = 16.dp, vertical = 12.dp),
+      verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+      SettingsGroupTitle(text = stringResource(Res.string.settings_privacy_commitments))
+      Card(modifier = Modifier.fillMaxWidth()) {
+        BasicComponent(title = stringResource(Res.string.privacy_line_1))
+        BasicComponent(title = stringResource(Res.string.privacy_line_2))
+        BasicComponent(title = stringResource(Res.string.privacy_line_3))
+      }
 
-            Spacer(Modifier.height(24.dp))
-            Text(
-                text = stringResource(Res.string.settings_version),
-                style = MiuixTheme.textStyles.footnote1,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center,
-            )
-            Spacer(Modifier.height(16.dp))
-        }
+      Spacer(Modifier.height(24.dp))
+      Text(
+        text = stringResource(Res.string.settings_version),
+        style = MiuixTheme.textStyles.footnote1,
+        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+        modifier = Modifier.fillMaxWidth(),
+        textAlign = TextAlign.Center,
+      )
+      Spacer(Modifier.height(16.dp))
     }
+  }
 }

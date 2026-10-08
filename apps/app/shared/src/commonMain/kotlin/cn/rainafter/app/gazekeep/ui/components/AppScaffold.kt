@@ -19,45 +19,45 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 internal fun AppTopBar(
-    title: String,
-    onBack: (() -> Unit)? = null,
-    scrollBehavior: ScrollBehavior? = null,
-    actions: @Composable RowScope.() -> Unit = {},
+  title: String,
+  onBack: (() -> Unit)? = null,
+  scrollBehavior: ScrollBehavior? = null,
+  actions: @Composable RowScope.() -> Unit = {},
 ) {
-    TopAppBar(
-        title = title,
-        scrollBehavior = scrollBehavior,
-        navigationIcon = {
-            if (onBack != null) {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        imageVector = MiuixIcons.Back,
-                        contentDescription = stringResource(Res.string.settings_back),
-                    )
-                }
-            }
-        },
-        actions = actions,
-    )
+  TopAppBar(
+    title = title,
+    scrollBehavior = scrollBehavior,
+    navigationIcon = {
+      if (onBack != null) {
+        IconButton(onClick = onBack) {
+          Icon(
+            imageVector = MiuixIcons.Back,
+            contentDescription = stringResource(Res.string.settings_back),
+          )
+        }
+      }
+    },
+    actions = actions,
+  )
 }
 
 @Composable
 internal fun AppScaffold(
-    title: String,
-    onBack: (() -> Unit)? = null,
-    scrollBehavior: ScrollBehavior = MiuixScrollBehavior(),
-    content: @Composable (PaddingValues, ScrollBehavior) -> Unit,
+  title: String,
+  onBack: (() -> Unit)? = null,
+  scrollBehavior: ScrollBehavior = MiuixScrollBehavior(),
+  content: @Composable (PaddingValues, ScrollBehavior) -> Unit,
 ) {
-    Scaffold(
-        containerColor = MiuixTheme.colorScheme.surface,
-        topBar = {
-            AppTopBar(
-                title = title,
-                onBack = onBack,
-                scrollBehavior = scrollBehavior,
-            )
-        },
-    ) { padding ->
-        content(padding, scrollBehavior)
-    }
+  Scaffold(
+    containerColor = MiuixTheme.colorScheme.surface,
+    topBar = {
+      AppTopBar(
+        title = title,
+        onBack = onBack,
+        scrollBehavior = scrollBehavior,
+      )
+    },
+  ) { padding ->
+    content(padding, scrollBehavior)
+  }
 }

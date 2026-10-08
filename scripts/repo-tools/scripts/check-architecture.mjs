@@ -50,22 +50,13 @@ export function violations(root) {
   const android = join(root, "apps/app");
   const errors = [];
   const modules = new Set(
-    [
-      ...readFileSync(join(android, "settings.gradle.kts"), "utf8").matchAll(
-        /include\(":([^"]+)"\)/g,
-      ),
-    ].map((m) => m[1]),
+    [...readFileSync(join(android, "settings.gradle.kts"), "utf8").matchAll(/include\(":([^"]+)"\)/g)].map((m) => m[1]),
   );
-  if (
-    modules.size !== Object.keys(ALLOWED).length ||
-    [...modules].some((m) => !Object.hasOwn(ALLOWED, m))
-  )
+  if (modules.size !== Object.keys(ALLOWED).length || [...modules].some((m) => !Object.hasOwn(ALLOWED, m)))
     errors.push("settings 中的模块与边界规则不一致，请同步维护规则");
   for (const [module, allowed] of Object.entries(ALLOWED)) {
     const directory = join(android, module.replaceAll(":", "/"));
-    for (const match of readFileSync(join(directory, "build.gradle.kts"), "utf8").matchAll(
-      /project\(":([^"]+)"\)/g,
-    ))
+    for (const match of readFileSync(join(directory, "build.gradle.kts"), "utf8").matchAll(/project\(":([^"]+)"\)/g))
       if (!allowed.includes(match[1])) errors.push(`${module} 不应依赖 :${match[1]}`);
     for (const source of walk(join(directory, "src")).filter((n) => n.endsWith(".kt"))) {
       const parts = relative(join(directory, "src"), source).split(sep);
@@ -74,10 +65,7 @@ export function violations(root) {
       const kotlin = parts.indexOf("kotlin");
       if (pkg && kotlin >= 0 && parts.slice(kotlin + 1, -1).join(".") !== pkg)
         errors.push(`${relative(root, source)}: 目录与包名 ${pkg} 不一致`);
-      if (
-        parts[0].toLowerCase().includes("test") ||
-        (["core", "shared"].includes(module) && parts[0] !== "commonMain")
-      )
+      if (parts[0].toLowerCase().includes("test") || (["core", "shared"].includes(module) && parts[0] !== "commonMain"))
         continue;
       content.split("\n").forEach((line, i) => {
         const imported = /^\s*import\s+([\w.]+)/.exec(line)?.[1];
@@ -89,6 +77,4 @@ export function violations(root) {
   return errors;
 }
 if (isMain(import.meta.url))
-  await cli(() =>
-    report(violations(context().root), "架构边界与目录/包名检查通过（9 个 Gradle 模块）"),
-  );
+  await cli(() => report(violations(context().root), "架构边界与目录/包名检查通过（9 个 Gradle 模块）"));

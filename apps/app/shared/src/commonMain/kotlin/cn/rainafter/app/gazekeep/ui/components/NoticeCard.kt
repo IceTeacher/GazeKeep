@@ -14,21 +14,18 @@ import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
-internal fun NoticeCard(
-    notice: UiNotice,
-    onClick: (() -> Unit)? = null,
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.defaultColors(
-            color = MiuixTheme.colorScheme.surfaceContainerHigh,
-            contentColor = MiuixTheme.colorScheme.onSurfaceContainerHigh,
-        ),
-    ) {
-        BasicComponent(
-            title = stringResource(Res.string.settings_notice_title),
-            summary = stringResource(noticeLabel(notice)),
-            onClick = onClick,
-        )
-    }
+internal fun NoticeCard(notice: UiNotice, onClick: (() -> Unit)? = null) {
+  Card(
+    modifier = Modifier.fillMaxWidth(),
+    colors = CardDefaults.defaultColors(
+      color = MiuixTheme.colorScheme.surfaceContainerHigh,
+      contentColor = MiuixTheme.colorScheme.onSurfaceContainerHigh,
+    ),
+  ) {
+    BasicComponent(
+      title = stringResource(Res.string.settings_notice_title),
+      summary = stringResource(noticeLabel(notice)),
+      onClick = onClick,
+    )
+  }
 }

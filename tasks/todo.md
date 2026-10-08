@@ -14,14 +14,13 @@
 - [ ] 现代 libxposed 入口、hidden-api 存根及 Release R8/资源压缩验证。
 - [ ] 发布前补齐许可证、第三方依赖说明、签名与可分发 APK 验收。
 - [ ] Android Studio 重新同步后验证重复导入模型与 ListenableFuture 类路径问题；命令行构建成功不代表 IDE 已恢复。
-- [ ] 单独处理现存 Kotlin/Gradle 与 XML 格式问题，保持本次目录调整不扩展为源码格式重写。
 
-## 本次规则调整（2026-10-08）
+## 本次格式调整（2026-10-08）
 
-- 完成：根 AGENTS.md 只保留通用协作规则与导航；Android 工程约束、十条安全承诺与验收要求下沉到 apps/app，各模块补充专属细节，统一继承链并修正安全承诺引用与 Skill 加载顺序。
-- 测试先行例外：纯规则文档重组，无应用行为变更，不新增测试或重跑 Android 构建。
-- 验证：十条安全承诺正文逐字一致，仅修正相对链接；九个模块继承链、规则归属与未完成事项保留核对通过；`pnpm verify:docs`、`pnpm verify:agent-assets`、受影响 Markdown 格式检查与 `git diff --check` 通过。
-- 未执行：应用行为测试、Android 构建、实机/UI 验收、设备操作和发布；本轮未提交或推送。
+- 完成：源码格式改为 UTF-8、LF、空格缩进 2、行宽 120。根 `.editorconfig` 与 Prettier `printWidth`/`tabWidth` 对齐；ktlint（intellij_idea）重排 Kotlin/Gradle，Prettier 重排 Markdown、JSON、YAML、JavaScript 与 XML。
+- 测试先行例外：格式与工具约定变更，无应用行为变更，未新增测试。
+- 验证：`pnpm format:check`、`pnpm test:tools`（18 通过）、`pnpm verify:docs`、`pnpm verify:agent-assets` 与 `git diff --check` 通过。隐私三句正文未改。
+- 未执行：Android 构建、主机测试、实机/UI 验收。矢量 `pathData`、测试夹具中的单行样例，以及无法拆开的 Maven URL 模板仍可能超过 120。未提交或推送。
 
 ## IDEA 与新目录状态复查（2026-10-08）
 

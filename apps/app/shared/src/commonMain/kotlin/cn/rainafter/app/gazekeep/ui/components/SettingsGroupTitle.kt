@@ -10,15 +10,15 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 internal fun SettingsGroupTitle(
-    text: String,
-    modifier: Modifier = Modifier,
-    textColor: Color = MiuixTheme.colorScheme.onBackgroundVariant,
-    insideMargin: PaddingValues = PaddingValues(start = 16.dp, top = 8.dp, bottom = 2.dp),
+  text: String,
+  modifier: Modifier = Modifier,
+  textColor: Color = MiuixTheme.colorScheme.onBackgroundVariant,
+  insideMargin: PaddingValues = PaddingValues(start = 16.dp, top = 8.dp, bottom = 2.dp),
 ) {
-    SmallTitle(
-        text = text,
-        modifier = modifier,
-        textColor = textColor,
-        insideMargin = insideMargin,
-    )
+  SmallTitle(
+    text = text,
+    modifier = modifier,
+    textColor = textColor,
+    insideMargin = insideMargin,
+  )
 }

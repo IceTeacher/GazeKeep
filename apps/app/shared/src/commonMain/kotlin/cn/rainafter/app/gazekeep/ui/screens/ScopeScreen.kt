@@ -39,55 +39,55 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 internal fun ScopeScreen(
-    state: ControllerState,
-    scope: CoroutineScope,
-    controller: GazeKeepController,
-    onNavigate: (SettingsScreen) -> Unit,
-    onBack: () -> Unit,
+  state: ControllerState,
+  scope: CoroutineScope,
+  controller: GazeKeepController,
+  onNavigate: (SettingsScreen) -> Unit,
+  onBack: () -> Unit,
 ) {
-    LaunchedEffect(Unit) {
-        controller.loadApps()
+  LaunchedEffect(Unit) {
+    controller.loadApps()
+  }
+
+  AppScaffold(
+    title = stringResource(Res.string.settings_scope),
+    onBack = onBack,
+  ) { padding, scrollBehavior ->
+    Column(
+      modifier = Modifier
+        .fillMaxSize()
+        .nestedScroll(scrollBehavior.nestedScrollConnection)
+        .verticalScroll(rememberScrollState())
+        .padding(padding)
+        .padding(horizontal = 16.dp, vertical = 12.dp),
+      verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+      SettingsGroupTitle(text = stringResource(Res.string.settings_scope))
+      Card(modifier = Modifier.fillMaxWidth()) {
+        SwitchPreference(
+          title = stringResource(Res.string.settings_whitelist),
+          summary = stringResource(Res.string.settings_whitelist_summary),
+          checked = state.config.whitelistEnabled,
+          onCheckedChange = { enabled ->
+            scope.launch { controller.updateConfig { it.copy(whitelistEnabled = enabled) } }
+          },
+        )
+        ArrowPreference(
+          title = stringResource(Res.string.settings_apps),
+          summary = stringResource(Res.string.settings_app_count, state.config.packages.size),
+          onClick = { onNavigate(SettingsScreen.Apps) },
+        )
+      }
+
+      if (state.config.whitelistEnabled && state.config.packages.isEmpty()) {
+        SmallTitle(
+          text = stringResource(Res.string.settings_empty_scope),
+          textColor = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+          insideMargin = PaddingValues(start = 16.dp, top = 4.dp, bottom = 4.dp),
+        )
+      }
+
+      Spacer(Modifier.height(16.dp))
     }
-
-    AppScaffold(
-        title = stringResource(Res.string.settings_scope),
-        onBack = onBack,
-    ) { padding, scrollBehavior ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .nestedScroll(scrollBehavior.nestedScrollConnection)
-                .verticalScroll(rememberScrollState())
-                .padding(padding)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            SettingsGroupTitle(text = stringResource(Res.string.settings_scope))
-            Card(modifier = Modifier.fillMaxWidth()) {
-                SwitchPreference(
-                    title = stringResource(Res.string.settings_whitelist),
-                    summary = stringResource(Res.string.settings_whitelist_summary),
-                    checked = state.config.whitelistEnabled,
-                    onCheckedChange = { enabled ->
-                        scope.launch { controller.updateConfig { it.copy(whitelistEnabled = enabled) } }
-                    },
-                )
-                ArrowPreference(
-                    title = stringResource(Res.string.settings_apps),
-                    summary = stringResource(Res.string.settings_app_count, state.config.packages.size),
-                    onClick = { onNavigate(SettingsScreen.Apps) },
-                )
-            }
-
-            if (state.config.whitelistEnabled && state.config.packages.isEmpty()) {
-                SmallTitle(
-                    text = stringResource(Res.string.settings_empty_scope),
-                    textColor = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    insideMargin = PaddingValues(start = 16.dp, top = 4.dp, bottom = 4.dp),
-                )
-            }
-
-            Spacer(Modifier.height(16.dp))
-        }
-    }
+  }
 }

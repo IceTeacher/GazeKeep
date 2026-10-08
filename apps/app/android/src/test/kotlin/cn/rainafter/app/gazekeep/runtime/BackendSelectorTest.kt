@@ -12,45 +12,42 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class BackendSelectorTest {
-    @Test
-    fun autoPrefersShizukuOverAccessibility() {
-        val a11y = FakeBackend(BackendId.Accessibility, Readiness.Ready)
-        val shizuku = FakeBackend(BackendId.Shizuku, Readiness.Ready)
-        val selector = BackendSelector(
-            BackendLock.Auto,
-            mutableMapOf(
-                BackendId.Accessibility to a11y,
-                BackendId.Shizuku to shizuku,
-            ),
-        )
+  @Test
+  fun autoPrefersShizukuOverAccessibility() {
+    val a11y = FakeBackend(BackendId.Accessibility, Readiness.Ready)
+    val shizuku = FakeBackend(BackendId.Shizuku, Readiness.Ready)
+    val selector = BackendSelector(
+      BackendLock.Auto,
+      mutableMapOf(
+        BackendId.Accessibility to a11y,
+        BackendId.Shizuku to shizuku,
+      ),
+    )
 
-        assertEquals(shizuku, selector.select())
-    }
+    assertEquals(shizuku, selector.select())
+  }
 
-    @Test
-    fun lockedBackendDoesNotSilentlyFallback() {
-        val a11y = FakeBackend(BackendId.Accessibility, Readiness.Ready)
-        val shizuku = FakeBackend(BackendId.Shizuku, Readiness.Unavailable("offline"))
-        val selector = BackendSelector(
-            BackendLock.Shizuku,
-            mutableMapOf(
-                BackendId.Accessibility to a11y,
-                BackendId.Shizuku to shizuku,
-            ),
-        )
+  @Test
+  fun lockedBackendDoesNotSilentlyFallback() {
+    val a11y = FakeBackend(BackendId.Accessibility, Readiness.Ready)
+    val shizuku = FakeBackend(BackendId.Shizuku, Readiness.Unavailable("offline"))
+    val selector = BackendSelector(
+      BackendLock.Shizuku,
+      mutableMapOf(
+        BackendId.Accessibility to a11y,
+        BackendId.Shizuku to shizuku,
+      ),
+    )
 
-        assertEquals(null, selector.select())
-    }
+    assertEquals(null, selector.select())
+  }
 
-    private class FakeBackend(
-        override val id: BackendId,
-        initialReadiness: Readiness,
-    ) : KeepAwakeBackend {
-        private val mutableReadiness = MutableStateFlow(initialReadiness)
-        override val readiness: StateFlow<Readiness> = mutableReadiness
-        override suspend fun extend(token: ExtendToken): ExtendResult = ExtendResult.Done
-        override suspend fun release() = Unit
-        override suspend fun attach() = Unit
-        override suspend fun detach() = Unit
-    }
+  private class FakeBackend(override val id: BackendId, initialReadiness: Readiness) : KeepAwakeBackend {
+    private val mutableReadiness = MutableStateFlow(initialReadiness)
+    override val readiness: StateFlow<Readiness> = mutableReadiness
+    override suspend fun extend(token: ExtendToken): ExtendResult = ExtendResult.Done
+    override suspend fun release() = Unit
+    override suspend fun attach() = Unit
+    override suspend fun detach() = Unit
+  }
 }

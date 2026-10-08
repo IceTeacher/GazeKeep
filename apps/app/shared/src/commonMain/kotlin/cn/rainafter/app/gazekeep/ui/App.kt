@@ -13,9 +13,9 @@ import top.yukonga.miuix.kmp.theme.ThemeController
 
 @Composable
 fun App(controller: GazeKeepController, actions: PlatformActions) {
-    val state by controller.state.collectAsState()
-    val test by controller.selfTest.collectAsState()
-    MiuixTheme(controller = remember { ThemeController() }) {
-        SettingsNavigation(controller, actions, state, test)
-    }
+  val state by controller.state.collectAsState()
+  val test by controller.selfTest.collectAsState()
+  MiuixTheme(controller = remember { ThemeController() }) {
+    SettingsNavigation(controller, actions, state, test)
+  }
 }

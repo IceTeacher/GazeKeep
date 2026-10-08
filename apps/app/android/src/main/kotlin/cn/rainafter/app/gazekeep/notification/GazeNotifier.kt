@@ -14,64 +14,77 @@ import cn.rainafter.app.gazekeep.R
 import cn.rainafter.app.gazekeep.core.engine.Alert
 
 class GazeNotifier(private val context: Context) {
-    private val lastAlerts = mutableMapOf<Alert, Long>()
-    fun notifyAlert(alert: Alert) {
-        val now = SystemClock.elapsedRealtime()
-        val previous = lastAlerts[alert]
-        if (previous != null && now - previous < ALERT_SUPPRESSION_MS) return
-        lastAlerts[alert] = now
-        val message = when (alert) {
-            Alert.BackendUnavailable -> context.getString(R.string.alert_backend_unavailable)
-            Alert.CameraPermissionLost -> context.getString(R.string.alert_camera_permission_lost)
-            Alert.CameraUnavailable -> context.getString(R.string.alert_camera_unavailable)
-            Alert.BackendFailed -> context.getString(R.string.alert_backend_failed)
-        }
-        context.getSystemService(NotificationManager::class.java).notify(
-            ALERT_NOTIFICATION_ID + alert.ordinal,
-            NotificationCompat.Builder(context, ALERT_CHANNEL_ID)
-                .setSmallIcon(R.mipmap.ic_launcher)
-                .setContentTitle(context.getString(R.string.alert_title))
-                .setContentText(message)
-                .setContentIntent(
-                    PendingIntent.getActivity(
-                        context,
-                        alert.ordinal + 1,
-                        Intent(context, MainActivity::class.java),
-                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-                    ),
-                )
-                .setAutoCancel(true)
-                .build(),
+  private val lastAlerts = mutableMapOf<Alert, Long>()
+  fun notifyAlert(alert: Alert) {
+    val now = SystemClock.elapsedRealtime()
+    val previous = lastAlerts[alert]
+    if (previous != null && now - previous < ALERT_SUPPRESSION_MS) return
+    lastAlerts[alert] = now
+    val message = when (alert) {
+      Alert.BackendUnavailable -> context.getString(R.string.alert_backend_unavailable)
+      Alert.CameraPermissionLost -> context.getString(R.string.alert_camera_permission_lost)
+      Alert.CameraUnavailable -> context.getString(R.string.alert_camera_unavailable)
+      Alert.BackendFailed -> context.getString(R.string.alert_backend_failed)
+    }
+    context.getSystemService(NotificationManager::class.java).notify(
+      ALERT_NOTIFICATION_ID + alert.ordinal,
+      NotificationCompat.Builder(context, ALERT_CHANNEL_ID)
+        .setSmallIcon(R.mipmap.ic_launcher)
+        .setContentTitle(context.getString(R.string.alert_title))
+        .setContentText(message)
+        .setContentIntent(
+          PendingIntent.getActivity(
+            context,
+            alert.ordinal + 1,
+            Intent(context, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+          ),
         )
-    }
+        .setAutoCancel(true)
+        .build(),
+    )
+  }
 
-    fun createChannels() {
-        if (Build.VERSION.SDK_INT >= 26) {
-            context.getSystemService(NotificationManager::class.java).createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, context.getString(R.string.notification_service_channel), NotificationManager.IMPORTANCE_LOW),
-            )
-            context.getSystemService(NotificationManager::class.java).createNotificationChannel(
-                NotificationChannel(ALERT_CHANNEL_ID, context.getString(R.string.notification_alert_channel), NotificationManager.IMPORTANCE_DEFAULT),
-            )
-        }
+  fun createChannels() {
+    if (Build.VERSION.SDK_INT >= 26) {
+      context.getSystemService(NotificationManager::class.java).createNotificationChannel(
+        NotificationChannel(
+          CHANNEL_ID,
+          context.getString(R.string.notification_service_channel),
+          NotificationManager.IMPORTANCE_LOW,
+        ),
+      )
+      context.getSystemService(NotificationManager::class.java).createNotificationChannel(
+        NotificationChannel(
+          ALERT_CHANNEL_ID,
+          context.getString(R.string.notification_alert_channel),
+          NotificationManager.IMPORTANCE_DEFAULT,
+        ),
+      )
     }
+  }
 
-    fun serviceNotification(): Notification {
-        val intent = PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        return NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle(context.getString(R.string.notification_service_title))
-            .setContentText(context.getString(R.string.notification_service_waiting))
-            .setContentIntent(intent)
-            .setOngoing(true)
-            .build()
-    }
+  fun serviceNotification(): Notification {
+    val intent = PendingIntent.getActivity(
+      context,
+      0,
+      Intent(context, MainActivity::class.java),
+      PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
+    return NotificationCompat.Builder(context, CHANNEL_ID)
+      .setSmallIcon(R.mipmap.ic_launcher)
+      .setContentTitle(context.getString(R.string.notification_service_title))
+      .setContentText(context.getString(R.string.notification_service_waiting))
+      .setContentIntent(intent)
+      .setOngoing(true)
+      .build()
+  }
 
-    companion object {
-        const val NOTIFICATION_ID = 1001
-        private const val CHANNEL_ID = "service"
-        private const val ALERT_CHANNEL_ID = "alerts"
-        private const val ALERT_NOTIFICATION_ID = 2001
-        private const val ALERT_SUPPRESSION_MS = 10 * 60 * 1000L
-    }
+  companion object {
+    const val NOTIFICATION_ID = 1001
+    private const val CHANNEL_ID = "service"
+    private const val ALERT_CHANNEL_ID = "alerts"
+    private const val ALERT_NOTIFICATION_ID = 2001
+    private const val ALERT_SUPPRESSION_MS = 10 * 60 * 1000L
+  }
 }

@@ -12,10 +12,7 @@ export async function installKtlint({ destination, url, fetcher = fetch }) {
     if (!response.ok) throw new Error(`ktlint 下载失败：HTTP ${response.status}`);
     return response;
   }
-  const checksum = (await (await request(`${url}.sha256`)).text())
-    .trim()
-    .split(/\s+/)[0]
-    .toLowerCase();
+  const checksum = (await (await request(`${url}.sha256`)).text()).trim().split(/\s+/)[0].toLowerCase();
   if (!/^[a-f0-9]{64}$/.test(checksum)) throw new Error("ktlint 下载摘要格式非法");
   if (existsSync(destination) && digest(readFileSync(destination)) === checksum) return;
   const data = Buffer.from(await (await request(url)).arrayBuffer());
@@ -32,8 +29,7 @@ export async function installKtlint({ destination, url, fetcher = fetch }) {
 if (isMain(import.meta.url))
   await cli(async () => {
     const { root, android } = context();
-    const version = parse(readFileSync(join(android, "gradle/libs.versions.toml"), "utf8")).versions
-      .ktlint;
+    const version = parse(readFileSync(join(android, "gradle/libs.versions.toml"), "utf8")).versions.ktlint;
     const destination = join(root, ".cache/dev-tools", `ktlint-${version}.jar`);
     await installKtlint({
       destination,

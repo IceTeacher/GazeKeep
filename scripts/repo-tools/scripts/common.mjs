@@ -19,11 +19,7 @@ export const IGNORED = new Set([
   "dist",
   "coverage",
 ]);
-export function run(
-  command,
-  args,
-  { cwd = process.cwd(), capture = false, env = process.env, check = true } = {},
-) {
+export function run(command, args, { cwd = process.cwd(), capture = false, env = process.env, check = true } = {}) {
   const result = spawnSync(command, args, {
     cwd,
     env,
@@ -41,9 +37,7 @@ export function run(
 export function context(options = {}, allowPositionals = false) {
   const parsed = parseArgs({ options: { root: { type: "string" }, ...options }, allowPositionals });
   const git = run("git", ["rev-parse", "--show-toplevel"], { capture: true, check: false });
-  const root = realpathSync(
-    resolve(parsed.values.root ?? (git.status === 0 ? git.stdout.trim() : SOURCE_ROOT)),
-  );
+  const root = realpathSync(resolve(parsed.values.root ?? (git.status === 0 ? git.stdout.trim() : SOURCE_ROOT)));
   return { ...parsed, root, android: join(root, "apps/app") };
 }
 export function within(root, path) {
@@ -74,8 +68,5 @@ export function report(errors, success) {
   console.log(success);
 }
 export function gitPath(root, name) {
-  return resolve(
-    root,
-    run("git", ["rev-parse", "--git-path", name], { cwd: root, capture: true }).stdout.trim(),
-  );
+  return resolve(root, run("git", ["rev-parse", "--git-path", name], { cwd: root, capture: true }).stdout.trim());
 }

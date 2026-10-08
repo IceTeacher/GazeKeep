@@ -48,111 +48,111 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 internal fun BackendScreen(
-    state: ControllerState,
-    scope: CoroutineScope,
-    controller: GazeKeepController,
-    actions: PlatformActions,
-    onBack: () -> Unit,
+  state: ControllerState,
+  scope: CoroutineScope,
+  controller: GazeKeepController,
+  actions: PlatformActions,
+  onBack: () -> Unit,
 ) {
-    AppScaffold(
-        title = stringResource(Res.string.settings_backend),
-        onBack = onBack,
-    ) { padding, scrollBehavior ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .nestedScroll(scrollBehavior.nestedScrollConnection)
-                .verticalScroll(rememberScrollState())
-                .padding(padding)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            SettingsGroupTitle(text = stringResource(Res.string.settings_backend))
-            Card(modifier = Modifier.fillMaxWidth()) {
-                listOf(BackendLock.Auto, BackendLock.Lsposed, BackendLock.Shizuku, BackendLock.Accessibility).forEach { lock ->
-                    val id = when (lock) {
-                        BackendLock.Lsposed -> BackendId.Lsposed
-                        BackendLock.Shizuku -> BackendId.Shizuku
-                        BackendLock.Accessibility -> BackendId.Accessibility
-                        else -> null
-                    }
-                    val summaryText = if (lock == BackendLock.Auto) {
-                        state.activeBackend?.let { stringResource(Res.string.settings_auto_current, backendName(it)) }
-                            ?: stringResource(Res.string.m2_backend_auto_status)
-                    } else {
-                        id?.let { readinessLabel(state.backends[it]) }
-                    }
+  AppScaffold(
+    title = stringResource(Res.string.settings_backend),
+    onBack = onBack,
+  ) { padding, scrollBehavior ->
+    Column(
+      modifier = Modifier
+        .fillMaxSize()
+        .nestedScroll(scrollBehavior.nestedScrollConnection)
+        .verticalScroll(rememberScrollState())
+        .padding(padding)
+        .padding(horizontal = 16.dp, vertical = 12.dp),
+      verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+      SettingsGroupTitle(text = stringResource(Res.string.settings_backend))
+      Card(modifier = Modifier.fillMaxWidth()) {
+        listOf(BackendLock.Auto, BackendLock.Lsposed, BackendLock.Shizuku, BackendLock.Accessibility).forEach { lock ->
+          val id = when (lock) {
+            BackendLock.Lsposed -> BackendId.Lsposed
+            BackendLock.Shizuku -> BackendId.Shizuku
+            BackendLock.Accessibility -> BackendId.Accessibility
+            else -> null
+          }
+          val summaryText = if (lock == BackendLock.Auto) {
+            state.activeBackend?.let { stringResource(Res.string.settings_auto_current, backendName(it)) }
+              ?: stringResource(Res.string.m2_backend_auto_status)
+          } else {
+            id?.let { readinessLabel(state.backends[it]) }
+          }
 
-                    RadioButtonPreference(
-                        title = backendLabel(null, lock),
-                        selected = lock == state.config.backendLock,
-                        summary = summaryText,
-                        onClick = {
-                            scope.launch {
-                                controller.updateConfig { it.copy(backendLock = lock) }
-                            }
-                        },
-                    )
-                }
-            }
-
-            SmallTitle(
-                text = stringResource(Res.string.settings_backend_order),
-                textColor = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                insideMargin = PaddingValues(start = 16.dp, top = 4.dp, bottom = 4.dp),
-            )
-
-            val selected = when (state.config.backendLock) {
-                BackendLock.Lsposed -> state.backends[BackendId.Lsposed]
-                BackendLock.Shizuku -> state.backends[BackendId.Shizuku]
-                BackendLock.Accessibility -> state.backends[BackendId.Accessibility]
-                BackendLock.Auto -> null
-            }
-            if (selected is Readiness.NeedsSetup) {
-                when (selected.step) {
-                    SetupStep.EnableAccessibilityService -> {
-                        Button(
-                            onClick = actions::openAccessibilitySettings,
-                            colors = ButtonDefaults.buttonColorsPrimary(),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text(stringResource(Res.string.m2_accessibility_open_settings))
-                        }
-                    }
-
-                    SetupStep.StartShizuku -> {
-                        Button(
-                            onClick = actions::openShizukuApp,
-                            colors = ButtonDefaults.buttonColorsPrimary(),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text(stringResource(Res.string.settings_open_shizuku))
-                        }
-                    }
-
-                    SetupStep.GrantShizukuPermission -> {
-                        Button(
-                            onClick = actions::requestShizukuPermission,
-                            colors = ButtonDefaults.buttonColorsPrimary(),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text(stringResource(Res.string.m2_shizuku_request_permission))
-                        }
-                    }
-
-                    else -> Unit
-                }
-            }
-
-            Button(
-                onClick = controller::refresh,
-                colors = ButtonDefaults.buttonColors(),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(stringResource(Res.string.m2_shizuku_refresh))
-            }
-
-            Spacer(Modifier.height(16.dp))
+          RadioButtonPreference(
+            title = backendLabel(null, lock),
+            selected = lock == state.config.backendLock,
+            summary = summaryText,
+            onClick = {
+              scope.launch {
+                controller.updateConfig { it.copy(backendLock = lock) }
+              }
+            },
+          )
         }
+      }
+
+      SmallTitle(
+        text = stringResource(Res.string.settings_backend_order),
+        textColor = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+        insideMargin = PaddingValues(start = 16.dp, top = 4.dp, bottom = 4.dp),
+      )
+
+      val selected = when (state.config.backendLock) {
+        BackendLock.Lsposed -> state.backends[BackendId.Lsposed]
+        BackendLock.Shizuku -> state.backends[BackendId.Shizuku]
+        BackendLock.Accessibility -> state.backends[BackendId.Accessibility]
+        BackendLock.Auto -> null
+      }
+      if (selected is Readiness.NeedsSetup) {
+        when (selected.step) {
+          SetupStep.EnableAccessibilityService -> {
+            Button(
+              onClick = actions::openAccessibilitySettings,
+              colors = ButtonDefaults.buttonColorsPrimary(),
+              modifier = Modifier.fillMaxWidth(),
+            ) {
+              Text(stringResource(Res.string.m2_accessibility_open_settings))
+            }
+          }
+
+          SetupStep.StartShizuku -> {
+            Button(
+              onClick = actions::openShizukuApp,
+              colors = ButtonDefaults.buttonColorsPrimary(),
+              modifier = Modifier.fillMaxWidth(),
+            ) {
+              Text(stringResource(Res.string.settings_open_shizuku))
+            }
+          }
+
+          SetupStep.GrantShizukuPermission -> {
+            Button(
+              onClick = actions::requestShizukuPermission,
+              colors = ButtonDefaults.buttonColorsPrimary(),
+              modifier = Modifier.fillMaxWidth(),
+            ) {
+              Text(stringResource(Res.string.m2_shizuku_request_permission))
+            }
+          }
+
+          else -> Unit
+        }
+      }
+
+      Button(
+        onClick = controller::refresh,
+        colors = ButtonDefaults.buttonColors(),
+        modifier = Modifier.fillMaxWidth(),
+      ) {
+        Text(stringResource(Res.string.m2_shizuku_refresh))
+      }
+
+      Spacer(Modifier.height(16.dp))
     }
+  }
 }

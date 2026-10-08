@@ -1,14 +1,5 @@
 import assert from "node:assert/strict";
-import {
-  cpSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-  chmodSync,
-} from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync, chmodSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -63,11 +54,7 @@ function fixture(t) {
     recursive: true,
   });
   symlinkSync(join(ROOT, "node_modules"), join(root, "node_modules"), "dir");
-  symlinkSync(
-    join(ROOT, "scripts/repo-tools/node_modules"),
-    join(root, "scripts/repo-tools/node_modules"),
-    "dir",
-  );
+  symlinkSync(join(ROOT, "scripts/repo-tools/node_modules"), join(root, "scripts/repo-tools/node_modules"), "dir");
   mkdirSync(join(root, ".cache"), { recursive: true });
   symlinkSync(join(ROOT, ".cache/dev-tools"), join(root, ".cache/dev-tools"), "dir");
   write("package.json", JSON.stringify({ private: true, devDependencies: { lefthook: "2.1.17" } }));
@@ -75,18 +62,10 @@ function fixture(t) {
   git("config", "user.name", "Hook Test");
   git("config", "user.email", "hook-test@example.invalid");
   git("config", "commit.gpgsign", "false");
-  git(
-    "add",
-    "--",
-    "lefthook.yml",
-    "scripts/repo-tools/config",
-    "apps/app/settings.gradle.kts",
-    "package.json",
-  );
+  git("add", "--", "lefthook.yml", "scripts/repo-tools/config", "apps/app/settings.gradle.kts", "package.json");
   git("-c", "core.hooksPath=/dev/null", "commit", "--quiet", "-m", "测试基线");
   command(LEFTHOOK, ["install", "pre-commit", "commit-msg"]);
-  const commit = (title = "docs(docs): 📝 更新测试文档") =>
-    command("git", ["commit", "--quiet", "-m", title], false);
+  const commit = (title = "docs(docs): 📝 更新测试文档") => command("git", ["commit", "--quiet", "-m", title], false);
   return { root, env, write, command, git, commit };
 }
 function committed(f, title) {
@@ -186,14 +165,8 @@ test("非法语法和缺少格式工具阻断提交", (t) => {
   f.git("add", "--", "missing.json");
   rmSync(join(f.root, "node_modules"));
   mkdirSync(join(f.root, "node_modules/.bin"), { recursive: true });
-  symlinkSync(
-    join(ROOT, "node_modules/.bin/commitlint"),
-    join(f.root, "node_modules/.bin/commitlint"),
-  );
-  const runner = f.write(
-    "node_modules/.bin/lefthook",
-    `#!/bin/sh\nexec '${LEFTHOOK.replaceAll("'", "'\\''")}' "$@"\n`,
-  );
+  symlinkSync(join(ROOT, "node_modules/.bin/commitlint"), join(f.root, "node_modules/.bin/commitlint"));
+  const runner = f.write("node_modules/.bin/lefthook", `#!/bin/sh\nexec '${LEFTHOOK.replaceAll("'", "'\\''")}' "$@"\n`);
   chmodSync(runner, 0o755);
   const result = f.commit();
   assert.notEqual(result.status, 0);

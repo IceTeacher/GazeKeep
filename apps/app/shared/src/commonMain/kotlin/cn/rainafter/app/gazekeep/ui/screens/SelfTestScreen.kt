@@ -46,102 +46,102 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 internal fun SelfTestScreen(
-    state: ControllerState,
-    test: SelfTestState,
-    scope: CoroutineScope,
-    controller: GazeKeepController,
-    actions: PlatformActions,
-    onBack: () -> Unit,
-    onComplete: () -> Unit,
+  state: ControllerState,
+  test: SelfTestState,
+  scope: CoroutineScope,
+  controller: GazeKeepController,
+  actions: PlatformActions,
+  onBack: () -> Unit,
+  onComplete: () -> Unit,
 ) {
-    AppScaffold(
-        title = stringResource(Res.string.settings_self_test),
-        onBack = onBack,
-    ) { padding, scrollBehavior ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .nestedScroll(scrollBehavior.nestedScrollConnection)
-                .verticalScroll(rememberScrollState())
-                .padding(padding)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+  AppScaffold(
+    title = stringResource(Res.string.settings_self_test),
+    onBack = onBack,
+  ) { padding, scrollBehavior ->
+    Column(
+      modifier = Modifier
+        .fillMaxSize()
+        .nestedScroll(scrollBehavior.nestedScrollConnection)
+        .verticalScroll(rememberScrollState())
+        .padding(padding)
+        .padding(horizontal = 16.dp, vertical = 12.dp),
+      verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+      SmallTitle(
+        text = stringResource(Res.string.self_test_description),
+        textColor = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+        insideMargin = PaddingValues(start = 16.dp, top = 4.dp, bottom = 4.dp),
+      )
+
+      Card(modifier = Modifier.fillMaxWidth()) {
+        BasicComponent(
+          title = stringResource(
+            when (test.step) {
+              SelfTestStep.Looking -> Res.string.self_test_looking
+              SelfTestStep.Away -> Res.string.self_test_away
+              SelfTestStep.Complete -> Res.string.self_test_complete
+            },
+          ),
+          summary = test.attention?.let { attentionLabel(it) },
+        )
+      }
+
+      if (state.cameraGranted && test.step != SelfTestStep.Complete) {
+        Card(
+          modifier = Modifier.fillMaxWidth().height(240.dp),
+          cornerRadius = 16.dp,
         ) {
-            SmallTitle(
-                text = stringResource(Res.string.self_test_description),
-                textColor = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                insideMargin = PaddingValues(start = 16.dp, top = 4.dp, bottom = 4.dp),
-            )
-
-            Card(modifier = Modifier.fillMaxWidth()) {
-                BasicComponent(
-                    title = stringResource(
-                        when (test.step) {
-                            SelfTestStep.Looking -> Res.string.self_test_looking
-                            SelfTestStep.Away -> Res.string.self_test_away
-                            SelfTestStep.Complete -> Res.string.self_test_complete
-                        },
-                    ),
-                    summary = test.attention?.let { attentionLabel(it) },
-                )
-            }
-
-            if (state.cameraGranted && test.step != SelfTestStep.Complete) {
-                Card(
-                    modifier = Modifier.fillMaxWidth().height(240.dp),
-                    cornerRadius = 16.dp,
-                ) {
-                    actions.SelfTestPreview(Modifier.fillMaxSize())
-                }
-                SmallTitle(
-                    text = stringResource(Res.string.self_test_preview_hint),
-                    textColor = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    insideMargin = PaddingValues(start = 16.dp, top = 4.dp, bottom = 4.dp),
-                )
-            }
-
-            Spacer(Modifier.height(8.dp))
-            if (!state.cameraGranted) {
-                Button(
-                    onClick = actions::requestCameraPermission,
-                    colors = ButtonDefaults.buttonColorsPrimary(),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(stringResource(Res.string.self_test_camera_permission))
-                }
-            } else if (test.step == SelfTestStep.Complete) {
-                Button(
-                    onClick = {
-                        scope.launch {
-                            controller.setEnabled(true)
-                            onComplete()
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColorsPrimary(),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(stringResource(Res.string.self_test_enable))
-                }
-            } else {
-                Button(
-                    onClick = { scope.launch { controller.captureSelfTest() } },
-                    enabled = !test.running,
-                    colors = ButtonDefaults.buttonColorsPrimary(),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(stringResource(if (test.running) Res.string.m0_capturing else Res.string.self_test_capture))
-                }
-            }
-
-            Button(
-                onClick = actions::requestNotificationPermission,
-                colors = ButtonDefaults.buttonColors(),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(stringResource(Res.string.self_test_notification_permission))
-            }
-
-            Spacer(Modifier.height(16.dp))
+          actions.SelfTestPreview(Modifier.fillMaxSize())
         }
+        SmallTitle(
+          text = stringResource(Res.string.self_test_preview_hint),
+          textColor = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+          insideMargin = PaddingValues(start = 16.dp, top = 4.dp, bottom = 4.dp),
+        )
+      }
+
+      Spacer(Modifier.height(8.dp))
+      if (!state.cameraGranted) {
+        Button(
+          onClick = actions::requestCameraPermission,
+          colors = ButtonDefaults.buttonColorsPrimary(),
+          modifier = Modifier.fillMaxWidth(),
+        ) {
+          Text(stringResource(Res.string.self_test_camera_permission))
+        }
+      } else if (test.step == SelfTestStep.Complete) {
+        Button(
+          onClick = {
+            scope.launch {
+              controller.setEnabled(true)
+              onComplete()
+            }
+          },
+          colors = ButtonDefaults.buttonColorsPrimary(),
+          modifier = Modifier.fillMaxWidth(),
+        ) {
+          Text(stringResource(Res.string.self_test_enable))
+        }
+      } else {
+        Button(
+          onClick = { scope.launch { controller.captureSelfTest() } },
+          enabled = !test.running,
+          colors = ButtonDefaults.buttonColorsPrimary(),
+          modifier = Modifier.fillMaxWidth(),
+        ) {
+          Text(stringResource(if (test.running) Res.string.m0_capturing else Res.string.self_test_capture))
+        }
+      }
+
+      Button(
+        onClick = actions::requestNotificationPermission,
+        colors = ButtonDefaults.buttonColors(),
+        modifier = Modifier.fillMaxWidth(),
+      ) {
+        Text(stringResource(Res.string.self_test_notification_permission))
+      }
+
+      Spacer(Modifier.height(16.dp))
     }
+  }
 }

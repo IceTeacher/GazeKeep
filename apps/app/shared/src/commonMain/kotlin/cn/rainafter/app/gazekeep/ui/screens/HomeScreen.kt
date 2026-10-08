@@ -59,128 +59,149 @@ import top.yukonga.miuix.kmp.preference.SwitchPreference
 
 @Composable
 internal fun HomeScreen(
-    state: ControllerState,
-    scope: CoroutineScope,
-    controller: GazeKeepController,
-    onNavigate: (SettingsScreen) -> Unit,
+  state: ControllerState,
+  scope: CoroutineScope,
+  controller: GazeKeepController,
+  onNavigate: (SettingsScreen) -> Unit,
 ) {
-    AppScaffold(
-        title = stringResource(Res.string.app_title),
-        onBack = null,
-    ) { padding, scrollBehavior ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .nestedScroll(scrollBehavior.nestedScrollConnection)
-                .verticalScroll(rememberScrollState())
-                .padding(padding)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            if (!state.loaded) {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    BasicComponent(title = stringResource(Res.string.settings_loading))
-                }
-            } else {
-                state.notice?.let { notice ->
-                    NoticeCard(
-                        notice = notice,
-                        onClick = when (notice) {
-                            UiNotice.NeedsCamera, UiNotice.NeedsSelfTest -> {
-                                { onNavigate(SettingsScreen.SelfTest) }
-                            }
-
-                            UiNotice.EmptyScope -> {
-                                { onNavigate(SettingsScreen.Scope) }
-                            }
-
-                            UiNotice.SaveFailed -> null
-                        },
-                    )
-                }
-
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    SwitchPreference(
-                        title = stringResource(Res.string.app_title),
-                        checked = state.config.enabled,
-                        summary = stringResource(
-                            if (!state.config.enabled) {
-                                Res.string.settings_off
-                            } else if (state.serviceRunning) {
-                                Res.string.settings_running
-                            } else {
-                                Res.string.settings_waiting
-                            },
-                        ),
-                        onCheckedChange = { enabled ->
-                            scope.launch {
-                                controller.setEnabled(enabled)
-                                if (controller.state.value.notice in listOf(UiNotice.NeedsCamera, UiNotice.NeedsSelfTest)) {
-                                    onNavigate(SettingsScreen.SelfTest)
-                                }
-                            }
-                        },
-                    )
-                    state.lastDecision?.let { decision ->
-                        BasicComponent(
-                            title = stringResource(Res.string.settings_last_decision),
-                            summary = attentionLabel(decision),
-                        )
-                    }
-                }
-
-                SettingsGroupTitle(text = stringResource(Res.string.settings_group_basic))
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    ArrowPreference(
-                        title = stringResource(Res.string.settings_backend),
-                        summary = backendLabel(state.activeBackend, state.config.backendLock),
-                        onClick = { onNavigate(SettingsScreen.Backend) },
-                    )
-                    ArrowPreference(
-                        title = stringResource(Res.string.settings_detection),
-                        summary = stringResource(
-                            if (state.config.leadMillis == 5_000L) Res.string.settings_lead_5 else Res.string.settings_lead_8,
-                        ) + " · " + stringResource(
-                            if (state.config.sensitivity == Sensitivity.Standard) Res.string.settings_standard else Res.string.settings_loose,
-                        ),
-                        onClick = { onNavigate(SettingsScreen.Detection) },
-                    )
-                    ArrowPreference(
-                        title = stringResource(Res.string.settings_scope),
-                        summary = if (state.config.whitelistEnabled) {
-                            stringResource(Res.string.settings_app_count, state.config.packages.size)
-                        } else {
-                            stringResource(Res.string.settings_off)
-                        },
-                        onClick = { onNavigate(SettingsScreen.Scope) },
-                    )
-                }
-
-                SettingsGroupTitle(text = stringResource(Res.string.settings_group_security))
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    ArrowPreference(
-                        title = stringResource(Res.string.settings_protection),
-                        summary = stringResource(Res.string.settings_max_hold) + " " + state.config.maxHoldMinutes + " 分钟",
-                        onClick = { onNavigate(SettingsScreen.Protection) },
-                    )
-                    ArrowPreference(
-                        title = stringResource(Res.string.settings_privacy),
-                        summary = stringResource(Res.string.settings_privacy_commitments),
-                        onClick = { onNavigate(SettingsScreen.Privacy) },
-                    )
-                }
-
-                SettingsGroupTitle(text = stringResource(Res.string.settings_group_tools))
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    ArrowPreference(
-                        title = stringResource(Res.string.settings_self_test),
-                        summary = if (state.cameraGranted) stringResource(Res.string.settings_ready) else stringResource(Res.string.settings_need_camera),
-                        onClick = { onNavigate(SettingsScreen.SelfTest) },
-                    )
-                }
-
-                Spacer(Modifier.height(16.dp))
-            }
+  AppScaffold(
+    title = stringResource(Res.string.app_title),
+    onBack = null,
+  ) { padding, scrollBehavior ->
+    Column(
+      modifier = Modifier
+        .fillMaxSize()
+        .nestedScroll(scrollBehavior.nestedScrollConnection)
+        .verticalScroll(rememberScrollState())
+        .padding(padding)
+        .padding(horizontal = 16.dp, vertical = 12.dp),
+      verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+      if (!state.loaded) {
+        Card(modifier = Modifier.fillMaxWidth()) {
+          BasicComponent(title = stringResource(Res.string.settings_loading))
         }
+      } else {
+        state.notice?.let { notice ->
+          NoticeCard(
+            notice = notice,
+            onClick = when (notice) {
+              UiNotice.NeedsCamera, UiNotice.NeedsSelfTest -> {
+                { onNavigate(SettingsScreen.SelfTest) }
+              }
+
+              UiNotice.EmptyScope -> {
+                { onNavigate(SettingsScreen.Scope) }
+              }
+
+              UiNotice.SaveFailed -> null
+            },
+          )
+        }
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+          SwitchPreference(
+            title = stringResource(Res.string.app_title),
+            checked = state.config.enabled,
+            summary = stringResource(
+              if (!state.config.enabled) {
+                Res.string.settings_off
+              } else if (state.serviceRunning) {
+                Res.string.settings_running
+              } else {
+                Res.string.settings_waiting
+              },
+            ),
+            onCheckedChange = { enabled ->
+              scope.launch {
+                controller.setEnabled(enabled)
+                if (controller.state.value.notice in
+                  listOf(UiNotice.NeedsCamera, UiNotice.NeedsSelfTest)
+                ) {
+                  onNavigate(SettingsScreen.SelfTest)
+                }
+              }
+            },
+          )
+          state.lastDecision?.let { decision ->
+            BasicComponent(
+              title = stringResource(Res.string.settings_last_decision),
+              summary = attentionLabel(decision),
+            )
+          }
+        }
+
+        SettingsGroupTitle(text = stringResource(Res.string.settings_group_basic))
+        Card(modifier = Modifier.fillMaxWidth()) {
+          ArrowPreference(
+            title = stringResource(Res.string.settings_backend),
+            summary = backendLabel(state.activeBackend, state.config.backendLock),
+            onClick = { onNavigate(SettingsScreen.Backend) },
+          )
+          ArrowPreference(
+            title = stringResource(Res.string.settings_detection),
+            summary = stringResource(
+              if (state.config.leadMillis ==
+                5_000L
+              ) {
+                Res.string.settings_lead_5
+              } else {
+                Res.string.settings_lead_8
+              },
+            ) + " · " + stringResource(
+              if (state.config.sensitivity ==
+                Sensitivity.Standard
+              ) {
+                Res.string.settings_standard
+              } else {
+                Res.string.settings_loose
+              },
+            ),
+            onClick = { onNavigate(SettingsScreen.Detection) },
+          )
+          ArrowPreference(
+            title = stringResource(Res.string.settings_scope),
+            summary = if (state.config.whitelistEnabled) {
+              stringResource(Res.string.settings_app_count, state.config.packages.size)
+            } else {
+              stringResource(Res.string.settings_off)
+            },
+            onClick = { onNavigate(SettingsScreen.Scope) },
+          )
+        }
+
+        SettingsGroupTitle(text = stringResource(Res.string.settings_group_security))
+        Card(modifier = Modifier.fillMaxWidth()) {
+          ArrowPreference(
+            title = stringResource(Res.string.settings_protection),
+            summary =
+            stringResource(Res.string.settings_max_hold) + " " + state.config.maxHoldMinutes + " 分钟",
+            onClick = { onNavigate(SettingsScreen.Protection) },
+          )
+          ArrowPreference(
+            title = stringResource(Res.string.settings_privacy),
+            summary = stringResource(Res.string.settings_privacy_commitments),
+            onClick = { onNavigate(SettingsScreen.Privacy) },
+          )
+        }
+
+        SettingsGroupTitle(text = stringResource(Res.string.settings_group_tools))
+        Card(modifier = Modifier.fillMaxWidth()) {
+          ArrowPreference(
+            title = stringResource(Res.string.settings_self_test),
+            summary = if (state.cameraGranted) {
+              stringResource(
+                Res.string.settings_ready,
+              )
+            } else {
+              stringResource(Res.string.settings_need_camera)
+            },
+            onClick = { onNavigate(SettingsScreen.SelfTest) },
+          )
+        }
+
+        Spacer(Modifier.height(16.dp))
+      }
     }
+  }
 }

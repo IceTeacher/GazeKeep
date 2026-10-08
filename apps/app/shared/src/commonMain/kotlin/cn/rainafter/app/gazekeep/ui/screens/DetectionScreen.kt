@@ -39,54 +39,84 @@ import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 
 @Composable
 internal fun DetectionScreen(
-    state: ControllerState,
-    scope: CoroutineScope,
-    controller: GazeKeepController,
-    onBack: () -> Unit,
+  state: ControllerState,
+  scope: CoroutineScope,
+  controller: GazeKeepController,
+  onBack: () -> Unit,
 ) {
-    AppScaffold(
-        title = stringResource(Res.string.settings_detection),
-        onBack = onBack,
-    ) { padding, scrollBehavior ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .nestedScroll(scrollBehavior.nestedScrollConnection)
-                .verticalScroll(rememberScrollState())
-                .padding(padding)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            SettingsGroupTitle(text = stringResource(Res.string.settings_detection))
-            Card(modifier = Modifier.fillMaxWidth()) {
-                OverlayDropdownPreference(
-                    title = stringResource(Res.string.settings_lead),
-                    summary = stringResource(Res.string.settings_lead_summary),
-                    items = listOf(stringResource(Res.string.settings_lead_5), stringResource(Res.string.settings_lead_8)),
-                    selectedIndex = if (state.config.leadMillis == 5_000L) 0 else 1,
-                    onSelectedIndexChange = { index ->
-                        scope.launch { controller.updateConfig { it.copy(leadMillis = if (index == 0) 5_000L else 8_000L) } }
-                    },
+  AppScaffold(
+    title = stringResource(Res.string.settings_detection),
+    onBack = onBack,
+  ) { padding, scrollBehavior ->
+    Column(
+      modifier = Modifier
+        .fillMaxSize()
+        .nestedScroll(scrollBehavior.nestedScrollConnection)
+        .verticalScroll(rememberScrollState())
+        .padding(padding)
+        .padding(horizontal = 16.dp, vertical = 12.dp),
+      verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+      SettingsGroupTitle(text = stringResource(Res.string.settings_detection))
+      Card(modifier = Modifier.fillMaxWidth()) {
+        OverlayDropdownPreference(
+          title = stringResource(Res.string.settings_lead),
+          summary = stringResource(Res.string.settings_lead_summary),
+          items = listOf(
+            stringResource(Res.string.settings_lead_5),
+            stringResource(Res.string.settings_lead_8),
+          ),
+          selectedIndex = if (state.config.leadMillis == 5_000L) 0 else 1,
+          onSelectedIndexChange = { index ->
+            scope.launch {
+              controller.updateConfig {
+                it.copy(
+                  leadMillis = if (index ==
+                    0
+                  ) {
+                    5_000L
+                  } else {
+                    8_000L
+                  },
                 )
-                OverlayDropdownPreference(
-                    title = stringResource(Res.string.settings_sensitivity),
-                    items = listOf(stringResource(Res.string.settings_standard), stringResource(Res.string.settings_loose)),
-                    selectedIndex = if (state.config.sensitivity == Sensitivity.Standard) 0 else 1,
-                    onSelectedIndexChange = { index ->
-                        scope.launch { controller.updateConfig { it.copy(sensitivity = if (index == 0) Sensitivity.Standard else Sensitivity.Loose) } }
-                    },
-                )
+              }
             }
-
-            SettingsGroupTitle(text = stringResource(Res.string.settings_failure_policy))
-            Card(modifier = Modifier.fillMaxWidth()) {
-                BasicComponent(
-                    title = stringResource(Res.string.settings_failure_policy),
-                    summary = stringResource(Res.string.settings_failure_summary),
+          },
+        )
+        OverlayDropdownPreference(
+          title = stringResource(Res.string.settings_sensitivity),
+          items = listOf(
+            stringResource(Res.string.settings_standard),
+            stringResource(Res.string.settings_loose),
+          ),
+          selectedIndex = if (state.config.sensitivity == Sensitivity.Standard) 0 else 1,
+          onSelectedIndexChange = { index ->
+            scope.launch {
+              controller.updateConfig {
+                it.copy(
+                  sensitivity = if (index ==
+                    0
+                  ) {
+                    Sensitivity.Standard
+                  } else {
+                    Sensitivity.Loose
+                  },
                 )
+              }
             }
+          },
+        )
+      }
 
-            Spacer(Modifier.height(16.dp))
-        }
+      SettingsGroupTitle(text = stringResource(Res.string.settings_failure_policy))
+      Card(modifier = Modifier.fillMaxWidth()) {
+        BasicComponent(
+          title = stringResource(Res.string.settings_failure_policy),
+          summary = stringResource(Res.string.settings_failure_summary),
+        )
+      }
+
+      Spacer(Modifier.height(16.dp))
     }
+  }
 }

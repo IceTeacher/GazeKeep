@@ -19,30 +19,36 @@ data class BackendReadinessSnapshot(val cameraGranted: Boolean, val backends: Ma
 
 /** 设置页只探测能力，不注册单客户端的运行回调。 */
 class BackendReadinessProbe(private val context: Context) {
-    private val lsposed = LsposedKeepAwakeBackend(context)
-    suspend fun read(): BackendReadinessSnapshot {
-        val lsposedReadiness = withContext(Dispatchers.IO) { lsposed.checkReadiness() }
-        val shizukuReadiness = runCatching {
-            when {
-                !Shizuku.pingBinder() -> Readiness.NeedsSetup(SetupStep.StartShizuku)
-                Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED -> Readiness.NeedsSetup(SetupStep.GrantShizukuPermission)
-                else -> Readiness.Ready
-            }
-        }.getOrDefault(Readiness.NeedsSetup(SetupStep.StartShizuku))
-        val expected = ComponentName(context, GazeA11yService::class.java).flattenToString()
-        val enabled = Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
-            .orEmpty().split(':').any { it.equals(expected, true) }
-        return BackendReadinessSnapshot(
-            cameraGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED,
-            backends = mapOf(
-                BackendId.Lsposed to lsposedReadiness,
-                BackendId.Shizuku to shizukuReadiness,
-                BackendId.Accessibility to if (enabled && GazeA11yService.connected.value) {
-                    Readiness.Ready
-                } else {
-                    Readiness.NeedsSetup(SetupStep.EnableAccessibilityService)
-                },
-            ),
+  private val lsposed = LsposedKeepAwakeBackend(context)
+  suspend fun read(): BackendReadinessSnapshot {
+    val lsposedReadiness = withContext(Dispatchers.IO) { lsposed.checkReadiness() }
+    val shizukuReadiness = runCatching {
+      when {
+        !Shizuku.pingBinder() -> Readiness.NeedsSetup(SetupStep.StartShizuku)
+
+        Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED -> Readiness.NeedsSetup(
+          SetupStep.GrantShizukuPermission,
         )
-    }
+
+        else -> Readiness.Ready
+      }
+    }.getOrDefault(Readiness.NeedsSetup(SetupStep.StartShizuku))
+    val expected = ComponentName(context, GazeA11yService::class.java).flattenToString()
+    val enabled = Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
+      .orEmpty().split(':').any { it.equals(expected, true) }
+    return BackendReadinessSnapshot(
+      cameraGranted =
+      ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+        PackageManager.PERMISSION_GRANTED,
+      backends = mapOf(
+        BackendId.Lsposed to lsposedReadiness,
+        BackendId.Shizuku to shizukuReadiness,
+        BackendId.Accessibility to if (enabled && GazeA11yService.connected.value) {
+          Readiness.Ready
+        } else {
+          Readiness.NeedsSetup(SetupStep.EnableAccessibilityService)
+        },
+      ),
+    )
+  }
 }

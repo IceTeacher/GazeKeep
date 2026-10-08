@@ -34,74 +34,82 @@ import kotlinx.coroutines.withContext
 import rikka.shizuku.Shizuku
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-class AndroidPlatformActions(private val activity: ComponentActivity, private val controller: AndroidGazeKeepController) : PlatformActions {
-    override fun requestCameraPermission() = ActivityCompat.requestPermissions(activity, arrayOf(Manifest.permission.CAMERA), 1001)
-    override fun requestNotificationPermission() {
-        if (Build.VERSION.SDK_INT >= 33) ActivityCompat.requestPermissions(activity, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1002)
+class AndroidPlatformActions(
+  private val activity: ComponentActivity,
+  private val controller: AndroidGazeKeepController,
+) : PlatformActions {
+  override fun requestCameraPermission() =
+    ActivityCompat.requestPermissions(activity, arrayOf(Manifest.permission.CAMERA), 1001)
+  override fun requestNotificationPermission() {
+    if (Build.VERSION.SDK_INT >=
+      33
+    ) {
+      ActivityCompat.requestPermissions(activity, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1002)
     }
-    override fun openAccessibilitySettings() {
-        activity.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+  }
+  override fun openAccessibilitySettings() {
+    activity.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+  }
+  override fun requestShizukuPermission() {
+    runCatching { if (Shizuku.pingBinder()) Shizuku.requestPermission(2301) }
+  }
+  override fun openShizukuApp() {
+    activity.packageManager.getLaunchIntentForPackage("moe.shizuku.privileged.api")?.let(activity::startActivity)
+  }
+
+  @Composable override fun HandleBack(enabled: Boolean, onBack: () -> Unit) {
+    androidx.activity.compose.BackHandler(enabled, onBack)
+  }
+
+  @Composable override fun SelfTestPreview(modifier: Modifier) {
+    AndroidView(modifier = modifier, factory = { context ->
+      PreviewView(context).apply {
+        implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+        this@AndroidPlatformActions.controller.setPreviewSurface(surfaceProvider)
+      }
+    }, update = { controller.setPreviewSurface(it.surfaceProvider) })
+    DisposableEffect(Unit) {
+      onDispose {
+        controller.setPreviewSurface(null)
+        controller.cancelSelfTest()
+      }
     }
-    override fun requestShizukuPermission() {
-        runCatching { if (Shizuku.pingBinder()) Shizuku.requestPermission(2301) }
-    }
-    override fun openShizukuApp() {
-        activity.packageManager.getLaunchIntentForPackage("moe.shizuku.privileged.api")?.let(activity::startActivity)
+  }
+
+  @Composable override fun AppIcon(packageName: String, modifier: Modifier) {
+    val context = LocalContext.current
+    val density = LocalDensity.current
+    val sizePx = remember(density) {
+      with(density) { 40.dp.roundToPx() }.coerceAtLeast(96)
     }
 
-    @Composable override fun HandleBack(enabled: Boolean, onBack: () -> Unit) {
-        androidx.activity.compose.BackHandler(enabled, onBack)
-    }
+    val cached = remember(packageName) { AppIconCache.get(packageName) }
+    var imageBitmap by remember(packageName) { mutableStateOf(cached) }
 
-    @Composable override fun SelfTestPreview(modifier: Modifier) {
-        AndroidView(modifier = modifier, factory = { context ->
-            PreviewView(context).apply {
-                implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-                this@AndroidPlatformActions.controller.setPreviewSurface(surfaceProvider)
-            }
-        }, update = { controller.setPreviewSurface(it.surfaceProvider) })
-        DisposableEffect(Unit) {
-            onDispose {
-                controller.setPreviewSurface(null)
-                controller.cancelSelfTest()
-            }
+    LaunchedEffect(packageName, sizePx) {
+      if (imageBitmap == null) {
+        val loaded = withContext(Dispatchers.IO) {
+          AppIconCache.loadBitmap(context, packageName, sizePx)
         }
+        imageBitmap = loaded
+      }
     }
 
-    @Composable override fun AppIcon(packageName: String, modifier: Modifier) {
-        val context = LocalContext.current
-        val density = LocalDensity.current
-        val sizePx = remember(density) {
-            with(density) { 40.dp.roundToPx() }.coerceAtLeast(96)
-        }
-
-        val cached = remember(packageName) { AppIconCache.get(packageName) }
-        var imageBitmap by remember(packageName) { mutableStateOf(cached) }
-
-        LaunchedEffect(packageName, sizePx) {
-            if (imageBitmap == null) {
-                val loaded = withContext(Dispatchers.IO) {
-                    AppIconCache.loadBitmap(context, packageName, sizePx)
-                }
-                imageBitmap = loaded
-            }
-        }
-
-        val shape = RoundedCornerShape(8.dp)
-        Box(
-            modifier = modifier
-                .clip(shape)
-                .background(MiuixTheme.colorScheme.surfaceContainerHigh),
-            contentAlignment = Alignment.Center,
-        ) {
-            val bitmap = imageBitmap
-            if (bitmap != null) {
-                Image(
-                    bitmap = bitmap,
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
-        }
+    val shape = RoundedCornerShape(8.dp)
+    Box(
+      modifier = modifier
+        .clip(shape)
+        .background(MiuixTheme.colorScheme.surfaceContainerHigh),
+      contentAlignment = Alignment.Center,
+    ) {
+      val bitmap = imageBitmap
+      if (bitmap != null) {
+        Image(
+          bitmap = bitmap,
+          contentDescription = null,
+          modifier = Modifier.fillMaxSize(),
+        )
+      }
     }
+  }
 }

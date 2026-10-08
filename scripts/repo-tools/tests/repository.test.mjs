@@ -17,11 +17,9 @@ function fixture(t) {
     return path;
   }
   function check(script) {
-    return spawnSync(
-      process.execPath,
-      [join(ROOT, "scripts/repo-tools/scripts", script), "--root", root],
-      { encoding: "utf8" },
-    );
+    return spawnSync(process.execPath, [join(ROOT, "scripts/repo-tools/scripts", script), "--root", root], {
+      encoding: "utf8",
+    });
   }
   function docs() {
     write(
@@ -52,8 +50,7 @@ test("计划日期一致", (t) => {
   const index = join(f.root, "docs/index.md");
   writeFileSync(
     index,
-    readFileSync(index, "utf8") +
-      "| [计划](plans/20261008-sample.md) | 计划 | 修改时 | 计划文档 | 2026-10-08 |\n",
+    readFileSync(index, "utf8") + "| [计划](plans/20261008-sample.md) | 计划 | 修改时 | 计划文档 | 2026-10-08 |\n",
   );
   assert.match(f.check("check-docs.mjs").stderr, /日期/);
   f.write("docs/plans/20261008-sample.md", "# 计划\n\n最后维护：2026-10-08\n");
@@ -96,10 +93,7 @@ test("检查移动后的模块规则和重复 skill name", (t) => {
   for (const name of ["apps/app", "apps/web", "scripts/repo-tools", "apps/app/core"])
     f.write(`${name}/AGENTS.md`, "# 模块规则\n");
   for (const name of ["first", "second"])
-    f.write(
-      `.agents/skills/${name}/SKILL.md`,
-      "---\nname: first\ndescription: 有效的技能描述\n---\n\n# 技能\n",
-    );
+    f.write(`.agents/skills/${name}/SKILL.md`, "---\nname: first\ndescription: 有效的技能描述\n---\n\n# 技能\n");
   assert.match(f.check("check-agent-assets.mjs").stderr, /重复/);
 });
 
@@ -120,10 +114,7 @@ test("架构检查阻断模块变动、非法依赖与源码目录错误", (t) =
   for (const m of modules) f.write(`apps/app/${m.replaceAll(":", "/")}/build.gradle.kts`, "");
   assert.equal(f.check("check-architecture.mjs").status, 0);
   f.write("apps/app/core/build.gradle.kts", 'implementation(project(":engine"))');
-  f.write(
-    "apps/app/core/src/commonMain/kotlin/wrong/Rule.kt",
-    "package correct\nimport android.os.PowerManager\n",
-  );
+  f.write("apps/app/core/src/commonMain/kotlin/wrong/Rule.kt", "package correct\nimport android.os.PowerManager\n");
   const result = f.check("check-architecture.mjs");
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /不应依赖/);
@@ -140,10 +131,7 @@ test("分类索引识别反引号路径并拒绝缺失、重复、越界和非�
   const f = fixture(t);
   f.docs();
   const index = join(f.root, "docs/index.md");
-  const base = readFileSync(index, "utf8").replace(
-    "[development.md](development.md)",
-    "`development.md`",
-  );
+  const base = readFileSync(index, "utf8").replace("[development.md](development.md)", "`development.md`");
   writeFileSync(index, base.replace("# 索引", "# 索引\n\n## 顶层规范"));
   assert.equal(f.check("check-docs.mjs").status, 0);
   for (const [path, date, expected] of [

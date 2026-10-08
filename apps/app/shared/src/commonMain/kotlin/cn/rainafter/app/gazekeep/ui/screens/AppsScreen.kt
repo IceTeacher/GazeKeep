@@ -50,141 +50,148 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 private fun AppListItem(
-    app: AppEntry,
-    isChecked: Boolean,
-    actions: PlatformActions,
-    onCheckedChange: (Boolean) -> Unit,
+  app: AppEntry,
+  isChecked: Boolean,
+  actions: PlatformActions,
+  onCheckedChange: (Boolean) -> Unit,
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        cornerRadius = 12.dp,
-    ) {
-        SwitchPreference(
-            title = app.label,
-            summary = app.packageName,
-            checked = isChecked,
-            startAction = {
-                actions.AppIcon(
-                    packageName = app.packageName,
-                    modifier = Modifier.size(40.dp),
-                )
-            },
-            onCheckedChange = onCheckedChange,
+  Card(
+    modifier = Modifier.fillMaxWidth(),
+    cornerRadius = 12.dp,
+  ) {
+    SwitchPreference(
+      title = app.label,
+      summary = app.packageName,
+      checked = isChecked,
+      startAction = {
+        actions.AppIcon(
+          packageName = app.packageName,
+          modifier = Modifier.size(40.dp),
         )
-    }
+      },
+      onCheckedChange = onCheckedChange,
+    )
+  }
 }
 
 @Composable
 internal fun AppsScreen(
-    state: ControllerState,
-    scope: CoroutineScope,
-    controller: GazeKeepController,
-    actions: PlatformActions,
-    onBack: () -> Unit,
+  state: ControllerState,
+  scope: CoroutineScope,
+  controller: GazeKeepController,
+  actions: PlatformActions,
+  onBack: () -> Unit,
 ) {
-    var search by rememberSaveable { mutableStateOf("") }
-    val filteredApps = remember(state.apps, search) {
-        if (search.isBlank()) {
-            state.apps
-        } else {
-            state.apps.filter {
-                it.label.contains(search, ignoreCase = true) || it.packageName.contains(search, ignoreCase = true)
-            }
-        }
+  var search by rememberSaveable { mutableStateOf("") }
+  val filteredApps = remember(state.apps, search) {
+    if (search.isBlank()) {
+      state.apps
+    } else {
+      state.apps.filter {
+        it.label.contains(search, ignoreCase = true) || it.packageName.contains(search, ignoreCase = true)
+      }
     }
+  }
 
-    AppScaffold(
-        title = stringResource(Res.string.settings_apps),
-        onBack = onBack,
-    ) { padding, scrollBehavior ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding()),
-        ) {
-            Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                TextField(
-                    value = search,
-                    onValueChange = { search = it },
-                    label = stringResource(Res.string.settings_search_apps),
-                    useLabelAsPlaceholder = true,
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    leadingIcon = {
-                        Icon(
-                            imageVector = MiuixIcons.Basic.Search,
-                            contentDescription = null,
-                            modifier = Modifier.padding(start = 12.dp, end = 4.dp),
-                            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        )
-                    },
-                    trailingIcon = if (search.isNotEmpty()) {
-                        {
-                            IconButton(
-                                onClick = { search = "" },
-                                modifier = Modifier.padding(end = 4.dp),
-                            ) {
-                                Icon(
-                                    imageVector = MiuixIcons.Basic.Close,
-                                    contentDescription = stringResource(Res.string.settings_search_clear),
-                                    tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                )
-                            }
-                        }
-                    } else {
-                        null
-                    },
-                )
-            }
-
-            SettingsGroupTitle(
-                text = stringResource(Res.string.settings_apps_selected, state.config.packages.size),
-                insideMargin = PaddingValues(start = 32.dp, top = 4.dp, bottom = 6.dp),
+  AppScaffold(
+    title = stringResource(Res.string.settings_apps),
+    onBack = onBack,
+  ) { padding, scrollBehavior ->
+    Column(
+      modifier = Modifier
+        .fillMaxSize()
+        .padding(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding()),
+    ) {
+      Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        TextField(
+          value = search,
+          onValueChange = { search = it },
+          label = stringResource(Res.string.settings_search_apps),
+          useLabelAsPlaceholder = true,
+          singleLine = true,
+          modifier = Modifier.fillMaxWidth(),
+          leadingIcon = {
+            Icon(
+              imageVector = MiuixIcons.Basic.Search,
+              contentDescription = null,
+              modifier = Modifier.padding(start = 12.dp, end = 4.dp),
+              tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             )
-
-            if (filteredApps.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(32.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = stringResource(if (state.apps.isEmpty()) Res.string.settings_loading else Res.string.settings_no_apps),
-                        style = MiuixTheme.textStyles.subtitle,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        textAlign = TextAlign.Center,
-                    )
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .nestedScroll(scrollBehavior.nestedScrollConnection),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    items(
-                        items = filteredApps,
-                        key = { it.packageName },
-                        contentType = { "app" },
-                    ) { app ->
-                        val isChecked = app.packageName in state.config.packages
-                        AppListItem(
-                            app = app,
-                            isChecked = isChecked,
-                            actions = actions,
-                            onCheckedChange = { selected ->
-                                scope.launch {
-                                    controller.updateConfig { config ->
-                                        config.copy(
-                                            packages = if (selected) config.packages + app.packageName else config.packages - app.packageName,
-                                        )
-                                    }
-                                }
-                            },
-                        )
-                    }
-                }
+          },
+          trailingIcon = if (search.isNotEmpty()) {
+            {
+              IconButton(
+                onClick = { search = "" },
+                modifier = Modifier.padding(end = 4.dp),
+              ) {
+                Icon(
+                  imageVector = MiuixIcons.Basic.Close,
+                  contentDescription = stringResource(Res.string.settings_search_clear),
+                  tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
+              }
             }
+          } else {
+            null
+          },
+        )
+      }
+
+      SettingsGroupTitle(
+        text = stringResource(Res.string.settings_apps_selected, state.config.packages.size),
+        insideMargin = PaddingValues(start = 32.dp, top = 4.dp, bottom = 6.dp),
+      )
+
+      if (filteredApps.isEmpty()) {
+        Box(
+          modifier = Modifier.fillMaxSize().padding(32.dp),
+          contentAlignment = Alignment.Center,
+        ) {
+          Text(
+            text = stringResource(
+              if (state.apps.isEmpty()) Res.string.settings_loading else Res.string.settings_no_apps,
+            ),
+            style = MiuixTheme.textStyles.subtitle,
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            textAlign = TextAlign.Center,
+          )
         }
+      } else {
+        LazyColumn(
+          modifier = Modifier
+            .fillMaxSize()
+            .nestedScroll(scrollBehavior.nestedScrollConnection),
+          contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
+          verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+          items(
+            items = filteredApps,
+            key = { it.packageName },
+            contentType = { "app" },
+          ) { app ->
+            val isChecked = app.packageName in state.config.packages
+            AppListItem(
+              app = app,
+              isChecked = isChecked,
+              actions = actions,
+              onCheckedChange = { selected ->
+                scope.launch {
+                  controller.updateConfig { config ->
+                    config.copy(
+                      packages = if (selected) {
+                        config.packages + app.packageName
+                      } else {
+                        config.packages -
+                          app.packageName
+                      },
+                    )
+                  }
+                }
+              },
+            )
+          }
+        }
+      }
     }
+  }
 }

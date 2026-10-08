@@ -61,6 +61,8 @@ scope 从 Android settings 的 Gradle 模块派生（冒号改为连字符），
 
 Lefthook 使用[官方入口配置](https://lefthook.dev/configuration/lefthook/)锁定根 node_modules 中的本地版本，不回退全局版本。pre-commit 仅对暂存文件运行 ktlint、Prettier、TOML 解析和 JS 语法检查；TS/TSX/JSX 使用 Prettier 解析。XML 保持 strict 空白语义，stage_fixed 更新格式结果；部分暂存隐藏与恢复由 Lefthook 负责。冲突与工具缺失阻断并保留恢复材料。
 
+源码格式为 UTF-8、LF、空格缩进 2、行宽 120。Kotlin 与 Gradle Kotlin DSL 由 ktlint 按根 `.editorconfig` 执行；Markdown、JSON、YAML、JavaScript 与 XML 由 Prettier 执行。`proseWrap` 保持 `preserve`，不重排既有段落。
+
 Prettier 配置在工具目录，Hook 使用显式路径，不向官网根级散落配置。完整构建、测试和实机验收不放进提交 Hook。format:check/format 是显式全仓工具，锁文件、wrapper 和生成物排除；日常只格式化本次文件，不制造无关源码 diff。
 
 ## 验证与发布边界

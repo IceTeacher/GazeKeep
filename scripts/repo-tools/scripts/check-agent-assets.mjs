@@ -7,9 +7,7 @@ export function violations(root) {
   const settings = join(root, "apps/app/settings.gradle.kts");
   const errors = [];
   if (!existsSync(settings)) return ["缺少 apps/app/settings.gradle.kts"];
-  const modules = [...readFileSync(settings, "utf8").matchAll(/include\(":([^"]+)"\)/g)].map(
-    (m) => m[1],
-  );
+  const modules = [...readFileSync(settings, "utf8").matchAll(/include\(":([^"]+)"\)/g)].map((m) => m[1]);
   const rules = [
     "AGENTS.md",
     "apps/app/AGENTS.md",
@@ -17,8 +15,7 @@ export function violations(root) {
     "scripts/repo-tools/AGENTS.md",
     ...modules.map((m) => `apps/app/${m.replaceAll(":", "/")}/AGENTS.md`),
   ].map((n) => join(root, n));
-  for (const rule of rules)
-    if (!existsSync(rule)) errors.push(`缺少模块规则：${relative(root, rule)}`);
+  for (const rule of rules) if (!existsSync(rule)) errors.push(`缺少模块规则：${relative(root, rule)}`);
   const dir = join(root, ".agents/skills");
   const skills = existsSync(dir)
     ? readdirSync(dir)

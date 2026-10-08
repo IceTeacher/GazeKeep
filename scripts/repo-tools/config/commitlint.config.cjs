@@ -2,9 +2,7 @@ const { readFileSync } = require("node:fs");
 const { join } = require("node:path");
 
 const modules = [
-  ...readFileSync(join(__dirname, "../../../apps/app/settings.gradle.kts"), "utf8").matchAll(
-    /include\(":([^"]+)"\)/g,
-  ),
+  ...readFileSync(join(__dirname, "../../../apps/app/settings.gradle.kts"), "utf8").matchAll(/include\(":([^"]+)"\)/g),
 ].map((match) => match[1].replaceAll(":", "-"));
 const types = [
   ["feat", "✨", "新增功能"],

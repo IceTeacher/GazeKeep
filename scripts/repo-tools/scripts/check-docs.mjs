@@ -64,11 +64,10 @@ export function linkErrors(root, files) {
   return errors;
 }
 function markdownFiles(root) {
-  const result = run(
-    "git",
-    ["-C", root, "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
-    { capture: true, check: false },
-  );
+  const result = run("git", ["-C", root, "ls-files", "--cached", "--others", "--exclude-standard", "-z"], {
+    capture: true,
+    check: false,
+  });
   const files =
     result.status === 0
       ? result.stdout
@@ -110,8 +109,7 @@ export function violations(root) {
     const target = resolve(dirname(index), decodeURIComponent(targetLink));
     if (!within(root, target) || (existsSync(target) && !within(root, realpathSync(target))))
       errors.push(`索引引用越出仓库：${targetLink}`);
-    else if (!existsSync(target) || !statSync(target).isFile())
-      errors.push(`索引引用不存在：${targetLink}`);
+    else if (!existsSync(target) || !statSync(target).isFile()) errors.push(`索引引用不存在：${targetLink}`);
     if (registrations.has(target)) errors.push(`索引重复登记：${relative(root, target)}`);
     registrations.set(target, cells[4]);
     if (!validDate(cells[4])) errors.push(`复核日期非法：${cells[0]}`);
@@ -119,13 +117,10 @@ export function violations(root) {
   const active = markdownFiles(root);
   for (const page of active) {
     const name = relative(root, page).split(sep).join("/");
-    if (name.startsWith("docs/") && page !== index && !registrations.has(page))
-      errors.push(`活动文档未登记：${name}`);
+    if (name.startsWith("docs/") && page !== index && !registrations.has(page)) errors.push(`活动文档未登记：${name}`);
     if (!name.startsWith("docs/plans/")) continue;
     const match = /^(\d{8})-[a-z0-9-]+\.md$/.exec(name.split("/").at(-1));
-    const dates = [
-      ...readFileSync(page, "utf8").matchAll(/^最后维护：(\d{4}-\d{2}-\d{2})\s*$/gm),
-    ].map((m) => m[1]);
+    const dates = [...readFileSync(page, "utf8").matchAll(/^最后维护：(\d{4}-\d{2}-\d{2})\s*$/gm)].map((m) => m[1]);
     if (!match || dates.length !== 1) errors.push(`计划文件名或维护日期行非法：${name}`);
     else if (match[1] !== dates[0].replaceAll("-", "") || registrations.get(page) !== dates[0])
       errors.push(`计划三处日期不一致：${name}`);

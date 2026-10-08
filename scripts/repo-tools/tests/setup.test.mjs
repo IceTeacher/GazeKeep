@@ -13,12 +13,8 @@ test("摘要不匹配与 HTTP 失败保留已安装工具，成功后原子替�
   writeFileSync(destination, "旧工具");
   const content = Buffer.from("新工具");
   const checksum = createHash("sha256").update(content).digest("hex");
-  const fetcher = (address) =>
-    Promise.resolve(new Response(address.endsWith(".sha256") ? checksum : "错误文件"));
-  await assert.rejects(
-    installKtlint({ destination, url: "https://example.invalid/tool.jar", fetcher }),
-    /摘要不匹配/,
-  );
+  const fetcher = (address) => Promise.resolve(new Response(address.endsWith(".sha256") ? checksum : "错误文件"));
+  await assert.rejects(installKtlint({ destination, url: "https://example.invalid/tool.jar", fetcher }), /摘要不匹配/);
   assert.equal(readFileSync(destination, "utf8"), "旧工具");
   await assert.rejects(
     installKtlint({

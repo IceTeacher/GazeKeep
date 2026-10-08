@@ -39,50 +39,54 @@ import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 
 @Composable
 internal fun ProtectionScreen(
-    state: ControllerState,
-    scope: CoroutineScope,
-    controller: GazeKeepController,
-    onBack: () -> Unit,
+  state: ControllerState,
+  scope: CoroutineScope,
+  controller: GazeKeepController,
+  onBack: () -> Unit,
 ) {
-    AppScaffold(
-        title = stringResource(Res.string.settings_protection),
-        onBack = onBack,
-    ) { padding, scrollBehavior ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .nestedScroll(scrollBehavior.nestedScrollConnection)
-                .verticalScroll(rememberScrollState())
-                .padding(padding)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            SettingsGroupTitle(text = stringResource(Res.string.settings_max_hold))
-            Card(modifier = Modifier.fillMaxWidth()) {
-                OverlayDropdownPreference(
-                    title = stringResource(Res.string.settings_max_hold),
-                    summary = stringResource(Res.string.settings_max_hold_summary),
-                    items = listOf(stringResource(Res.string.settings_hold_10), stringResource(Res.string.settings_hold_30), stringResource(Res.string.settings_hold_60)),
-                    selectedIndex = listOf(10, 30, 60).indexOf(state.config.maxHoldMinutes).coerceAtLeast(0),
-                    onSelectedIndexChange = { index ->
-                        scope.launch { controller.updateConfig { it.copy(maxHoldMinutes = listOf(10, 30, 60)[index]) } }
-                    },
-                )
-            }
+  AppScaffold(
+    title = stringResource(Res.string.settings_protection),
+    onBack = onBack,
+  ) { padding, scrollBehavior ->
+    Column(
+      modifier = Modifier
+        .fillMaxSize()
+        .nestedScroll(scrollBehavior.nestedScrollConnection)
+        .verticalScroll(rememberScrollState())
+        .padding(padding)
+        .padding(horizontal = 16.dp, vertical = 12.dp),
+      verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+      SettingsGroupTitle(text = stringResource(Res.string.settings_max_hold))
+      Card(modifier = Modifier.fillMaxWidth()) {
+        OverlayDropdownPreference(
+          title = stringResource(Res.string.settings_max_hold),
+          summary = stringResource(Res.string.settings_max_hold_summary),
+          items = listOf(
+            stringResource(Res.string.settings_hold_10),
+            stringResource(Res.string.settings_hold_30),
+            stringResource(Res.string.settings_hold_60),
+          ),
+          selectedIndex = listOf(10, 30, 60).indexOf(state.config.maxHoldMinutes).coerceAtLeast(0),
+          onSelectedIndexChange = { index ->
+            scope.launch { controller.updateConfig { it.copy(maxHoldMinutes = listOf(10, 30, 60)[index]) } }
+          },
+        )
+      }
 
-            SettingsGroupTitle(text = stringResource(Res.string.settings_group_security))
-            Card(modifier = Modifier.fillMaxWidth()) {
-                BasicComponent(
-                    title = stringResource(Res.string.settings_camera_pause),
-                    summary = stringResource(Res.string.settings_camera_pause_summary),
-                )
-                BasicComponent(
-                    title = stringResource(Res.string.settings_dark_pause),
-                    summary = stringResource(Res.string.settings_dark_pause_summary),
-                )
-            }
+      SettingsGroupTitle(text = stringResource(Res.string.settings_group_security))
+      Card(modifier = Modifier.fillMaxWidth()) {
+        BasicComponent(
+          title = stringResource(Res.string.settings_camera_pause),
+          summary = stringResource(Res.string.settings_camera_pause_summary),
+        )
+        BasicComponent(
+          title = stringResource(Res.string.settings_dark_pause),
+          summary = stringResource(Res.string.settings_dark_pause_summary),
+        )
+      }
 
-            Spacer(Modifier.height(16.dp))
-        }
+      Spacer(Modifier.height(16.dp))
     }
+  }
 }
