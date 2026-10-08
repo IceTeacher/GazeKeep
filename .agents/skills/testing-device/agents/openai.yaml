@@ -1,3 +1,0 @@
-interface:
-  display_name: "testing-device"
-  short_description: "验证 GazeKeep 真实相机、ROM、无障碍、Shizuku、LSPosed、系统超时恢复或跨组件完整旅程时使用，记录兼容证据与未执行条件。"

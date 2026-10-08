@@ -1,4 +1,3 @@
-docs/archive/
 **/build/
 .gradle/
 .kotlin/
@@ -9,3 +8,10 @@ pnpm-lock.yaml
 gradle/wrapper/
 gradlew
 gradlew.bat
+apps/app/gradle/wrapper/
+apps/app/gradlew
+apps/app/gradlew.bat
+**/dist/
+**/.next/
+**/.turbo/
+**/coverage/

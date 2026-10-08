@@ -1,8 +1,8 @@
 # 引擎与决策
 
-本页描述当前接口和转移，不用目标设计替代源码现状。策略目标仍受[安全承诺](../../AGENTS.md)约束。
+本页描述当前接口和转移，不用目标设计替代源码现状。策略目标仍受[安全承诺](../../apps/app/AGENTS.md#产品安全承诺)约束。
 
-## 当前接口
+## 接口与时序
 
 ```kotlin
 fun EngineReducer.reduce(snapshot: EngineSnapshot, event: EngineEvent, now: Long): Transition
@@ -13,7 +13,7 @@ snapshot 包含 state、context、config、backend、cameraPermissionGranted。c
 
 `KeepAwakeBackend` 提供 id、readiness，以及 suspend attach/detach/extend(token)/release。token 为 None 或 Seq(Long)，结果为 Done、Stale、Failed(Throwable)。`TimeoutOracle` 提供 source、deadlines Flow 和 millisUntilScreenOff()。
 
-`TimeoutDeadline` 保存 screenOffAtUptime、token、foregroundPackage、lastExternalActivityUptime、backend、screenDimAtUptime，时间统一 uptime。有效降亮时刻满足 0 < dim <= off；检测在 dim−lead 调度，未知时用 off−lead。不会为了检测修改系统降亮或熄屏设置。
+`TimeoutDeadline` 保存 screenOffAtUptime、token、foregroundPackage、lastExternalActivityUptime、backend、screenDimAtUptime，时间统一 uptime。有效降亮时刻满足 0 < dim <= off；检测在 dim−lead 调度，未知时用 off−lead。仅在 off−lead 检测可能造成长超时先降亮再恢复，因此保留真实 off，并优先在 dim−lead 检测；未知 dim 时不伪造精确时序。不会为了检测修改系统降亮或熄屏设置。
 
 ## 当前转移摘要
 
@@ -45,6 +45,6 @@ snapshot 包含 state、context、config、backend、cameraPermissionGranted。c
 
 Auto 在就绪后端中按 LSPosed→Shizuku→Accessibility 选择；锁定只选指定后端，不自动换到其他后端。切换先停止旧会话并释放资源，切换期不 Extend。Extend 连续失败通知本身不等于完成降级，降级取决于 readiness 与会话选择链路。
 
-HoldPolicy 计算上限，LeadBackoff 提供退避设置。当前 Gate Skip/MaxHold 分支未发 Release，尚不能证明无障碍持有锁必释放；退避缩 lead/帧数未完整接入。所有 Unknown 增加 darkUnknownStreak，并未单独归因暗光。以上是[维护缺口](../maintenance/overview.md)，不是新设计许可。
+HoldPolicy 计算上限，LeadBackoff 提供退避设置。当前 Gate Skip/MaxHold 分支未发 Release，尚不能证明无障碍持有锁必释放；退避缩 lead/帧数未完整接入。所有 Unknown 增加 darkUnknownStreak，并未单独归因暗光。以上是[任务清单](../../tasks/todo.md)，不是新设计许可。
 
 必须验证的七条不变量见[测试规范](../testing.md)。目标上限“必须熄一次”不能仅由不再采帧/Extend 的单测代替。

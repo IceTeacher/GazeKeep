@@ -1,22 +1,31 @@
-# 测试规范与证据
+# 测试规范
 
-## 分层与测试先行
+## 通用规则
 
 纯函数、reducer、解析、协议、配置和隔离协作使用主机测试；页面与平台交互用真实 UI 场景；相机、ROM 和特权后端用实机矩阵。fake 不证明硬件兼容，NO-SOURCE 不代表 UI 通过。
 
 行为改动先列正常、边界、失败、权限与恢复场景；可自动验证的逻辑先确认旧实现失败，再实现与回归。硬件/UI 先定义可复现场景，条件不足记录未执行。文档、格式和纯重命名记无行为例外；覆盖率只用于诊断，不写无价值用例。
 
-按需加载 [testing-unit](../.agents/skills/testing-unit/SKILL.md)、[testing-ui](../.agents/skills/testing-ui/SKILL.md)、[testing-device](../.agents/skills/testing-device/SKILL.md)。
+按需加载 [testing-unit](../.agents/skills/testing-unit/SKILL.md)、[testing-browser](../.agents/skills/testing-browser/SKILL.md)、[testing-e2e](../.agents/skills/testing-e2e/SKILL.md)。
+
+## 测试分层
+
+| 层次        | 对象                         | 入口与限制                              |
+| ----------- | ---------------------------- | --------------------------------------- |
+| Kotlin 主机 | core 规则及模块隔离协作      | Gradle 测试；不证明硬件兼容             |
+| Node 工具   | 路径、索引、Hook 与架构守卫  | `pnpm test:tools`，使用临时隔离 fixture |
+| 页面交互    | Android miuix 页面与生命周期 | 当前按设备场景验收，无自动化 UI 套件    |
+| 完整旅程    | 相机、ROM、三后端与超时恢复  | 真实组件，先核对设备操作授权            |
 
 ## 主机入口
 
 ```bash
-./gradlew :core:allTests
-./gradlew :engine:testDebugUnitTest :backend:a11y:testDebugUnitTest \
+pnpm --filter @gazekeep/app exec ./gradlew :core:allTests
+pnpm --filter @gazekeep/app exec ./gradlew :engine:testDebugUnitTest :backend:a11y:testDebugUnitTest \
   :backend:shizuku:testDebugUnitTest :xposed:testDebugUnitTest \
-  :androidApp:testDebugUnitTest
-./gradlew :shared:testAndroidHostTest
-python3 scripts/check_architecture.py
+  :android:testDebugUnitTest
+pnpm --filter @gazekeep/app exec ./gradlew :shared:testAndroidHostTest
+pnpm verify:architecture
 ```
 
 shared 当前没有行为测试，上述 host task 为 NO-SOURCE；backend:lsposed 和 bridge:protocol 当前没有专属行为测试，以组装、协议测试和实机补证，不能写成有独立测试套件。
@@ -53,10 +62,17 @@ shared 当前没有行为测试，上述 host task 为 NO-SOURCE；backend:lspos
 | 8 页导航/返回/字体/明暗/旋转     | 状态、可访问文字和布局可用                  |
 | 自检离页/后台、快速开关/冷启动   | 相机与任务释放，配置回读，关闭不意外重启    |
 
-基线小米 12 Pro 必测，另需非小米 Android 14 设备扩展验证。改分类器/阈值重跑 [M0 计数表](testing/m0-thresholds.md)：正视至少9/10、转头0/10 Looking、闭眼非 Looking。
+按 Android 版本、ROM、相机与后端能力选择设备，不以单一机型代表兼容范围。对不同系统超时分别验证降亮前检测、连续周期与停止注视后的熄屏。
 
-## 记录边界
+## 分类与页面场景
+
+- 分类器/阈值变更：正常光正视 10 次至少 9 次 Looking，转头 90° 十次均非 Looking，闭眼非 Looking；补充眼镜、暗光、多脸、侧脸及相机抢占。只记录计数和耗时，不保存画面或人脸特征。
+- 页面：覆盖八页导航/返回、字体/明暗/旋转、授权与未就绪原因、白名单搜索/选择/滚动、配置保存/冷启动、快速开关。
+- 自检：Looking→Away 才完成，Unknown 不推进；离页、后台、取消和关闭 Activity 后释放相机。
+- 网站：apps/web 尚未实现，无浏览器测试入口；不得把未建立的测试计作通过。
+
+## 记录与验收状态
 
 每条记录附日期、代码版本/APK、设备/ROM/Android、后端/框架版本、系统超时、前提、预期、实际结果和未执行原因。不保存人脸或原始 dump。
 
-历史记录原日期与结果保留，新版本结果追加，不用历史通过覆盖新版缺证。当前最新重构后的实机回归未完成，兼容表仍描述历史实测；状态缺口见[维护导航](maintenance/overview.md)。
+文档只维护当前版本的验收状态，不累积历史流水。当前版本完整实机回归未完成；每次交付在[任务清单](../tasks/todo.md)记录实际验证和缺失条件，发布说明列明该版本实测范围与命中候选。未执行、NO-SOURCE 和旧版本结果都不能写成当前通过。

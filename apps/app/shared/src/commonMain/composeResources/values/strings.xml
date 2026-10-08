@@ -1,0 +1,94 @@
+<resources>
+    <string name="app_title">注视保亮</string>
+    <string name="m0_capturing">检测中…</string>
+    <string name="m0_result_looking">在看</string>
+    <string name="m0_result_away">没在看</string>
+    <string name="m0_result_unknown">这次没看清</string>
+    <string name="m2_shizuku_needs_start">请先启动 Shizuku</string>
+    <string name="m2_shizuku_needs_permission">需要授予 Shizuku 权限</string>
+    <string name="m2_shizuku_request_permission">授权 GazeKeep</string>
+    <string name="m2_shizuku_refresh">重新检测</string>
+    <string name="m2_backend_auto_status">自动选择当前可用的后端</string>
+    <string name="m2_accessibility_unavailable">无障碍服务未启用</string>
+    <string name="m2_accessibility_open_settings">打开无障碍设置</string>
+    <string name="m3_lsposed_unavailable">LSPosed 尚未接入或需要重启</string>
+    <string name="settings_backend">当前后端</string>
+    <string name="settings_detection">检测</string>
+    <string name="settings_scope">范围</string>
+    <string name="settings_protection">保护</string>
+    <string name="settings_privacy">隐私</string>
+    <string name="settings_self_test">相机自检</string>
+    <string name="settings_back">返回</string>
+    <string name="settings_loading">正在读取设置…</string>
+    <string name="settings_off">已关闭</string>
+    <string name="settings_running">运行中</string>
+    <string name="settings_waiting">等待可用后端</string>
+    <string name="settings_auto">自动选择</string>
+    <string name="settings_lsposed">LSPosed</string>
+    <string name="settings_shizuku">Shizuku</string>
+    <string name="settings_accessibility">无障碍</string>
+    <string
+        name="settings_backend_order"
+    >自动选择按 LSPosed、Shizuku、无障碍的顺序使用就绪后端。</string>
+    <string name="settings_lead">检测提前量</string>
+    <string
+        name="settings_lead_summary"
+    >在系统降亮前留出检测时间，未知降亮点时在熄屏前检测。</string>
+    <string name="settings_lead_5">5 秒</string>
+    <string name="settings_lead_8">8 秒</string>
+    <string name="settings_sensitivity">灵敏度</string>
+    <string name="settings_standard">标准：正脸并睁眼</string>
+    <string name="settings_loose">宽松：有正脸即可</string>
+    <string name="settings_failure_policy">看不清就正常熄屏</string>
+    <string
+        name="settings_failure_summary"
+    >没有脸、侧脸、多张脸、光线太暗或相机失败，本轮都不会保亮。</string>
+    <string name="settings_whitelist">仅白名单应用</string>
+    <string name="settings_whitelist_summary">只有能确认当前应用在列表内时才保亮。</string>
+    <string name="settings_apps">应用列表</string>
+    <string name="settings_app_count">已选择 %1$d 个应用</string>
+    <string name="settings_search_apps">搜索应用名称或包名</string>
+    <string name="settings_no_apps">没有匹配的启动器应用</string>
+    <string name="settings_max_hold">单次最长保亮</string>
+    <string name="settings_max_hold_summary">到达上限后必须让屏幕按系统超时熄灭一次。</string>
+    <string name="settings_hold_10">10 分钟</string>
+    <string name="settings_hold_30">30 分钟</string>
+    <string name="settings_hold_60">60 分钟</string>
+    <string name="settings_camera_pause">相机占用时暂停</string>
+    <string
+        name="settings_camera_pause_summary"
+    >相机无法使用时放行系统熄屏，不与其他应用争用相机。</string>
+    <string name="settings_dark_pause">看不清时正常熄屏</string>
+    <string name="settings_dark_pause_summary">检测结果不可信时不保亮；不会因失败保持常亮。</string>
+    <string name="privacy_line_1">只在快要熄屏时打开前置摄像头，看完立刻关闭。</string>
+    <string name="privacy_line_2">画面只在内存里判断「在不在看」，不保存、不上传。</string>
+    <string name="privacy_line_3">看不清、没看清、旁边有别人，都会让屏幕正常熄灭。</string>
+    <string name="settings_version">GazeKeep 1.0</string>
+    <string name="settings_need_camera">请授权前置摄像头后完成自检。</string>
+    <string name="settings_need_self_test">完成正视和转头自检后才能开启。</string>
+    <string name="settings_empty_scope">白名单为空，当前不会保亮。请在范围中选择应用。</string>
+    <string name="settings_save_failed">设置未能保存，已停止检测。请重试。</string>
+    <string name="self_test_looking">第一步：正视手机</string>
+    <string name="self_test_away">第二步：转头或移开视线</string>
+    <string name="self_test_complete">自检已通过</string>
+    <string
+        name="self_test_description"
+    >自检期间停止保亮引擎。正视与转头都得到预期结果后，才能开启注视保亮。</string>
+    <string name="self_test_capture">检测这一步</string>
+    <string name="self_test_enable">完成并开启</string>
+    <string name="self_test_camera_permission">授权相机</string>
+    <string name="self_test_notification_permission">允许故障通知</string>
+    <string name="self_test_preview_hint">点击检测时才会出现短暂预览。</string>
+    <string name="settings_open_shizuku">打开 Shizuku</string>
+    <string name="settings_ready">已就绪</string>
+    <string name="settings_not_ready">尚未就绪，请检查授权或服务</string>
+    <string name="settings_group_basic">基础配置</string>
+    <string name="settings_group_security">安全与隐私</string>
+    <string name="settings_group_tools">诊断与工具</string>
+    <string name="settings_last_decision">最近检测</string>
+    <string name="settings_apps_selected">已选 %1$d 个应用</string>
+    <string name="settings_search_clear">清空</string>
+    <string name="settings_notice_title">需要注意</string>
+    <string name="settings_auto_current">自动选择（当前：%1$s）</string>
+    <string name="settings_privacy_commitments">隐私承诺</string>
+</resources>

@@ -3,18 +3,22 @@
 当前以唯一 APK 交付，App 进程完成检测与决策，特权侧只报告系统时序并执行保亮。术语见 [CONTEXT.md](../../CONTEXT.md)。
 
 ```text
-androidApp → shared → core
-androidApp → engine → core
-androidApp → backend:{a11y,shizuku,lsposed} → core
+android → shared → core
+android → engine → core
+android → backend:{a11y,shizuku,lsposed} → core
 backend:lsposed → bridge:protocol ← xposed
-androidApp → xposed（唯一 APK 打包）
+android → xposed（唯一 APK 打包）
 ```
+
+## 仓库分区
+
+Android 九模块统一位于 apps/app，内部依赖由 Gradle 管理。apps/web 仅预留官网，scripts/repo-tools 提供 Node 仓库工具；pnpm 管理开发依赖，Turbo 调度工程级任务，不取代引擎或模块依赖。Node 开发工具不进入 APK。
 
 ## 九模块职责
 
 | 模块            | 所有权与边界                                                                           |
 | --------------- | -------------------------------------------------------------------------------------- |
-| androidApp      | AppGraph 装配、controller、selftest、applist、platform、runtime、service、notification |
+| android         | AppGraph 装配、controller、selftest、applist、platform、runtime、service、notification |
 | shared          | KMP UI：contract、navigation、screens、components、text；只认识 core 和平台契约        |
 | core            | commonMain 纯 Kotlin：model、backend 接口、engine reducer、policy                      |
 | engine          | Android runtime/capture/camera/classify/gate/oracle/config；不依赖具体后端             |
@@ -32,4 +36,60 @@ androidApp → xposed（唯一 APK 打包）
 
 接口变化先改设计及真源再改调用方。AIDL、descriptor、transaction 编号、协议版本与字段顺序属于跨进程兼容边界。hidden-api 存根和现代 libxposed 入口尚未建立，不添加空模块伪装实现。
 
-资源所有者和源码导航见[维护导航](../maintenance/overview.md)，各模块细节按[索引](../index.md)加载。现有分层取舍见 [ADR 0001](../adr/0001-process-module-boundaries.md)。
+各模块细节按[索引](../index.md)加载。
+
+## 按要改的功能定位
+
+所有 Kotlin 包以 `cn.rainafter.app.gazekeep` 为根。下表从 `apps/app` 开始定位，省略这个前缀和 sourceSet 层级。
+
+| 要修改的内容           | 入口 / 负责目录                                         | 验证位置                                               |
+| ---------------------- | ------------------------------------------------------- | ------------------------------------------------------ |
+| 页面层级与返回         | shared/ui/App、navigation/SettingsNavigation            | UI 交互矩阵                                            |
+| 某个设置页面           | shared/ui/screens/对应 Screen                           | 核对文案、设置保存和页面交互                           |
+| 通用页面外观           | shared/ui/components                                    | 页面显示回归                                           |
+| UI 与 Android 的接口   | shared/ui/contract                                      | 不向 commonMain 引入 Android                           |
+| 保存配置、开关门禁     | android/controller、engine/config                       | engine ConfigStoreTest、core SetupPolicyTest           |
+| 自检与短时预览         | android/selftest、platform/AndroidPlatformActions       | 正视→转头、离页/后台取消                               |
+| 应用列表与图标         | android/applist                                         | 搜索/勾选、列表滚动、取消预读                          |
+| 启停服务               | android/runtime/ServiceActivation                       | 关闭取消待启动任务、冷启动回读                         |
+| 后端选择与 deadline    | android/runtime/BackendSession、runtime/BackendSelector | BackendSelectorTest、三种后端手工矩阵                  |
+| 引擎事件循环与副作用   | engine/runtime                                          | DefaultEngineEffectRunnerTest                          |
+| 决策转移               | core/engine/EngineReducer                               | core EngineReducerTest                                 |
+| 门控/投票/保亮上限     | core/policy                                             | core commonTest                                        |
+| 相机、帧分类           | engine/capture、camera、classify                        | 分类器/阈值变更重跑分类计数场景                        |
+| 无障碍与触摸           | backend/a11y                                            | A11ySignalsTest、无障碍实机矩阵                        |
+| Shizuku App 侧         | backend/shizuku/client                                  | 后端实机矩阵                                           |
+| Shizuku shell / Binder | backend/shizuku/ShellService、protocol                  | 保持类名、descriptor、字段顺序                         |
+| power 解析与超时恢复   | backend/shizuku/oracle、restore                         | PowerDumpParserTest、PowerDumpOracleTest、恢复手工矩阵 |
+| LSPosed App 侧         | backend/lsposed                                         | 桥接探测、掉线、升级兼容                               |
+| system_server 钩子     | xposed/entry、hook、power                               | xposed 单测、故意错签名仍可启动                        |
+| LSPosed 协议           | bridge/protocol                                         | 保留 protocol 包名、AIDL、版本与 transaction 编号      |
+| 通知与限频             | android/notification、res/values/strings.xml            | 通知权限、同类 10 分钟抑制                             |
+
+## 运行链路和资源所有者
+
+```text
+MainActivity → AppGraph → AndroidGazeKeepController
+                              ├─ ConfigStore → ServiceActivation → GazeService
+                              ├─ SelfTestCoordinator → AttentionCaptureSession
+                              └─ LaunchableAppsRepository
+
+GazeService → BackendSession
+               ├─ BackendSelector → 后端 + oracle → EngineEvent
+               ├─ GazeEngine → EngineReducer → DefaultEngineEffectRunner → EngineEvent
+               ├─ AttentionCaptureSession → CameraXFrameSource + MlKitFrameClassifier
+               ├─ 无障碍订阅、屏幕广播
+               └─ GazeNotifier
+```
+
+- Activity 关闭 controller：取消自检/图标任务和页面订阅；不会取消应用级已保存的启停任务。
+- Service 关闭 BackendSession：取消会话 scope、定时器、副作用和 deadline，注销广播/无障碍订阅，关闭相机/分类器，解绑后端。
+- Shizuku 系统超时恢复在独立清理任务中执行，不能放进即将取消的服务 scope。
+- RuntimeStatusStore 只发布运行状态；不能借它驱动保亮。决定是否 Extend 的唯一入口是 reducer。
+- MainActivity、GazeService、GazeA11yService、ShellService、LegacyEntry 的外部类名保持稳定。普通类的目录与包名保持一致；ShellService 留在 shizuku 根目录与根包，Binder descriptor 保持稳定。
+
+## 分层取舍与验证
+
+纯决策、App 推理与最小系统协议分离，增加少量装配成本以隔离 system_server 风险。系统侧不引入模型、相机、协程或文件 I/O。pnpm/Turbo 仅负责工程级工具编排，Gradle 管理九模块依赖与缓存，Node 工具不进入 APK。
+
+模块变动运行 `pnpm verify:architecture` 与 Android 综合门禁；接口、资源生命周期及设备行为按[测试规范](../testing.md)验证。当前能力差距集中在[任务清单](../../tasks/todo.md)。

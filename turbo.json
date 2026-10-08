@@ -1,0 +1,21 @@
+{
+  "$schema": "https://turborepo.dev/schema.json",
+  "remoteCache": { "enabled": false },
+  "globalPassThroughEnv": [
+    "JAVA_HOME",
+    "ANDROID_HOME",
+    "ANDROID_SDK_ROOT",
+    "GRADLE_USER_HOME",
+    "JAVA_OPTS",
+    "GRADLE_OPTS"
+  ],
+  "tasks": {
+    "build": { "cache": false },
+    "lint": { "cache": false },
+    "test": { "cache": false },
+    "verify": { "cache": false },
+    "verify:docs": { "cache": false },
+    "verify:agent-assets": { "cache": false },
+    "verify:architecture": { "cache": false }
+  }
+}

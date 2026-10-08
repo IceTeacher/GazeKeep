@@ -1,10 +1,12 @@
 # 采集与分类
 
+本页定义 CameraX 帧所有权、分类边界与纯投票规则，检测结果仅用于本轮保亮决策。
+
 ## 帧生命周期
 
 AttentionCaptureSession 在 FrameSource 的 analyzer 同步回调内调用分类器，结果只保留判定枚举；ImageProxy 不进入结果对象。CameraX 每帧 finally close，采集结束 unbindAll，取消异常继续传播。只有自检可附加 Preview。
 
-当前 CameraX 参数：640×480、YUV420、KEEP_ONLY_LATEST；150 ms 帧间隔；预热在少于两帧且未满 200 ms 时丢帧。采集最多三帧，投票已有可信结论可提前结束。打开时间预算和实际设备延迟不能混称，现有 M0 记录测到的是整次采集延迟。
+当前 CameraX 参数：640×480、YUV420、KEEP_ONLY_LATEST；150 ms 帧间隔；预热在少于两帧且未满 200 ms 时丢帧。采集最多三帧，投票已有可信结论可提前结束。打开时间预算和实际设备延迟不能混称，验收时分别记录相机打开与整次采集延迟，不能混用。
 
 相机占用、禁用、权限丢失、截止或错误中止时，已有 Looking 样本也不允许 Extend。异常释放与默认熄屏优先于获得新样本。
 
@@ -18,6 +20,6 @@ AttentionVoter 默认三帧取两票：两帧 Looking 才 Looking。NoFace、Fac
 
 ## 验证与变更
 
-改分类器、阈值或投票必须先改活动设计和最小失败用例，重跑 [M0 计数表](../testing/m0-thresholds.md)。正常光正视 10 次至少 9 次 Looking、转头 90° 十次均非 Looking、闭眼不 Looking；另外覆盖眼镜、暗光、多脸、侧脸与相机抢占。
+改分类器、阈值或投票必须先改活动设计和最小失败用例，重跑[分类计数场景](../testing.md#分类与页面场景)。正常光正视 10 次至少 9 次 Looking、转头 90° 十次均非 Looking、闭眼不 Looking；另外覆盖眼镜、暗光、多脸、侧脸与相机抢占。
 
-冻结基线来自对应版本与设备记录，不推广为其他 ROM 已通过。MediaPipe、Camera2 备用实现、独立相机打开延迟等尚无当前交付证据；历史目标和预算保留在[原架构归档](../archive/architecture/GazeKeep-架构设计.md)。
+每次验收附代码/APK 版本与设备条件，结果不推广到其他 ROM。MediaPipe、Camera2 备用实现尚未交付，当前版本的实机性能仍待验证。

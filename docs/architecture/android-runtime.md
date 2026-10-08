@@ -1,14 +1,16 @@
 # Android 运行组件与配置
 
+本页定义 App 装配、服务生命周期、配置持久化与异常通知的职责。
+
 ## 生命周期与所有权
 
 AppGraph 为装配根；AndroidGazeKeepController 委托配置、自检、应用列表、就绪探测和应用级启停。Activity 关闭 controller 取消页面订阅/自检/图标任务，不取消已保存的应用级启停任务。
 
 GazeService 适配生命周期，BackendSession 拥有 backend、oracle、engine、采集会话、屏幕广播和无障碍订阅。关闭会话取消定时/副作用/采集、注销订阅、释放相机/分类器并解绑后端。部分初始化失败也必须由已登记所有者清理。
 
-每次 onStartCommand 都兑现 startForeground。息屏保持 camera 前台服务空转，只释放检测资源；后台亮屏广播直接重启 camera FGS 的限制不能靠猜测绕过。具体决议见 [ADR 0005](../adr/0005-foreground-service-lifecycle.md)。RuntimeStatusStore 只发布状态，不驱动保亮。
+每次 onStartCommand 都兑现 startForeground。息屏保持 camera 前台服务空转，只释放检测资源；后台亮屏广播直接重启 camera FGS 的限制不能靠猜测绕过。保留空转服务是为了避免依赖后台广播重新启动 camera FGS；仍须验证存活与冷启动恢复。RuntimeStatusStore 只发布状态，不驱动保亮。
 
-## 当前配置
+## 配置与迁移
 
 ConfigStore 通过 Context 的单例 DataStore 委托打开 `gazekeep_settings`，UI 与 Service 共享。持久化字段为 enabled、backend_lock、lead_millis、sensitivity、whitelist_enabled、packages、max_hold_minutes、self_test_passed_at，另有迁移标记。
 
@@ -22,6 +24,10 @@ Shizuku 的 pendingTimeoutRestore 使用独立 `gazekeep_timeout_restore` Shared
 
 applicationId 为 cn.rainafter.app.gazekeep；相机、camera 前台服务和通知是现有申请能力，Shizuku Provider 与 Xposed 打包入口保持稳定。无障碍配置 canRetrieveWindowContent=false。
 
-当前没有目标示例中的 WAKE_LOCK、GET_USAGE_STATS、BootRecoveryReceiver 和电池优化权限，不把旧 Manifest 设计代码当成合并后的清单。最终权限必须从 APK 检查。
+当前未声明 WAKE_LOCK、GET_USAGE_STATS 和电池优化权限，未实现 BootRecoveryReceiver。最终权限必须从 APK 检查。
 
 GazeNotifier 的异常通知按同类 10 分钟限频；不在可信 Looking 时提示。DecisionRecord 当前是 uptime、包名、Attention、DecisionReason、backend、extended、latencyMs，运行状态只保存 lastDecision；完整调试日志和 24 小时滚动留存尚未交付。
+
+## 验证要求
+
+单一 DataStore 避免 UI 与 Service 缓存分裂；迁移只继承后端选择，不继承启用资格，以避免未经自检的静默启用。运行 ConfigStoreTest、BackendSelectorTest 及应用构建/lint；真实设备验证快速启停、部分初始化失败、息屏空转、冷启动回读和通知限频。

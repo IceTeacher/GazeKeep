@@ -1,0 +1,10 @@
+{
+  "name": "@gazekeep/app",
+  "private": true,
+  "scripts": {
+    "build": "node ../../scripts/repo-tools/scripts/android-task.mjs build",
+    "lint": "node ../../scripts/repo-tools/scripts/android-task.mjs lint",
+    "test": "node ../../scripts/repo-tools/scripts/android-task.mjs test",
+    "verify": "node ../../scripts/repo-tools/scripts/android-task.mjs verify"
+  }
+}

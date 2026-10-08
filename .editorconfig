@@ -9,6 +9,7 @@ indent_size = 4
 
 [*.{kt,kts}]
 ktlint_code_style = intellij_idea
+ktlint_function_naming_ignore_when_annotated_with = Composable
 
-[*.{json,yml,yaml,js,cjs,mjs}]
+[*.{json,yml,yaml,js,cjs,mjs,ts,tsx,jsx}]
 indent_size = 2

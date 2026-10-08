@@ -1,0 +1,3 @@
+interface:
+  display_name: "testing-e2e"
+  short_description: "设计或运行 GazeKeep 相机、ROM、三后端及系统超时恢复的真实完整旅程时加载；记录当前版本验收与未执行条件。"

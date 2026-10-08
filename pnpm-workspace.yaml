@@ -1,2 +1,6 @@
+packages:
+  - apps/*
+  - scripts/*
+
 allowBuilds:
   lefthook: false

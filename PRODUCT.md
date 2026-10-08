@@ -6,11 +6,11 @@ product
 
 ## Users
 
-在 Android 手机阅读和浏览，希望正视时延后熄屏的用户；小米 12 Pro / HyperOS 是当前验证基线。
+在 Android 手机阅读和浏览，希望正视时延后熄屏的用户。
 
 ## Product Purpose
 
-只有可信注视才延后一次超时，默认放行系统熄屏。产品范围以 [产品定义](docs/product.md) 为准，安全承诺以根 [AGENTS.md](AGENTS.md) 为准；实现缺口见[维护导航](docs/maintenance/overview.md)。
+只有可信注视才延后一次超时，默认放行系统熄屏。产品范围以 [产品定义](docs/product.md) 为准，安全承诺以 [Android 工程规则](apps/app/AGENTS.md#产品安全承诺) 为准；实现缺口见[任务清单](tasks/todo.md)。
 
 ## Brand Personality
 

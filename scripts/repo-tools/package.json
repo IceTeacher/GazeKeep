@@ -1,0 +1,17 @@
+{
+  "name": "@gazekeep/repo-tools",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "verify:docs": "node scripts/check-docs.mjs",
+    "verify:agent-assets": "node scripts/check-agent-assets.mjs",
+    "verify:architecture": "node scripts/check-architecture.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "lint": "node scripts/check-syntax.mjs",
+    "verify": "node scripts/verify.mjs"
+  },
+  "devDependencies": {
+    "smol-toml": "1.9.0",
+    "fast-xml-parser": "5.11.2"
+  }
+}

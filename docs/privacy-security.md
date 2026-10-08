@@ -1,6 +1,6 @@
 # 隐私与安全
 
-根 [AGENTS.md](../AGENTS.md) 的十条安全承诺是产品边界，现有实现差距不能改变承诺。本页维护隐私文案和各进程的安全要求。
+[Android 工程规则](../apps/app/AGENTS.md#产品安全承诺) 中的十条安全承诺是产品边界，现有实现差距不能改变承诺。本页维护隐私文案和各进程的安全要求。
 
 ## 隐私文案真源
 
@@ -8,9 +8,9 @@
 2. 画面只在内存里判断「在不在看」，不保存、不上传。
 3. 看不清、没看清、旁边有别人，都会让屏幕正常熄灭。
 
-资源 `shared/src/commonMain/composeResources/values/strings.xml` 中 `privacy_line_1`～`privacy_line_3` 必须与本页逐字一致。改文案同时维护本页和资源，不回写历史规划。
+资源 `apps/app/shared/src/commonMain/composeResources/values/strings.xml` 中 `privacy_line_1`～`privacy_line_3` 必须与本页逐字一致。改文案同时维护本页和资源，保持唯一真源。
 
-## 帧与权限
+## 数据与权限边界
 
 推理只在 App 进程。`ImageProxy` 不离开 analyzer 回调，不保存、长持缓冲、写日志或跨进程；每帧 finally close。唯一预览位于有步骤的自检页面，离页/取消即释放。
 
@@ -18,7 +18,7 @@
 
 ## 失败与特权进程
 
-Unknown、暗光、多脸、相机失败和任何链路中断都不保亮。上限默认 30 分钟，到点必须熄一次。当前 Hold 释放路径的差距见[待办](maintenance/overview.md)，不能将“不再 Extend”的单测等同于“实机已熄”。
+Unknown、暗光、多脸、相机失败和任何链路中断都不保亮。上限默认 30 分钟，到点必须熄一次。当前 Hold 释放路径的差距见[任务清单](../tasks/todo.md)，不能将“不再 Extend”的单测等同于“实机已熄”。
 
 system_server 候选逐个解析，签名失配不安装，异常不抛回系统；回调整体捕获 Throwable。PMS 锁内只计算与 Handler 投递，不调用 Binder、不取其他锁。禁止协程、DataStore、Compose、模型、相机与文件 I/O。
 

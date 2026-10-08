@@ -1,41 +1,31 @@
-# 工作与验收记录
+# 当前任务与验证
 
-只追加实际执行与未执行事实；详细设备证据保留在 docs/testing。本流水不替代测试记录。
+本页维护尚未完成的工作和最近一次交付验证，不累积历史流水。产品承诺不因实现缺口而降低。
 
-## 2026-10-08 仓库规范与开发门禁重组
+## 未完成事项
 
-- 范围：文档、九模块规则、六个 skills、readme 与 Lefthook；应用行为不变。
-- 实施与最终验证结果将在本轮完成后追加，当前不预写通过。
-- 后续：最新重构实机回归、Hold 上限/GateSkip 释放、Shizuku 持久化顺序、独立前台来源、传感器、退避、日志、现代入口与 Release R8。详见[维护导航](../docs/maintenance/overview.md)。
+- [ ] 补齐当前版本的完整实机/UI 回归：长超时、Unknown/多脸、触摸、相机抢占、后端切换/掉线、服务被杀及上限熄屏；按 Android、ROM 与后端能力选择设备，记录框架版本和实际钩点。
+- [ ] 修复 reducer 的 GateSkip/MaxHold 未发 Release，验证无障碍 Hold 到点释放并实际熄屏。
+- [ ] 为 Shizuku pendingTimeoutRestore 提供有结果的同步持久化保证，验证写入失败、重启、Binder 重连和息屏恢复。
+- [ ] 实现独立前台应用来源；当前白名单依赖无障碍，LSPosed topPackage 与 Shizuku 独立来源尚未落地。
+- [ ] 补齐 proximity/lux/faceDown 和实际相机占用门控，不能将摄像头存在视为可用。
+- [ ] 接入提前量/帧数退避，区分暗光 Unknown 与其他 Unknown。
+- [ ] 完整决策日志、默认关闭与 24 小时滚动清理。
+- [ ] 现代 libxposed 入口、hidden-api 存根及 Release R8/资源压缩验证。
+- [ ] 发布前补齐许可证、第三方依赖说明、签名与可分发 APK 验收。
+- [ ] Android Studio 重新同步后验证重复导入模型与 ListenableFuture 类路径问题；命令行构建成功不代表 IDE 已恢复。
+- [ ] 单独处理现存 Kotlin/Gradle 与 XML 格式问题，保持本次目录调整不扩展为源码格式重写。
 
-### 实施与工具验收追加
+## 本次规则调整（2026-10-08）
 
-- 已完成：根与九模块 AGENTS、活动专题与索引、五份 ADR、领域术语、英文维护入口、旧中文章节导航、三份原文归档、小写 readme、六个仓库 skills 和 Lefthook 门禁。
-- 历史证据：测试记录与兼容表沿用稳定路径、原日期和结果；增加新版缺证说明。归档比对确认除迁移链接外正文一致，十条安全承诺保留。
-- 工具准备：精确锁定 Node 工具、Ruff 与 ktlint；pnpm install --frozen-lockfile 和 tools:setup 成功。已执行 hooks:install、verify:hooks，本仓库 pre-commit / commit-msg 生效。
-- pnpm test:tools：13 项通过，包含 9 项真实临时 Git Hook 场景和 4 项文档/资产检查场景。覆盖合法/非法标题、重新暂存、部分暂存恢复、恢复冲突、工具缺失、删除/重命名、中文空格路径、实际多语言工具与 XML 文本保持。
-- 六个 skills 通过 skill-creator quick_validate；独立临时仓库验证单条与分组提交只读取暂存快照，未带入未暂存/未跟踪内容，未改变 HEAD 或暂存摘要。
-- pnpm verify:docs、verify:agent-assets、verify:architecture 通过；本次文件的 Prettier、Ruff、JS 语法与 TOML 解析检查通过，git diff --check 通过。
-- 测试先行：文档/资产检查用例先确认缺失实现失败，再实现通过；Hook 用隔离 Git fixture 验证实际提交行为。文档与纯路径迁移按无应用行为例外处理。
-- 未执行：应用行为单测、UI 自动化、设备安装/系统配置、实机矩阵和 Release 验证。本轮未修改应用行为或 Android 运行依赖，未新增 UI 测试依赖；最新重构实机回归仍待完成。
-- 后续产品任务保持前述待办；工具验收不替代保亮上限释放、Shizuku 恢复顺序或真实设备安全验收。
+- 完成：根 AGENTS.md 只保留通用协作规则与导航；Android 工程约束、十条安全承诺与验收要求下沉到 apps/app，各模块补充专属细节，统一继承链并修正安全承诺引用与 Skill 加载顺序。
+- 测试先行例外：纯规则文档重组，无应用行为变更，不新增测试或重跑 Android 构建。
+- 验证：十条安全承诺正文逐字一致，仅修正相对链接；九个模块继承链、规则归属与未完成事项保留核对通过；`pnpm verify:docs`、`pnpm verify:agent-assets`、受影响 Markdown 格式检查与 `git diff --check` 通过。
+- 未执行：应用行为测试、Android 构建、实机/UI 验收、设备操作和发布；本轮未提交或推送。
 
-### Android 组装验证追加
+## IDEA 与新目录状态复查（2026-10-08）
 
-- ./gradlew :androidApp:assembleDebug :androidApp:lintDebug：BUILD SUCCESSFUL，包含 bridge:protocol 的 AIDL 编译。现有 CameraX 和权限回调的弃用提示保留，未扩大本轮范围修改应用。
-- 本地 HEAD 与暂存区保持原状；本轮变更留在工作树供审查，未提交或推送。
-
-## 2026-10-08 提交与历史说明规范化
-
-- 用户明确要求提交本次更改，并在提交后按当前规范重写历史说明；该授权覆盖“默认不改写历史”的例外。
-- 实际首次提交被旧全局 Lefthook 2.1.10 阻断，HEAD 未变。随后在 lefthook.yml 显式绑定本地 2.1.17，入口检查补充本地绑定校验。
-- 新增入口抢占与本地执行器缺失回归场景，旧配置复现失败，新配置验证通过；pnpm test:tools 当前 14 项全部通过，pnpm verify:hooks 通过。
-- 历史范围为 main 的 7 条线性提交；无配置远端。改写前保存恢复引用，保留原始文件快照、作者、提交者、时间及父子关系，仅规范提交说明。
-
-### 提交与历史改写完成
-
-- 本次重组以 chore(dev-workflow) 提交，pre-commit 与 commit-msg 均实际通过；首次版本冲突修正包含在同一提交。
-- 已将 main 的 7 条历史说明改为当前 type(scope): emoji 中文格式，并将正文整理为基于原差异的中文说明；未重新宣称历史验证在本轮执行。
-- 恢复引用：refs/backup/commit-messages-20261008，保存本次提交后、历史改写前的完整链。
-- 改写阶段逐一核对 8 个提交的 tree、作者、提交者、时间和父子关系；文件快照与原元数据保持一致，8 条说明全部通过 commitlint。
-- 本完成记录补入最新提交，历史 7 个文件快照保持原状；没有推送操作，也未配置远端。
+- 现状：Gradle 工程已迁至 `apps/app`，应用模块名为 `:android`，IDEA `.idea/gradle.xml` 指向新根目录；`.idea/workspace.xml` 仍保留仓库根与 `apps/app` 两份 ExternalProjectsManager 状态。
+- 证据：idea-mcp 当前列出 126 个模块，包含 `GazeKeep.*`、`android.GazeKeep.*`、`app.GazeKeep.*` 三代前缀；引擎文件仍有 12 条 `ListenableFuture` 相关解析错误，而入口、UI 文件 ERROR 检查为空。重复模块与类路径错误吻合，但需清掉旧导入状态后验证因果。
+- 验证：在 `apps/app` 运行 `./gradlew :engine:compileDebugKotlin --rerun-tasks`，9 个任务实际执行并成功；仅 `setTargetResolution` 弃用提示。Gradle 缓存报告旧 `../android/settings.gradle.kts` 已删除，重建后本次编译通过。
+- 未完成：IDEA Gradle 模型仍含旧模块，编辑器错误未消失；IDEA 同步/模型清理后的验证、全文件诊断和设备验收未执行。源码未修改。

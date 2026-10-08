@@ -16,4 +16,4 @@ backend:shizuku 按 client、protocol、oracle、restore 分工。ShellService �
 
 前台应用门控当前由应用装配层使用无障碍来源，独立 UsageStats 来源尚未实现；不能承诺不开无障碍时白名单仍完整可用。
 
-验证入口为 PowerDumpParserTest、PowerDumpOracleTest 与[实机记录](../../testing/m2-shizuku.md)。样本只保留所需 power 字段并去序列号；重启/重连/息屏恢复、权限丢失和 Binder 断开需真实设备验证。
+验证入口为 PowerDumpParserTest、PowerDumpOracleTest 与[实机矩阵](../../testing.md#实机完整矩阵)。样本只保留所需 power 字段并去序列号；重启/重连/息屏恢复、权限丢失和 Binder 断开需真实设备验证。
