@@ -9,6 +9,7 @@ import cn.rainafter.app.gazekeep.backend.shizuku.ShellService
 import cn.rainafter.app.gazekeep.backend.shizuku.protocol.IGazeKeepShell
 import cn.rainafter.app.gazekeep.backend.shizuku.protocol.PowerSnapshot
 import cn.rainafter.app.gazekeep.backend.shizuku.restore.PendingTimeoutRestoreStore
+import cn.rainafter.app.gazekeep.backend.shizuku.restore.TimeoutRestoreCoordinator
 import cn.rainafter.app.gazekeep.core.backend.ExtendResult
 import cn.rainafter.app.gazekeep.core.backend.ExtendToken
 import cn.rainafter.app.gazekeep.core.backend.KeepAwakeBackend
@@ -18,22 +19,41 @@ import cn.rainafter.app.gazekeep.core.model.SetupStep
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import rikka.shizuku.Shizuku
 
 /** Shizuku 路径：优先在 shell UserService 内调用 IPowerManager.userActivity。 */
 class ShizukuKeepAwakeBackend(
   private val context: Context,
-  private val userServiceVersion: Int = 1,
+  private val userServiceVersion: Int = IGazeKeepShell.Stub.PROTOCOL_VERSION,
   private val fallbackExtensionMs: Int = 60_000,
 ) : KeepAwakeBackend {
   override val id: BackendId = BackendId.Shizuku
   private val _readiness = MutableStateFlow<Readiness>(Readiness.NeedsSetup(SetupStep.StartShizuku))
   override val readiness: StateFlow<Readiness> = _readiness.asStateFlow()
 
-  private var shell: IGazeKeepShell? = null
+  @Volatile private var shell: IGazeKeepShell? = null
   private var bound = false
   private var lastSequence = Long.MIN_VALUE
-  private val restoreStore = PendingTimeoutRestoreStore(context)
+
+  @Volatile private var ownActivityUptime: Long? = null
+  fun isExternalActivity(uptime: Long): Boolean = uptime != ownActivityUptime
+  private val restoreStore = PendingTimeoutRestoreStore.get(context)
+  private val operations = timeoutOperations
+
+  // 恢复任务归后端所有，不随检测会话取消。
+  private val recoveryScope = kotlinx.coroutines.CoroutineScope(
+    kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO,
+  )
+
+  private fun coordinator(remote: IGazeKeepShell) = TimeoutRestoreCoordinator(
+    restoreStore::read,
+    restoreStore::write,
+    restoreStore::clear,
+    remote::getScreenOffTimeout,
+    remote::setScreenOffTimeout,
+  )
 
   private val args = Shizuku.UserServiceArgs(ComponentName(context, ShellService::class.java))
     .daemon(false)
@@ -52,8 +72,18 @@ class ShizukuKeepAwakeBackend(
         return
       }
       shell = remote
-      _readiness.value = Readiness.Ready
-      restorePending(remote)
+      _readiness.value = Readiness.Unavailable("restoring original timeout")
+      recoveryScope.launch {
+        operations.withLock {
+          val restored = runCatching { coordinator(remote).restore() }.isSuccess
+          if (shell ===
+            remote
+          ) {
+            _readiness.value =
+              if (restored) Readiness.Ready else Readiness.Unavailable("timeout restore failed")
+          }
+        }
+      }
     }
 
     override fun onServiceDisconnected(name: ComponentName?) {
@@ -82,17 +112,28 @@ class ShizukuKeepAwakeBackend(
     }
     bound = false
     shell = null
+    recoveryScope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
     Shizuku.removeBinderReceivedListener(binderReceived)
     Shizuku.removeBinderDeadListener(binderDead)
     _readiness.value = Readiness.NeedsSetup(SetupStep.StartShizuku)
   }
 
-  override suspend fun extend(token: ExtendToken): ExtendResult {
+  override suspend fun extend(token: ExtendToken): ExtendResult =
+    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+      operations.withLock {
+        extendLocked(token)
+      }
+    }
+
+  private fun extendLocked(token: ExtendToken): ExtendResult {
+    if (_readiness.value != Readiness.Ready) return ExtendResult.Failed(IllegalStateException("shell not ready"))
     if (token is ExtendToken.Seq && token.value <= lastSequence) return ExtendResult.Stale
     val remote = shell ?: return ExtendResult.Failed(IllegalStateException("Shizuku shell unavailable"))
     if (token is ExtendToken.Seq) lastSequence = token.value
     return try {
-      remote.userActivity(android.os.SystemClock.uptimeMillis())
+      val activityAt = android.os.SystemClock.uptimeMillis()
+      remote.userActivity(activityAt)
+      ownActivityUptime = activityAt
       ExtendResult.Done
     } catch (error: Throwable) {
       if (error is SecurityException) {
@@ -109,31 +150,28 @@ class ShizukuKeepAwakeBackend(
     runCatching { remote.readPower() }.getOrNull()
   }
 
-  override suspend fun release() {
-    val remote = shell ?: return
-    val original = restoreStore.read() ?: return
-    runCatching {
-      remote.setScreenOffTimeout(original)
-      restoreStore.clear()
+  suspend fun foregroundPackage(): String? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+    if (_readiness.value != Readiness.Ready) null else runCatching { shell?.foregroundPackage() }.getOrNull()
+  }
+
+  override suspend fun release() = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+    operations.withLock {
+      val remote = shell ?: return@withLock
+      try {
+        coordinator(remote).restore()
+      } catch (error: Exception) {
+        _readiness.value = Readiness.Unavailable("timeout restore failed")
+        throw error
+      }
     }
   }
 
   private fun extendWithTimeout(remote: IGazeKeepShell): ExtendResult = runCatching {
-    val original = restoreStore.read() ?: remote.getScreenOffTimeout().also(restoreStore::write)
-    remote.setScreenOffTimeout((original + fallbackExtensionMs).coerceAtMost(Int.MAX_VALUE))
-    _readiness.value = Readiness.Ready
+    coordinator(remote).extend(fallbackExtensionMs)
     ExtendResult.Done
   }.getOrElse { fallbackError ->
     _readiness.value = Readiness.Unavailable("userActivity denied; timeout fallback failed")
     ExtendResult.Failed(fallbackError)
-  }
-
-  private fun restorePending(remote: IGazeKeepShell) {
-    val original = restoreStore.read() ?: return
-    runCatching {
-      remote.setScreenOffTimeout(original)
-      restoreStore.clear()
-    }
   }
 
   private fun refresh() {
@@ -152,5 +190,8 @@ class ShizukuKeepAwakeBackend(
         bound = false
         _readiness.value = Readiness.Unavailable("bind user service failed")
       }
+  }
+  private companion object {
+    val timeoutOperations = kotlinx.coroutines.sync.Mutex()
   }
 }

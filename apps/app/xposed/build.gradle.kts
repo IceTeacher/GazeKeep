@@ -15,6 +15,8 @@ android {
 dependencies {
   implementation(project(":bridge:protocol"))
   compileOnly(libs.xposed.api)
+  compileOnly(libs.libxposed.api)
+  compileOnly(project(":hidden-api-stubs"))
   testImplementation(libs.kotlin.testJunit)
   testImplementation(libs.junit)
 }

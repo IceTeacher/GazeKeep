@@ -11,6 +11,7 @@ data class EngineContext(
   val forcedYieldPending: Boolean = false,
   val extendFailures: Int = 0,
   val foregroundPackage: String? = null,
+  val captureLatencyMs: Long? = null,
 )
 
 data class EngineSnapshot(

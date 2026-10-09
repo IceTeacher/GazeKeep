@@ -109,10 +109,16 @@ test("架构检查阻断模块变动、非法依赖与源码目录错误", (t) =
     "backend:lsposed",
     "xposed",
     "bridge:protocol",
+    "hidden-api-stubs",
   ];
   f.write("apps/app/settings.gradle.kts", modules.map((m) => `include(":${m}")`).join("\n"));
   for (const m of modules) f.write(`apps/app/${m.replaceAll(":", "/")}/build.gradle.kts`, "");
   assert.equal(f.check("check-architecture.mjs").status, 0);
+  f.write("apps/app/xposed/build.gradle.kts", 'compileOnly(project(":hidden-api-stubs"))');
+  assert.equal(f.check("check-architecture.mjs").status, 0);
+  f.write("apps/app/xposed/build.gradle.kts", 'implementation(project(":hidden-api-stubs"))');
+  assert.match(f.check("check-architecture.mjs").stderr, /存根只能 compileOnly/);
+  f.write("apps/app/xposed/build.gradle.kts", "");
   f.write("apps/app/core/build.gradle.kts", 'implementation(project(":engine"))');
   f.write("apps/app/core/src/commonMain/kotlin/wrong/Rule.kt", "package correct\nimport android.os.PowerManager\n");
   const result = f.check("check-architecture.mjs");

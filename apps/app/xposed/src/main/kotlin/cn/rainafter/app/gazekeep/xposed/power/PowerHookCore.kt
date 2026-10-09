@@ -1,5 +1,6 @@
 package cn.rainafter.app.gazekeep.xposed.power
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Binder
 import android.os.Handler
@@ -178,7 +179,7 @@ class PowerHookCore(private val systemContext: Context) {
         timeout.seq,
         timeout.screenOffAt,
         timeout.screenDimAt,
-        null,
+        foregroundPackage(),
         timeout.lastExternalActivity,
       )
     }.onFailure { error ->
@@ -191,6 +192,17 @@ class PowerHookCore(private val systemContext: Context) {
       Log.w(TAG, "pre-timeout callback failed", error)
     }
   }
+
+  // 仅在 system_server 的 Handler 中执行；普通应用不调用，ROM 签名差异返回未知。
+  @SuppressLint("BlockedPrivateApi")
+  private fun foregroundPackage(): String? = runCatching {
+    val manager = Class.forName("android.app.ActivityTaskManager")
+    val instance = manager.getDeclaredMethod("getInstance").invoke(null) ?: return null
+    val method = manager.getDeclaredMethod("getTasks", Int::class.javaPrimitiveType)
+    val task = (method.invoke(instance, 1) as? List<*>)?.singleOrNull() ?: return null
+    val top = task.javaClass.getField("topActivity").get(task) as? android.content.ComponentName
+    top?.packageName
+  }.getOrNull()
 
   private fun invokeUserActivity(): Boolean {
     val now = SystemClock.uptimeMillis()

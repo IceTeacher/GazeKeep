@@ -24,14 +24,6 @@ class LegacyEntry : IXposedHookLoadPackage {
   }
 }
 
-private object SystemContextResolver {
-  fun resolve(classLoader: ClassLoader): Context? = runCatching {
-    val activityThread = Class.forName("android.app.ActivityThread", false, classLoader)
-    val thread = activityThread.getDeclaredMethod("currentActivityThread").invoke(null) ?: return null
-    activityThread.getDeclaredMethod("getSystemContext").invoke(thread) as? Context
-  }.getOrNull()
-}
-
 private class XposedHookFacade : HookFacade {
   override fun hookBefore(method: java.lang.reflect.Method, callback: (HookBeforeParam) -> Unit) {
     XposedBridge.hookMethod(

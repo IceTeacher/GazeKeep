@@ -5,8 +5,10 @@ import cn.rainafter.app.gazekeep.core.backend.ExtendToken
 import cn.rainafter.app.gazekeep.core.backend.TimeoutDeadline
 import cn.rainafter.app.gazekeep.core.model.Attention
 import cn.rainafter.app.gazekeep.core.model.BackendId
+import cn.rainafter.app.gazekeep.core.model.FrameVerdict
 import cn.rainafter.app.gazekeep.core.model.GazeConfig
 import cn.rainafter.app.gazekeep.core.policy.GateDecision
+import cn.rainafter.app.gazekeep.core.policy.SkipReason
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -130,6 +132,124 @@ class EngineReducerTest {
     )
     assertEquals(EngineState.Yielded(YieldReason.MaxHold), gate.snapshot.state)
     assertTrue(gate.effects.none { it is EngineEffect.StartCapture })
+    assertTrue(EngineEffect.Release in gate.effects)
+    assertTrue(gate.snapshot.context.forcedYieldPending)
+  }
+
+  @Test
+  fun skippedGateReleasesAnExistingHold() {
+    val result = EngineReducer.reduce(
+      ready(state = EngineState.Gating(deadline)),
+      EngineEvent.GateResult(GateDecision.Skip(SkipReason.CameraBusy)),
+      12_000L,
+    )
+    assertTrue(EngineEffect.Release in result.effects)
+  }
+
+  @Test
+  fun unrelatedUnknownDoesNotCountAsDarkness() {
+    val result = EngineReducer.reduce(
+      capturing(ready(context = EngineContext(darkUnknownStreak = 1))),
+      EngineEvent.CaptureFinished(Attention.Unknown, emptyList(), 500L),
+      13_000L,
+    )
+    assertEquals(0, result.snapshot.context.darkUnknownStreak)
+  }
+
+  @Test
+  fun forcedYieldIgnoresNewDeadlinesUntilScreenOffOrTouch() {
+    val result = EngineReducer.reduce(
+      ready(context = EngineContext(forcedYieldPending = true), state = EngineState.Yielded(YieldReason.MaxHold)),
+      EngineEvent.DeadlineUpdated(deadline),
+      0L,
+    )
+    assertEquals(EngineState.Yielded(YieldReason.MaxHold), result.snapshot.state)
+    assertTrue(result.effects.none { it is EngineEffect.ScheduleWake || it is EngineEffect.RunGates })
+  }
+
+  @Test
+  fun backoffUsesTwoFramesAndTheEffectiveLead() {
+    val start = ready(context = EngineContext(lookingStreak = 2))
+    val armed = EngineReducer.reduce(start, EngineEvent.DeadlineUpdated(deadline), 0L).snapshot
+    assertEquals(15_000L, assertIs<EngineState.Armed>(armed.state).wakeAt)
+    val gating = EngineReducer.reduce(armed, EngineEvent.WakeTimerFired, 15_000L).snapshot
+    val captured = EngineReducer.reduce(gating, EngineEvent.GateResult(GateDecision.Proceed), 15_000L)
+    assertEquals(2, captured.effects.filterIsInstance<EngineEffect.StartCapture>().single().plan.maxFrames)
+  }
+
+  @Test
+  fun holdTimerReleasesAndRejectsLateCaptureAndOldTimer() {
+    val active = capturing(ready(context = EngineContext(holdStartUptime = 100L)))
+    val expired = EngineReducer.reduce(active, EngineEvent.HoldLimitReached(100L), 1_800_100L)
+    assertEquals(EngineState.Yielded(YieldReason.MaxHold), expired.snapshot.state)
+    assertTrue(EngineEffect.Release in expired.effects)
+    val late = EngineReducer.reduce(
+      expired.snapshot,
+      EngineEvent.CaptureFinished(Attention.Looking, emptyList(), 10L),
+      1_800_101L,
+    )
+    assertTrue(late.effects.none { it is EngineEffect.Extend })
+    assertEquals(active, EngineReducer.reduce(active, EngineEvent.HoldLimitReached(99L), 200L).snapshot)
+  }
+
+  @Test
+  fun onlyTwoDarkVotesAccumulateDarkFailures() {
+    val frame = FrameVerdict.NotLooking(
+      FrameVerdict.Reason.TooDark,
+    )
+    val result = EngineReducer.reduce(
+      capturing(),
+      EngineEvent.CaptureFinished(Attention.Unknown, listOf(frame, frame), 20L),
+      13_000L,
+    )
+    assertEquals(1, result.snapshot.context.darkUnknownStreak)
+  }
+
+  @Test
+  fun oldCaptureTokenCannotExtendANewRound() {
+    val active = capturing()
+    val stale = EngineReducer.reduce(
+      active,
+      EngineEvent.CaptureFinished(Attention.Looking, emptyList(), 10L, ExtendToken.Seq(6L)),
+      13_000L,
+    )
+    assertEquals(active, stale.snapshot)
+    assertTrue(stale.effects.isEmpty())
+  }
+
+  @Test
+  fun independentExternalActivityResetsLimitAndCancelsOldCapture() {
+    val held =
+      ready(
+        context = EngineContext(holdStartUptime = 100L, forcedYieldPending = true, lastExternalActivityUptime = 10L),
+        state = EngineState.Yielded(YieldReason.MaxHold),
+      )
+    val touched = EngineReducer.reduce(
+      held,
+      EngineEvent.DeadlineUpdated(deadline.copy(lastExternalActivityUptime = 500L)),
+      500L,
+    )
+    assertFalse(touched.snapshot.context.forcedYieldPending)
+    assertEquals(null, touched.snapshot.context.holdStartUptime)
+    assertTrue(EngineEffect.CancelCapture in touched.effects)
+    assertTrue(EngineEffect.Release in touched.effects)
+    assertIs<EngineState.Armed>(touched.snapshot.state)
+  }
+
+  @Test
+  fun firstExtendSchedulesLimitAndOldWakeCannotStartNewWindow() {
+    val extending = EngineReducer.reduce(
+      capturing(),
+      EngineEvent.CaptureFinished(Attention.Looking, emptyList(), 25L),
+      13_000L,
+    ).snapshot
+    val done = EngineReducer.reduce(extending, EngineEvent.ExtendFinished(ExtendResult.Done), 13_001L)
+    assertEquals(
+      EngineEffect.ScheduleHoldLimit(13_001L, 1_813_001L),
+      done.effects.filterIsInstance<EngineEffect.ScheduleHoldLimit>().single(),
+    )
+    val armed = EngineReducer.reduce(ready(), EngineEvent.DeadlineUpdated(deadline), 0L).snapshot
+    assertEquals(armed, EngineReducer.reduce(armed, EngineEvent.ScheduledWakeFired(11_999L), 12_000L).snapshot)
   }
 
   @Test

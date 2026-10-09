@@ -5,8 +5,10 @@ import cn.rainafter.app.gazekeep.core.backend.TimeoutDeadline
 import cn.rainafter.app.gazekeep.core.backend.captureWakeAtUptime
 import cn.rainafter.app.gazekeep.core.model.Attention
 import cn.rainafter.app.gazekeep.core.model.BackendId
+import cn.rainafter.app.gazekeep.core.model.FrameVerdict
 import cn.rainafter.app.gazekeep.core.model.GazeConfig
 import cn.rainafter.app.gazekeep.core.policy.GateDecision
+import cn.rainafter.app.gazekeep.core.policy.LeadBackoff
 
 /**
  * 引擎唯一修改状态的入口；Android 侧只负责把副作用结果重新投递成事件。
@@ -16,16 +18,65 @@ object EngineReducer {
 
   fun reduce(snapshot: EngineSnapshot, event: EngineEvent, now: Long): Transition = when (event) {
     is EngineEvent.ConfigChanged -> configChanged(snapshot, event.config, now)
+
     is EngineEvent.BackendSelected -> backendChanged(snapshot, event.backend, now)
+
     EngineEvent.ScreenOff -> screenOff(snapshot)
+
     EngineEvent.ScreenOn, EngineEvent.KeyguardDismissed -> screenOn(snapshot)
+
     is EngineEvent.DeadlineUpdated -> deadlineUpdated(snapshot, event.deadline, now)
+
     EngineEvent.WakeTimerFired -> wakeTimer(snapshot)
+
+    is EngineEvent.ScheduledWakeFired -> if ((snapshot.state as? EngineState.Armed)?.wakeAt ==
+      event.atUptime
+    ) {
+      wakeTimer(snapshot)
+    } else {
+      Transition(snapshot)
+    }
+
+    is EngineEvent.HoldLimitReached -> if (snapshot.context.holdStartUptime ==
+      event.startUptime
+    ) {
+      maxHold(snapshot, now)
+    } else {
+      Transition(snapshot)
+    }
+
     is EngineEvent.UserActivity -> userActivity(snapshot, event.uptime)
-    is EngineEvent.GateResult -> gateResult(snapshot, event.result, now)
+
+    is EngineEvent.GateResult -> if (event.deadline != null &&
+      (snapshot.state as? EngineState.Gating)?.deadline != event.deadline
+    ) {
+      Transition(snapshot)
+    } else {
+      gateResult(
+        snapshot.copy(context = snapshot.context.copy(foregroundPackage = event.foregroundPackage)),
+        event.result,
+        now,
+      )
+    }
+
     is EngineEvent.CaptureFinished -> captureFinished(snapshot, event, now)
-    is EngineEvent.CaptureAborted -> captureAborted(snapshot, event.reason, now)
-    is EngineEvent.ExtendFinished -> extendFinished(snapshot, event.result, now)
+
+    is EngineEvent.CaptureAborted -> if (event.token != null &&
+      (snapshot.state as? EngineState.Capturing)?.deadline?.token != event.token
+    ) {
+      Transition(snapshot)
+    } else {
+      captureAborted(snapshot, event.reason, now, event.latencyMs)
+    }
+
+    is EngineEvent.ExtendFinished -> if (event.token != null &&
+      (snapshot.state as? EngineState.Extending)?.deadline?.token != event.token
+    ) {
+      Transition(snapshot)
+    } else {
+      extendFinished(snapshot, event.result, now)
+    }
+
     EngineEvent.CameraPermissionLost -> disabled(snapshot, Alert.CameraPermissionLost)
   }
 
@@ -57,18 +108,21 @@ object EngineReducer {
         },
       )
     } else {
-      val effects = if (snapshot.state is EngineState.Capturing || snapshot.state is EngineState.Extending) {
-        listOf(EngineEffect.CancelCapture, EngineEffect.CancelWake, EngineEffect.Release)
-      } else {
-        emptyList()
-      }
-      Transition(updated.copy(state = EngineState.Yielded(YieldReason.WaitingDeadline)), effects)
+      val effects =
+        listOf(EngineEffect.CancelCapture, EngineEffect.CancelWake, EngineEffect.CancelHoldLimit, EngineEffect.Release)
+      Transition(
+        updated.copy(
+          state = EngineState.Yielded(YieldReason.WaitingDeadline),
+          context = updated.context.copy(holdStartUptime = null, lookingStreak = 0, darkUnknownStreak = 0),
+        ),
+        effects,
+      )
     }
   }
 
   private fun screenOff(snapshot: EngineSnapshot): Transition = Transition(
-    snapshot.copy(state = EngineState.ScreenOff, context = snapshot.context.copy(holdStartUptime = null)),
-    listOf(EngineEffect.CancelCapture, EngineEffect.CancelWake, EngineEffect.Release),
+    snapshot.copy(state = EngineState.ScreenOff, context = EngineContext()),
+    listOf(EngineEffect.CancelCapture, EngineEffect.CancelWake, EngineEffect.CancelHoldLimit, EngineEffect.Release),
   )
 
   private fun screenOn(snapshot: EngineSnapshot): Transition {
@@ -90,9 +144,21 @@ object EngineReducer {
     ) {
       return Transition(snapshot)
     }
+    val external = deadline.lastExternalActivityUptime
+    if (external != null && external > (snapshot.context.lastExternalActivityUptime ?: -1L)) {
+      val activity = userActivity(snapshot, external)
+      val next = deadlineUpdated(activity.snapshot, deadline, now)
+      return next.copy(effects = activity.effects + next.effects)
+    }
+    if (snapshot.context.forcedYieldPending) return maxHold(snapshot, now)
     val remaining = deadline.screenOffAtUptime - now
     // 保留真实熄屏截止时间，只将检测提前到降亮之前。
-    val wakeAt = deadline.captureWakeAtUptime(snapshot.config.leadMillis)
+    val wakeAt = deadline.captureWakeAtUptime(
+      LeadBackoff.settings(
+        snapshot.config,
+        snapshot.context.lookingStreak,
+      ).leadMillis,
+    )
     val updated = snapshot.copy(context = snapshot.context.copy(foregroundPackage = deadline.foregroundPackage))
     return when {
       wakeAt > now -> {
@@ -108,7 +174,11 @@ object EngineReducer {
 
       else -> Transition(
         updated.copy(state = EngineState.Yielded(YieldReason.TooLate)),
-        listOf(EngineEffect.Record(updated.record(now, DecisionReason.TooLate, null, false, null))),
+        listOf(
+          EngineEffect.CancelCapture,
+          EngineEffect.Release,
+          EngineEffect.Record(updated.record(now, DecisionReason.TooLate, null, false, null)),
+        ),
       )
     }
   }
@@ -134,11 +204,12 @@ object EngineReducer {
       lastExternalActivityUptime = uptime,
       holdStartUptime = null,
       lookingStreak = 0,
+      darkUnknownStreak = 0,
       forcedYieldPending = false,
     )
     return Transition(
       snapshot.copy(state = EngineState.Yielded(YieldReason.WaitingDeadline), context = context),
-      listOf(EngineEffect.CancelCapture, EngineEffect.CancelWake),
+      listOf(EngineEffect.CancelCapture, EngineEffect.CancelWake, EngineEffect.CancelHoldLimit, EngineEffect.Release),
     )
   }
 
@@ -149,20 +220,16 @@ object EngineReducer {
       val next = snapshot.copy(state = EngineState.Yielded(YieldReason.Gate(result.reason)))
       return Transition(
         next,
-        listOf(EngineEffect.Record(next.record(now, DecisionReason.GateSkipped, null, false, null))),
+        listOf(
+          EngineEffect.Release,
+          EngineEffect.Record(
+            next.record(now, DecisionReason.GateSkipped, null, false, null).copy(skipReason = result.reason),
+          ),
+        ),
       )
     }
-    if (snapshot.context.forcedYieldPending) {
-      val next = snapshot.copy(
-        state = EngineState.Yielded(YieldReason.MaxHold),
-        context = snapshot.context.copy(forcedYieldPending = false),
-      )
-      return Transition(
-        next,
-        listOf(EngineEffect.Record(next.record(now, DecisionReason.MaxHold, null, false, null))),
-      )
-    }
-    val settings = cn.rainafter.app.gazekeep.core.policy.LeadBackoff.settings(
+    if (snapshot.context.forcedYieldPending || holdExpired(snapshot, now)) return maxHold(snapshot, now)
+    val settings = LeadBackoff.settings(
       snapshot.config,
       snapshot.context.lookingStreak,
     )
@@ -176,14 +243,26 @@ object EngineReducer {
 
   private fun captureFinished(snapshot: EngineSnapshot, event: EngineEvent.CaptureFinished, now: Long): Transition {
     val state = snapshot.state
-    if (state !is EngineState.Capturing) return Transition(snapshot)
+    if (state !is EngineState.Capturing ||
+      (event.token != null && state.deadline.token != event.token)
+    ) {
+      return Transition(snapshot)
+    }
+    if (holdExpired(snapshot, now)) return maxHold(snapshot, now)
     if (event.attention == Attention.Looking) {
       return Transition(
-        snapshot.copy(state = EngineState.Extending(state.deadline)),
+        snapshot.copy(
+          state = EngineState.Extending(state.deadline),
+          context = snapshot.context.copy(captureLatencyMs = event.latencyMs),
+        ),
         listOf(EngineEffect.Extend(state.deadline.token)),
       )
     }
-    val context = if (event.attention == Attention.Unknown) {
+    val dark = event.attention == Attention.Unknown && event.frames.count {
+      it is FrameVerdict.NotLooking &&
+        it.reason == FrameVerdict.Reason.TooDark
+    } >= 2
+    val context = if (dark) {
       snapshot.context.copy(lookingStreak = 0, darkUnknownStreak = snapshot.context.darkUnknownStreak + 1)
     } else {
       snapshot.context.copy(lookingStreak = 0, darkUnknownStreak = 0)
@@ -197,17 +276,36 @@ object EngineReducer {
       next,
       listOf(
         EngineEffect.Release,
-        EngineEffect.Record(next.record(now, reason, event.attention, false, event.latencyMs)),
+        EngineEffect.Record(
+          next.record(
+            now,
+            reason,
+            event.attention,
+            false,
+            event.latencyMs,
+          ).copy(
+            frameReason = event.frames.filterIsInstance<FrameVerdict.NotLooking>().firstOrNull()?.reason,
+          ),
+        ),
       ),
     )
   }
 
-  private fun captureAborted(snapshot: EngineSnapshot, reason: AbortReason, now: Long): Transition {
+  private fun captureAborted(
+    snapshot: EngineSnapshot,
+    reason: AbortReason,
+    now: Long,
+    latencyMs: Long? = null,
+  ): Transition {
     if (snapshot.state !is EngineState.Capturing) return Transition(snapshot)
     val next = snapshot.copy(state = EngineState.Yielded(YieldReason.Aborted(reason)))
     val effects = buildList {
       add(EngineEffect.Release)
-      add(EngineEffect.Record(next.record(now, DecisionReason.Aborted, null, false, null)))
+      add(
+        EngineEffect.Record(
+          next.record(now, DecisionReason.Aborted, null, false, latencyMs).copy(abortReason = reason),
+        ),
+      )
       if (reason == AbortReason.CameraInUse ||
         reason == AbortReason.CameraDisabled ||
         reason == AbortReason.PermissionLost ||
@@ -235,7 +333,18 @@ object EngineReducer {
         val next = snapshot.copy(state = EngineState.Yielded(YieldReason.WaitingDeadline), context = context)
         Transition(
           next,
-          listOf(EngineEffect.Record(next.record(now, DecisionReason.Extended, Attention.Looking, true, null))),
+          buildList {
+            if (snapshot.context.holdStartUptime ==
+              null
+            ) {
+              add(EngineEffect.ScheduleHoldLimit(start, start + snapshot.config.maxHoldMinutes * 60_000L))
+            }
+            add(
+              EngineEffect.Record(
+                next.record(now, DecisionReason.Extended, Attention.Looking, true, snapshot.context.captureLatencyMs),
+              ),
+            )
+          },
         )
       }
 
@@ -244,6 +353,7 @@ object EngineReducer {
         Transition(
           next,
           listOf(
+            EngineEffect.Release,
             EngineEffect.Record(next.record(now, DecisionReason.StaleExtend, Attention.Looking, false, null)),
           ),
         )
@@ -255,6 +365,7 @@ object EngineReducer {
           context = snapshot.context.copy(extendFailures = snapshot.context.extendFailures + 1),
         )
         val effects = buildList {
+          add(EngineEffect.Release)
           add(
             EngineEffect.Record(next.record(now, DecisionReason.FailedExtend, Attention.Looking, false, null)),
           )
@@ -265,11 +376,32 @@ object EngineReducer {
     }
   }
 
+  private fun holdExpired(snapshot: EngineSnapshot, now: Long): Boolean =
+    snapshot.context.holdStartUptime?.let { now - it >= snapshot.config.maxHoldMinutes * 60_000L } == true
+
+  private fun maxHold(snapshot: EngineSnapshot, now: Long): Transition {
+    val next = snapshot.copy(
+      state = EngineState.Yielded(YieldReason.MaxHold),
+      context = snapshot.context.copy(forcedYieldPending = true),
+    )
+    return Transition(
+      next,
+      listOf(
+        EngineEffect.CancelCapture,
+        EngineEffect.CancelWake,
+        EngineEffect.CancelHoldLimit,
+        EngineEffect.Release,
+        EngineEffect.Record(next.record(now, DecisionReason.MaxHold, null, false, null)),
+      ),
+    )
+  }
+
   private fun disabled(snapshot: EngineSnapshot, alert: Alert?): Transition {
     val next = snapshot.copy(state = EngineState.Disabled)
     val effects = buildList {
       add(EngineEffect.CancelCapture)
       add(EngineEffect.CancelWake)
+      add(EngineEffect.CancelHoldLimit)
       add(EngineEffect.Release)
       if (alert != null) add(EngineEffect.Notify(alert))
     }

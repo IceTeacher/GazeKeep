@@ -196,6 +196,9 @@ internal fun SettingsNavigation(
       )
 
       SettingsScreen.Privacy -> PrivacyScreen(
+        state = state,
+        scope = scope,
+        controller = controller,
         onBack = ::navigateBack,
       )
 

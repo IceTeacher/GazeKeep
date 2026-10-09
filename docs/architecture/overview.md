@@ -12,9 +12,9 @@ android → xposed（唯一 APK 打包）
 
 ## 仓库分区
 
-Android 九模块统一位于 apps/app，内部依赖由 Gradle 管理。apps/web 仅预留官网，scripts/repo-tools 提供 Node 仓库工具；pnpm 管理开发依赖，Turbo 调度工程级任务，不取代引擎或模块依赖。Node 开发工具不进入 APK。
+Android 九个运行模块与一个编译存根模块统一位于 apps/app，内部依赖由 Gradle 管理。apps/web 仅预留官网，scripts/repo-tools 提供 Node 仓库工具；pnpm 管理开发依赖，Turbo 调度工程级任务，不取代引擎或模块依赖。Node 开发工具不进入 APK。
 
-## 九模块职责
+## 十模块职责
 
 | 模块            | 所有权与边界                                                                           |
 | --------------- | -------------------------------------------------------------------------------------- |
@@ -63,6 +63,7 @@ Android 九模块统一位于 apps/app，内部依赖由 Gradle 管理。apps/we
 | power 解析与超时恢复   | backend/shizuku/oracle、restore                         | PowerDumpParserTest、PowerDumpOracleTest、恢复手工矩阵 |
 | LSPosed App 侧         | backend/lsposed                                         | 桥接探测、掉线、升级兼容                               |
 | system_server 钩子     | xposed/entry、hook、power                               | xposed 单测、故意错签名仍可启动                        |
+| 隐藏 API 编译存根      | hidden-api-stubs                                        | compileOnly，最终 DEX 不含存根类定义                   |
 | LSPosed 协议           | bridge/protocol                                         | 保留 protocol 包名、AIDL、版本与 transaction 编号      |
 | 通知与限频             | android/notification、res/values/strings.xml            | 通知权限、同类 10 分钟抑制                             |
 
@@ -90,6 +91,6 @@ GazeService → BackendSession
 
 ## 分层取舍与验证
 
-纯决策、App 推理与最小系统协议分离，增加少量装配成本以隔离 system_server 风险。系统侧不引入模型、相机、协程或文件 I/O。pnpm/Turbo 仅负责工程级工具编排，Gradle 管理九模块依赖与缓存，Node 工具不进入 APK。
+纯决策、App 推理与最小系统协议分离，增加少量装配成本以隔离 system_server 风险。系统侧不引入模型、相机、协程或文件 I/O。pnpm/Turbo 仅负责工程级工具编排，Gradle 管理十模块依赖与缓存，Node 工具不进入 APK。
 
 模块变动运行 `pnpm verify:architecture` 与 Android 综合门禁；接口、资源生命周期及设备行为按[测试规范](../testing.md)验证。当前能力差距集中在[任务清单](../../tasks/todo.md)。

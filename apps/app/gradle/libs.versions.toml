@@ -16,6 +16,7 @@ mlkitFace = "16.1.7"
 coroutines = "1.10.2"
 shizuku = "13.1.5"
 xposedApi = "82"
+libxposedApi = "102.0.0"
 hiddenApiBypass = "6.1"
 ktlint = "1.8.0"
 
@@ -42,6 +43,7 @@ kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-c
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 shizuku-api = { module = "dev.rikka.shizuku:api", version.ref = "shizuku" }
 shizuku-provider = { module = "dev.rikka.shizuku:provider", version.ref = "shizuku" }
+libxposed-api = { module = "io.github.libxposed:api", version.ref = "libxposedApi" }
 xposed-api = { module = "de.robv.android.xposed:api", version.ref = "xposedApi" }
 hidden-api-bypass = { module = "org.lsposed.hiddenapibypass:hiddenapibypass", version.ref = "hiddenApiBypass" }
 androidx-camera-view = { module = "androidx.camera:camera-view", version.ref = "camera" }

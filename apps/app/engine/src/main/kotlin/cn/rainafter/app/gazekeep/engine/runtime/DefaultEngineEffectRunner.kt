@@ -10,6 +10,7 @@ import cn.rainafter.app.gazekeep.core.engine.DecisionRecord
 import cn.rainafter.app.gazekeep.core.engine.EngineEffect
 import cn.rainafter.app.gazekeep.core.engine.EngineEvent
 import cn.rainafter.app.gazekeep.core.engine.EngineSnapshot
+import cn.rainafter.app.gazekeep.core.engine.EngineState
 import cn.rainafter.app.gazekeep.core.model.GazeConfig
 import cn.rainafter.app.gazekeep.core.policy.GateContext
 import cn.rainafter.app.gazekeep.core.policy.GatePolicy
@@ -20,6 +21,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import cn.rainafter.app.gazekeep.engine.camera.AbortReason as CameraAbortReason
 
 /** 所有异步副作用属于运行会话，关闭时先取消任务，再由会话释放硬件。 */
@@ -39,32 +41,50 @@ class DefaultEngineEffectRunner(
   private val jobs = kotlinx.coroutines.SupervisorJob(parentScope.coroutineContext[Job])
   private val scope = CoroutineScope(parentScope.coroutineContext + jobs)
   private var captureJob: Job? = null
+  private var gateJob: Job? = null
+  private var extendJob: Job? = null
+  private var holdJob: Job? = null
+  private val backendLock = kotlinx.coroutines.sync.Mutex()
   override suspend fun run(effect: EngineEffect, emit: (EngineEvent) -> Unit) {
     if (config.debugLogEnabled) Log.d(TAG, "effect=${effect::class.simpleName}")
     when (effect) {
       is EngineEffect.ScheduleWake -> {
         scheduler.cancel()
-        scheduler.schedule(effect.atUptime) { emit(EngineEvent.WakeTimerFired) }
+        scheduler.schedule(effect.atUptime) { emit(EngineEvent.ScheduledWakeFired(effect.atUptime)) }
       }
 
       EngineEffect.CancelWake -> scheduler.cancel()
 
-      is EngineEffect.RunGates -> scope.launch {
-        val snapshot = snapshot()
-        val input = gateProbe.collect(GateContext(snapshot?.context?.darkUnknownStreak ?: 0))
-        val decision = GatePolicy.decide(input, GateContext(snapshot?.context?.darkUnknownStreak ?: 0), config)
-        if (config.debugLogEnabled) {
-          Log.d(
-            TAG,
-            "gates interactive=${input.interactive} locked=${input.keyguardLocked} " +
-              "foreground=${input.foregroundPackage != null} decision=${decision::class.simpleName}",
-          )
+      is EngineEffect.ScheduleHoldLimit -> {
+        holdJob?.cancel()
+        holdJob = scope.launch {
+          kotlinx.coroutines.delay((effect.atUptime - android.os.SystemClock.uptimeMillis()).coerceAtLeast(0L))
+          emit(EngineEvent.HoldLimitReached(effect.startUptime))
         }
-        emit(EngineEvent.GateResult(decision))
+      }
+
+      EngineEffect.CancelHoldLimit -> holdJob?.cancel()
+
+      is EngineEffect.RunGates -> {
+        gateJob?.cancel()
+        gateJob = scope.launch {
+          val snapshot = snapshot()
+          val input = gateProbe.collect(GateContext(snapshot?.context?.darkUnknownStreak ?: 0))
+          val decision = GatePolicy.decide(input, GateContext(snapshot?.context?.darkUnknownStreak ?: 0), config)
+          if (config.debugLogEnabled) {
+            Log.d(
+              TAG,
+              "gates interactive=${input.interactive} locked=${input.keyguardLocked} " +
+                "foreground=${input.foregroundPackage != null} decision=${decision::class.simpleName}",
+            )
+          }
+          emit(EngineEvent.GateResult(decision, input.foregroundPackage, effect.deadline))
+        }
       }
 
       is EngineEffect.StartCapture -> {
         captureJob?.cancel()
+        val token = (snapshot()?.state as? EngineState.Capturing)?.deadline?.token
         captureJob = scope.launch {
           val result = try {
             capture(effect.plan)
@@ -75,7 +95,7 @@ class DefaultEngineEffectRunner(
             null
           }
           if (result == null) {
-            emit(EngineEvent.CaptureAborted(AbortReason.Error))
+            emit(EngineEvent.CaptureAborted(AbortReason.Error, token))
           } else {
             val outcome = result.outcome
             when (outcome) {
@@ -86,30 +106,49 @@ class DefaultEngineEffectRunner(
                     "capture attention=${result.attention} frames=${result.frames} elapsed=${result.elapsedMs}",
                   )
                 }
-                emit(EngineEvent.CaptureFinished(result.attention, result.frames, result.elapsedMs))
+                emit(EngineEvent.CaptureFinished(result.attention, result.frames, result.elapsedMs, token))
               }
 
               is CaptureOutcome.Aborted -> emit(
-                EngineEvent.CaptureAborted(outcome.reason.toEngineReason()),
+                EngineEvent.CaptureAborted(outcome.reason.toEngineReason(), token, result.elapsedMs),
               )
             }
           }
         }
       }
 
-      EngineEffect.CancelCapture -> captureJob?.cancel()
-
-      is EngineEffect.Extend -> scope.launch {
-        val result = backend()?.extend(effect.token)
-          ?: ExtendResult.Failed(IllegalStateException("backend unavailable"))
-        if (config.debugLogEnabled) Log.d(TAG, "extend result=${result::class.simpleName}")
-        if (result === ExtendResult.Done) {
-          onExtended()
-        }
-        emit(EngineEvent.ExtendFinished(result))
+      EngineEffect.CancelCapture -> {
+        captureJob?.cancel()
+        gateJob?.cancel()
+        extendJob?.cancel()
       }
 
-      EngineEffect.Release -> scope.launch { runCatching { backend()?.release() } }
+      is EngineEffect.Extend -> {
+        val selected = backend()
+        extendJob = scope.launch {
+          val result =
+            try {
+              backendLock.withLock { selected?.extend(effect.token) }
+            } catch (
+              error: CancellationException,
+            ) {
+              throw error
+            } catch (error: Exception) {
+              ExtendResult.Failed(error)
+            }
+              ?: ExtendResult.Failed(IllegalStateException("backend unavailable"))
+          if (config.debugLogEnabled) Log.d(TAG, "extend result=${result::class.simpleName}")
+          emit(EngineEvent.ExtendFinished(result, effect.token))
+          if (result === ExtendResult.Done) {
+            onExtended()
+          }
+        }
+      }
+
+      EngineEffect.Release -> {
+        val selected = backend()
+        backendLock.withLock { selected?.release() }
+      }
 
       is EngineEffect.Record -> onRecord(effect.record)
 

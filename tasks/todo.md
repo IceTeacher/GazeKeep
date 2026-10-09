@@ -1,30 +1,28 @@
 # 当前任务与验证
 
-本页维护尚未完成的工作和最近一次交付验证，不累积历史流水。产品承诺不因实现缺口而降低。
+本页只维护未完成事项与本次真实验证；实现和主机测试不替代实机验收。
 
 ## 未完成事项
 
-- [ ] 补齐当前版本的完整实机/UI 回归：长超时、Unknown/多脸、触摸、相机抢占、后端切换/掉线、服务被杀及上限熄屏；按 Android、ROM 与后端能力选择设备，记录框架版本和实际钩点。
-- [ ] 修复 reducer 的 GateSkip/MaxHold 未发 Release，验证无障碍 Hold 到点释放并实际熄屏。
-- [ ] 为 Shizuku pendingTimeoutRestore 提供有结果的同步持久化保证，验证写入失败、重启、Binder 重连和息屏恢复。
-- [ ] 实现独立前台应用来源；当前白名单依赖无障碍，LSPosed topPackage 与 Shizuku 独立来源尚未落地。
-- [ ] 补齐 proximity/lux/faceDown 和实际相机占用门控，不能将摄像头存在视为可用。
-- [ ] 接入提前量/帧数退避，区分暗光 Unknown 与其他 Unknown。
-- [ ] 完整决策日志、默认关闭与 24 小时滚动清理。
-- [ ] 现代 libxposed 入口、hidden-api 存根及 Release R8/资源压缩验证。
-- [ ] 发布前补齐许可证、第三方依赖说明、签名与可分发 APK 验收。
-- [ ] Android Studio 重新同步后验证重复导入模型与 ListenableFuture 类路径问题；命令行构建成功不代表 IDE 已恢复。
+- [ ] 修正首页相机自检摘要：当前仅授权相机、尚未通过 Looking→Away 时也显示“已就绪”；应根据 selfTestPassed 显示待自检。模拟器已复现，启用开关仍保持关闭。
+- [ ] 复现并排查实际采集中按 Home 后的相机释放延迟：本轮独立模拟器一次未在 3 秒检查阈值内释放，随后无残留；返回与撤销权限分别约 2.05 秒、0.45 秒释放。不能将无前置相机实例的无客户端结果作为生命周期成功证据。
 
-## 本次格式调整（2026-10-08）
+- [ ] 完成当前 APK 的实机/UI 矩阵：长超时降亮前检测、连续注视、Unknown/多脸、真实触摸、相机抢占、口袋/朝下、后端切换/掉线与服务被杀。重点验证无障碍 Hold 上限释放后实际熄一次；分别记录 Android、ROM、系统超时、后端/框架版本和实际钩点。
+- [ ] 完成 Shizuku 原系统超时恢复的实机验收：临时延长、屏灭、进程被杀、Binder 重连及 Shizuku 重启。同步持久化失败、恢复读回失败和重试已由隔离测试覆盖，真实恢复仍未验证。设备/框架重启不在本次授权内。
+- [ ] 完成正式签名与可分发 APK 验收：提供正式签名配置后验证签名、安装升级与压缩包运行，补齐对应版本发布说明及第三方条款复核。MIT 与当前运行依赖声明已落地；未配置正式签名的 Release 为 unsigned，本次未发布。
 
-- 完成：源码格式改为 UTF-8、LF、空格缩进 2、行宽 120。根 `.editorconfig` 与 Prettier `printWidth`/`tabWidth` 对齐；ktlint（intellij_idea）重排 Kotlin/Gradle，Prettier 重排 Markdown、JSON、YAML、JavaScript 与 XML。
-- 测试先行例外：格式与工具约定变更，无应用行为变更，未新增测试。
-- 验证：`pnpm format:check`、`pnpm test:tools`（18 通过）、`pnpm verify:docs`、`pnpm verify:agent-assets` 与 `git diff --check` 通过。隐私三句正文未改。
-- 未执行：Android 构建、主机测试、实机/UI 验收。矢量 `pathData`、测试夹具中的单行样例，以及无法拆开的 Maven URL 模板仍可能超过 120。未提交或推送。
+## 当前 APK 验证（2026-10-09）
 
-## IDEA 与新目录状态复查（2026-10-08）
-
-- 现状：Gradle 工程已迁至 `apps/app`，应用模块名为 `:android`，IDEA `.idea/gradle.xml` 指向新根目录；`.idea/workspace.xml` 仍保留仓库根与 `apps/app` 两份 ExternalProjectsManager 状态。
-- 证据：idea-mcp 当前列出 126 个模块，包含 `GazeKeep.*`、`android.GazeKeep.*`、`app.GazeKeep.*` 三代前缀；引擎文件仍有 12 条 `ListenableFuture` 相关解析错误，而入口、UI 文件 ERROR 检查为空。重复模块与类路径错误吻合，但需清掉旧导入状态后验证因果。
-- 验证：在 `apps/app` 运行 `./gradlew :engine:compileDebugKotlin --rerun-tasks`，9 个任务实际执行并成功；仅 `setTargetResolution` 弃用提示。Gradle 缓存报告旧 `../android/settings.gradle.kts` 已删除，重建后本次编译通过。
-- 未完成：IDEA Gradle 模型仍含旧模块，编辑器错误未消失；IDEA 同步/模型清理后的验证、全文件诊断和设备验收未执行。源码未修改。
+- 代码：基于 `aebe3ae168a3` 的未提交工作树；保留用户原有 `.gitignore` 变更，`git check-ignore apps/app/kls_database.db` 命中缓存忽略规则。
+- 行为：先确认旧 reducer、超时恢复流程、配置回读及存根依赖守卫失败，再实现与回归。覆盖 Release、独立 Hold 上限、过期异步结果、真实活动重置、退避/暗光区分、同步恢复失败、命令超时、日志默认关闭与 24 小时清理。文档、许可证、忽略规则及局部 IDE 检查注解属于无行为变更例外。
+- Kotlin 主机：core 37、engine 6、a11y 2、Shizuku 14、xposed 11、android 4，共 74 个测试通过，失败/错误/跳过均为 0。`:shared:testAndroidHostTest` 为 NO-SOURCE；没有将其计为 UI 通过。
+- 构建：Debug、启用 R8/资源压缩的 unsigned Release 与 `:android:lintDebug` 通过；最终 APK 核对权限、现代/传统 Xposed 入口、Shizuku Provider、反射类保留和 hidden-api 编译存根未进入 DEX。
+- 仓库：18 个 Node 工具测试以及文档、Agent 资产、架构、格式和 `git diff --check` 门禁通过。架构守卫拒绝将 hidden-api 存根作为运行依赖。
+- IDE：在 IDEA 重新导入唯一 `apps/app` Gradle 工程，当前 47 个模块含新存根模块，无旧 `android.GazeKeep.*`/`app.GazeKeep.*` 模块组；`app.GazeKeep` 是导入根。补齐本地 Android API 37 项目 SDK 后，CameraX 的 12 条 ListenableFuture 错误及公共源码 Serializable 类路径错误清零；本次变更 Kotlin 文件 ERROR 检查为空。本地 `.idea` 配置未纳入交付。
+- APK 标识：Debug SHA-256 `35b965561e18eca2f612d30f05cd0afaf076f2b2acb9da557652333bc2719d0f`；unsigned Release SHA-256 `23fc5d489ab0d3bca139a21d8de03d53a30ca6abaa5c0c177607f075bea74b36`。
+- 模拟器：Android 15 / API 35、Google APIs x86_64，Android CLI 1.0.16500706；原 Pixel 8 AVD 无前置相机，独立测试 AVD 配置模拟前后相机。Android CLI 安装/布局/截图，ADB 实际点击、搜索、返回、权限与系统配置操作；没有 fake 或绕过自检。
+- 页面通过：八页导航/返回，后端未就绪原因，无障碍系统启用/关闭后的状态，检测/保护/日志修改及强停后冷启动回读，应用搜索/选择，权限拒绝/授权；首页深色、1.5 倍字体、滚动及横屏已查看截图。
+- 相机通过范围：无前置相机时 Unknown 不推进自检；带模拟前置相机时观察到实际连接/释放并得到 Away，仍停第一步；正在采集时返回/撤销权限后 3 秒内释放。后台释放阈值失败及首页摘要错误已登记，不能写成全套 UI 通过。
+- 熄屏：总开关关闭、自检未通过，临时设 15000 ms 并关闭充电常亮后，实际观察到 mWakefulness=Asleep。此结果不证明运行引擎、Hold 或上限熄屏通过。
+- 清理：原模拟器系统超时 2147483647 ms、充电常亮 1、字体 1.0、竖屏/浅色已恢复；应用配置恢复自动/8 秒/标准/30 分钟/空白名单/日志关闭，相机和无障碍关闭，无相机或服务残留。独立测试 AVD 停止并删除。既有物理设备未操作。
+- 未执行与风险：没有真人正视输入，未完成 Looking→Away、自检通过后运行引擎、Hold 上限、真实触摸/相机抢占、传感器与杀服务矩阵；未安装 Shizuku/LSPosed，未执行对应恢复/入口旅程。本轮未修改生产代码，前述同一 APK 的主机测试、构建与 IDE 检查证据来自 2026-10-08，未重复执行。正式签名未配置，未提交、推送或发布。

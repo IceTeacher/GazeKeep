@@ -27,6 +27,7 @@ class PowerDumpOracle(
   private val clock: () -> Long = { SystemClock.uptimeMillis() },
   private val leadMs: Long = 2_000L,
   private val retryMs: Long = 1_000L,
+  private val isExternalActivity: (Long) -> Boolean = { true },
 ) : TimeoutOracle,
   AutoCloseable {
   private val _deadlines = MutableSharedFlow<TimeoutDeadline>(replay = 1, extraBufferCapacity = 1)
@@ -85,7 +86,7 @@ class PowerDumpOracle(
         snapshot.dimDurationMs?.toLong(),
       ),
       token = ExtendToken.Seq(lastActivity),
-      lastExternalActivityUptime = lastActivity,
+      lastExternalActivityUptime = lastActivity.takeIf(isExternalActivity),
       backend = BackendId.Shizuku,
     )
     // 同一个系统活动 token 在进入采集窗口后会被每秒轮询到；重复发射会让

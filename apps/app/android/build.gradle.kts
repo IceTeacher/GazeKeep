@@ -52,9 +52,28 @@ android {
       excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }
   }
+  val signingValues = listOf(
+    "GAZEKEEP_STORE_FILE",
+    "GAZEKEEP_STORE_PASSWORD",
+    "GAZEKEEP_KEY_ALIAS",
+    "GAZEKEEP_KEY_PASSWORD",
+  ).map { providers.environmentVariable(it).orNull }
+  require(signingValues.all { it == null } || signingValues.all { !it.isNullOrBlank() }) {
+    "Release 签名环境配置必须完整；未配置时只构建 unsigned APK"
+  }
+  if (signingValues.all { it != null }) {
+    signingConfigs.create("distribution") {
+      storeFile = file(requireNotNull(signingValues[0]))
+      storePassword = signingValues[1]
+      keyAlias = signingValues[2]
+      keyPassword = signingValues[3]
+    }
+  }
   buildTypes {
     release {
-      isMinifyEnabled = false
+      isMinifyEnabled = true
+      isShrinkResources = true
+      if (signingValues.all { it != null }) signingConfig = signingConfigs.getByName("distribution")
       proguardFiles(
         getDefaultProguardFile("proguard-android-optimize.txt"),
         "proguard-rules.pro",

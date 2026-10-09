@@ -55,6 +55,7 @@ class ConfigStoreTest {
       sensitivity = Sensitivity.Loose,
       packages = setOf("example.reader"),
       maxHoldMinutes = 10,
+      debugLogEnabled = true,
     )
     first.update { expected }
     first.completeSelfTest()

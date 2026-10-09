@@ -39,6 +39,7 @@ class ConfigStore internal constructor(private val store: DataStore<Preferences>
 
   companion object {
     private val ENABLED = booleanPreferencesKey("enabled")
+    private val DEBUG_LOG = booleanPreferencesKey("debug_log_enabled")
     private val BACKEND = stringPreferencesKey("backend_lock")
     private val LEAD = longPreferencesKey("lead_millis")
     private val SENSITIVITY = stringPreferencesKey("sensitivity")
@@ -51,6 +52,7 @@ class ConfigStore internal constructor(private val store: DataStore<Preferences>
     private fun decodeSettings(values: Preferences) = StoredSettings(
       config = GazeConfig(
         enabled = values[ENABLED] ?: false,
+        debugLogEnabled = values[DEBUG_LOG] ?: false,
         backendLock = runCatching {
           BackendLock.valueOf(values[BACKEND].orEmpty())
         }.getOrDefault(BackendLock.Auto),
@@ -69,6 +71,7 @@ class ConfigStore internal constructor(private val store: DataStore<Preferences>
       require(config.leadMillis in listOf(5_000L, 8_000L))
       require(config.maxHoldMinutes in listOf(10, 30, 60))
       values[ENABLED] = config.enabled
+      values[DEBUG_LOG] = config.debugLogEnabled
       values[BACKEND] = config.backendLock.name
       values[LEAD] = config.leadMillis
       values[SENSITIVITY] = config.sensitivity.name

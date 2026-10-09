@@ -18,9 +18,9 @@ object HoldPolicy {
     darkUnknownStreak = 0,
   )
 
-  fun markUnknown(context: PolicyContext): PolicyContext = context.copy(
+  fun markUnknown(context: PolicyContext, isDark: Boolean = false): PolicyContext = context.copy(
     lookingStreak = 0,
-    darkUnknownStreak = context.darkUnknownStreak + 1,
+    darkUnknownStreak = if (isDark) context.darkUnknownStreak + 1 else 0,
   )
 
   fun markExternalActivity(context: PolicyContext, uptime: Long): PolicyContext = context.copy(
@@ -43,7 +43,7 @@ object LeadBackoff {
   data class CaptureSettings(val leadMillis: Long, val maxFrames: Int = 3)
 
   fun settings(config: GazeConfig, lookingStreak: Int): CaptureSettings = when {
-    lookingStreak >= 2 -> CaptureSettings((config.leadMillis - 3_000L).coerceAtLeast(4_000L))
+    lookingStreak >= 2 -> CaptureSettings((config.leadMillis - 3_000L).coerceAtLeast(4_000L), maxFrames = 2)
     else -> CaptureSettings(config.leadMillis)
   }
 }

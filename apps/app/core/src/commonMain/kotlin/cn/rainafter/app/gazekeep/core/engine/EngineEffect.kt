@@ -14,6 +14,8 @@ data class CapturePlan(
 sealed interface EngineEffect {
   data class ScheduleWake(val atUptime: Long) : EngineEffect
   data object CancelWake : EngineEffect
+  data class ScheduleHoldLimit(val startUptime: Long, val atUptime: Long) : EngineEffect
+  data object CancelHoldLimit : EngineEffect
   data class RunGates(val deadline: TimeoutDeadline) : EngineEffect
   data class StartCapture(val plan: CapturePlan) : EngineEffect
   data object CancelCapture : EngineEffect

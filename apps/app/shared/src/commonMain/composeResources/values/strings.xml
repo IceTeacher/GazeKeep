@@ -81,4 +81,6 @@
     <string name="settings_notice_title">需要注意</string>
     <string name="settings_auto_current">自动选择（当前：%1$s）</string>
     <string name="settings_privacy_commitments">隐私承诺</string>
+  <string name="settings_debug_log">决策日志</string>
+  <string name="settings_debug_log_summary">默认关闭。仅保存判定与原因，保留最近 24 小时，关闭后清除。</string>
 </resources>

@@ -22,6 +22,8 @@ DeadlineResolver 按真实返回值/参数签名解析候选；当前优先 A，
 
 同一绝对 off deadline 去重，避免重复 Hook 回调推动 seq 使当前采集失效。修改系统侧协议/入口后必须重启使新代码生效，验证前核对设备授权。
 
-当前 LegacyEntry 打包入口已存在，现代 libxposed 入口与 hidden-api 存根尚未落地；topPackage 来源未实现，不把目标的系统前台查询写成当前能力。
+LegacyEntry 与 ModernEntry 共用 HookFacade 和 HookBootstrap，一次安装系统钩子。现代入口使用 libxposed API 102 的 compileOnly 依赖与 META-INF/xposed/java_init.list，旧入口继续保留。ActivityThread 最小存根来自独立 hidden-api-stubs compileOnly 模块，最终 APK 不包含存根类定义。
+
+Handler 派发 deadline 时通过 ActivityTaskManager.getInstance().getTasks(1) 查询 topActivity 包名，异常或签名不匹配返回未知；查询不在 PMS 锁内。系统按配置 lead 提前派发，App reducer 依据有效退避 lead 再调度采集，不在采集中重注册客户端或改变 seq。
 
 验证入口为 xposed 的候选/调度/令牌/回调保护测试，以及[实机矩阵](../../testing.md#实机完整矩阵)。故意错误钩点仍能开机、禁用作用域正常熄屏、完整长超时与触摸矩阵尚需补证。

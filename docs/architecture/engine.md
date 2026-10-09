@@ -1,50 +1,27 @@
 # 引擎与决策
 
-本页描述当前接口和转移，不用目标设计替代源码现状。策略目标仍受[安全承诺](../../apps/app/AGENTS.md#产品安全承诺)约束。
+本页维护当前决策接口；硬件熄屏结果以[测试规范](../testing.md)与[待办](../../tasks/todo.md)中的当前版本证据为准。
 
 ## 接口与时序
 
-```kotlin
-fun EngineReducer.reduce(snapshot: EngineSnapshot, event: EngineEvent, now: Long): Transition
-// Transition 包含新 snapshot 与 effects，不直接执行硬件操作。
-```
+EngineReducer 是状态转移唯一入口，显式接收 uptime，返回 snapshot 与 effects。运行端串行处理事件并执行副作用；采集与 Extend 结果带本轮 token，门控结果带 deadline，迟到结果不影响新轮次。
 
-snapshot 包含 state、context、config、backend、cameraPermissionGranted。context 保存 holdStart、lastExternalActivity、lookingStreak、darkUnknownStreak、forcedYieldPending、extendFailures、foregroundPackage。
+TimeoutDeadline 保留真实 off 与有效 dim（0 < dim <= off），优先在 dim−有效 lead 调度，未知 dim 使用 off−lead。采集截止为 min(off−200 ms, now+1600 ms)，不会为了检测修改系统降亮设置。
 
-`KeepAwakeBackend` 提供 id、readiness，以及 suspend attach/detach/extend(token)/release。token 为 None 或 Seq(Long)，结果为 Done、Stale、Failed(Throwable)。`TimeoutOracle` 提供 source、deadlines Flow 和 millisUntilScreenOff()。
+默认三帧两票；连续两轮 Looking 后 lead 减少 3000 ms、至少 4000 ms，最多两帧且仍要求两票 Looking。首次成功 Extend 的起点用于单次保亮上限，独立定时携带起点，旧定时不能结束新会话。
 
-`TimeoutDeadline` 保存 screenOffAtUptime、token、foregroundPackage、lastExternalActivityUptime、backend、screenDimAtUptime，时间统一 uptime。有效降亮时刻满足 0 < dim <= off；检测在 dim−lead 调度，未知时用 off−lead。仅在 off−lead 检测可能造成长超时先降亮再恢复，因此保留真实 off，并优先在 dim−lead 检测；未知 dim 时不伪造精确时序。不会为了检测修改系统降亮或熄屏设置。
+## 默认熄屏与恢复
 
-## 当前转移摘要
+Gate Skip、TooLate、Unknown/Away、中止、Extend 失败、关闭、权限丢失和切换释放后端。上限到点取消采集、唤醒与 Extend，Release 并锁定 MaxHold；后续 deadline 不再检测，直到 ScreenOff 或真实用户活动重置。硬件是否实际熄灭必须额外验收。
 
-| 事件 / 前提                         | 状态与副作用                                               |
-| ----------------------------------- | ---------------------------------------------------------- |
-| 配置关闭、后端不可用或权限丢失      | Disabled；取消采集/唤醒，Release，按原因通知               |
-| ScreenOff                           | ScreenOff；取消采集/唤醒，Release，清保亮起点              |
-| ScreenOn / 解锁，从 ScreenOff       | 可启用则等待 deadline，否则 Disabled                       |
-| DeadlineUpdated，Disabled/ScreenOff | 忽略                                                       |
-| deadline 的 wakeAt > now            | Armed；ScheduleWake                                        |
-| 进入窗口，熄屏剩余 >2500 ms         | Gating；RunGates                                           |
-| 太晚                                | Yielded(TooLate)；Record                                   |
-| WakeTimerFired，Armed               | Gating；RunGates                                           |
-| UserActivity，活跃态                | 取消旧采集/唤醒，清保亮/注视累计，等待新 deadline          |
-| Gate Skip                           | Yielded(Gate)；Record                                      |
-| Gate Proceed，上限 pending          | Yielded(MaxHold)；清 pending，Record                       |
-| Gate Proceed                        | Capturing；StartCapture                                    |
-| CaptureFinished Looking，Capturing  | Extending；Extend(token)                                   |
-| CaptureFinished Away/Unknown        | Yielded(NotLooking)；Release、Record                       |
-| CaptureAborted，Capturing           | Yielded(Aborted)；Release、Record，按原因通知              |
-| Extend Done，Extending              | 等待新 deadline；累计保亮/注视，达到上限置 pending，Record |
-| Extend Stale / Failed               | 不标记保亮成功，Record；累计失败 >=2 时通知                |
+ScreenOff 清累计状态，直到 ScreenOn 不采帧。真实触摸先取消旧采集、释放并清保亮累计，再等待新 deadline。独立 oracle 的新外部活动时间也走同一 reducer 路径；Shizuku 自身 userActivity 不算外部活动。
 
-副作用包括 ScheduleWake、CancelWake、RunGates、StartCapture、CancelCapture、Extend、Release、Record、Notify。GazeEngine 在串行事件循环更新 snapshot，DefaultEngineEffectRunner 按窄接口执行并回灌事件。当前采集截止为 min(off−200 ms, now+1600 ms)。取消异常继续传播，不把旧轮次取消伪装为采集 Error。
+DefaultEngineEffectRunner 的门控、采集与 Extend 归会话所有，取消异常继续传播。Extend 和 Release 使用互斥锁，结果先回灌再触发 oracle 读取，避免新 deadline 抢先丢失保亮累计。会话销毁另有硬件清理。
 
-## 门控、选择与保护
+## 门控、来源与日志
 
-纯 GatePolicy 在 core，AndroidGateProbe 只采集输入。默认白名单空列表，因此首次选择应用是启用流程的一部分。真实前台来源当前仍依赖无障碍；接近、光照、朝下输入尚为 null。不能声称已完成所有口袋或相机占用门控。
+GatePolicy 保持纯 Kotlin；AndroidGateProbe 拥有传感器和相机可用性订阅。前台来源按后端选择：无障碍事件、Shizuku shell 查询、LSPosed Handler 查询。未知前台不通过白名单，不借用旧后端的缓存。传感器及相机边界见[采集架构](capture-classification.md)。
 
-Auto 在就绪后端中按 LSPosed→Shizuku→Accessibility 选择；锁定只选指定后端，不自动换到其他后端。切换先停止旧会话并释放资源，切换期不 Extend。Extend 连续失败通知本身不等于完成降级，降级取决于 readiness 与会话选择链路。
+暗光累计只计最终 Unknown 且至少两帧 TooDark；其他 Unknown 不增加暗光失败。连续两次暗光且 lux <3 时休眠，光照变亮后可以重新检测。
 
-HoldPolicy 计算上限，LeadBackoff 提供退避设置。当前 Gate Skip/MaxHold 分支未发 Release，尚不能证明无障碍持有锁必释放；退避缩 lead/帧数未完整接入。所有 Unknown 增加 darkUnknownStreak，并未单独归因暗光。以上是[任务清单](../../tasks/todo.md)，不是新设计许可。
-
-必须验证的七条不变量见[测试规范](../testing.md)。目标上限“必须熄一次”不能仅由不再采帧/Extend 的单测代替。
+Auto 按 LSPosed→Shizuku→Accessibility 选择就绪后端；锁定只选指定后端。切换先取消旧会话并释放，切换期不 Extend。DecisionRecord 包含允许字段、门控/中止/分类原因与检测耗时，持久日志见[运行架构](android-runtime.md)。

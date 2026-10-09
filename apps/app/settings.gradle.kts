@@ -37,3 +37,5 @@ include(":backend:shizuku")
 include(":backend:lsposed")
 include(":xposed")
 include(":bridge:protocol")
+
+include(":hidden-api-stubs")

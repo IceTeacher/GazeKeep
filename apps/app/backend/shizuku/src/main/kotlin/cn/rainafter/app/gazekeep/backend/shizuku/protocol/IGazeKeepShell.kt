@@ -7,6 +7,7 @@ import android.os.Parcel
 
 /** App 与 Shizuku shell UserService 之间的最小协议；不传原始 dumpsys 文本。 */
 interface IGazeKeepShell : IInterface {
+  fun foregroundPackage(): String?
   fun version(): Int
   fun userActivity(uptime: Long)
   fun readPower(): PowerSnapshot
@@ -34,6 +35,13 @@ interface IGazeKeepShell : IInterface {
       }
       data.enforceInterface(DESCRIPTOR)
       return when (code) {
+        TRANSACTION_FOREGROUND -> {
+          val packageName = foregroundPackage()
+          reply?.writeNoException()
+          reply?.writeString(packageName)
+          true
+        }
+
         TRANSACTION_VERSION -> {
           reply?.writeNoException()
           reply?.writeInt(PROTOCOL_VERSION)
@@ -92,7 +100,8 @@ interface IGazeKeepShell : IInterface {
       private const val TRANSACTION_SET_TIMEOUT = IBinder.FIRST_CALL_TRANSACTION + 4
       private const val UNKNOWN_LONG = Long.MIN_VALUE
       private const val UNKNOWN_INT = Int.MIN_VALUE
-      const val PROTOCOL_VERSION = 2
+      private const val TRANSACTION_FOREGROUND = IBinder.FIRST_CALL_TRANSACTION + 5
+      const val PROTOCOL_VERSION = 3
 
       fun asInterface(binder: IBinder?): IGazeKeepShell? {
         if (binder == null) return null
@@ -103,6 +112,13 @@ interface IGazeKeepShell : IInterface {
 
     private class Proxy(private val remote: IBinder) : IGazeKeepShell {
       override fun asBinder(): IBinder = remote
+
+      override fun foregroundPackage(): String? = transact { data, reply ->
+        data.writeInterfaceToken(DESCRIPTOR)
+        check(remote.transact(TRANSACTION_FOREGROUND, data, reply, 0)) { "foreground transaction unavailable" }
+        reply.readException()
+        reply.readString()
+      }
 
       override fun version(): Int = transact { data, reply ->
         data.writeInterfaceToken(DESCRIPTOR)

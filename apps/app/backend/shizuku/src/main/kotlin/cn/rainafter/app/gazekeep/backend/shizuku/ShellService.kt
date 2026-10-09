@@ -1,14 +1,18 @@
 package cn.rainafter.app.gazekeep.backend.shizuku
 
 import android.os.IBinder
+import cn.rainafter.app.gazekeep.backend.shizuku.oracle.ForegroundPackageParser
 import cn.rainafter.app.gazekeep.backend.shizuku.oracle.PowerDumpParser
 import cn.rainafter.app.gazekeep.backend.shizuku.protocol.IGazeKeepShell
 import cn.rainafter.app.gazekeep.backend.shizuku.protocol.PowerSnapshot
+import cn.rainafter.app.gazekeep.backend.shizuku.protocol.ShellCommandRunner
 import java.lang.reflect.InvocationTargetException
 
 /** 运行在 Shizuku shell uid 的 UserService；这里只做 power binder 调用。 */
 class ShellService : IGazeKeepShell.Stub() {
   private val power = PowerManagerBridge()
+
+  override fun foregroundPackage(): String? = power.foregroundPackage()
 
   override fun version(): Int = IGazeKeepShell.Stub.PROTOCOL_VERSION
 
@@ -54,14 +58,13 @@ class ShellService : IGazeKeepShell.Stub() {
       }
     }
 
-    fun readPower(): PowerSnapshot {
-      val process = ProcessBuilder("dumpsys", "power")
-        .redirectErrorStream(true)
-        .start()
-      val dump = process.inputStream.bufferedReader().use { it.readText() }
-      if (process.waitFor() != 0) error("power dump failed")
-      return PowerDumpParser.parse(dump)
-    }
+    fun foregroundPackage(): String? = ForegroundPackageParser.parse(
+      ShellCommandRunner.run("dumpsys", "activity", "activities"),
+    )
+
+    fun readPower(): PowerSnapshot = PowerDumpParser.parse(
+      ShellCommandRunner.run("dumpsys", "power"),
+    )
 
     fun getScreenOffTimeout(): Int = runCommand("cmd", "settings", "get", "system", "screen_off_timeout")
       .trim()
@@ -72,12 +75,7 @@ class ShellService : IGazeKeepShell.Stub() {
       runCommand("cmd", "settings", "put", "system", "screen_off_timeout", millis.toString())
     }
 
-    private fun runCommand(vararg command: String): String {
-      val process = ProcessBuilder(*command).redirectErrorStream(true).start()
-      val output = process.inputStream.bufferedReader().use { it.readText() }
-      if (process.waitFor() != 0) error("settings command failed")
-      return output
-    }
+    private fun runCommand(vararg command: String): String = ShellCommandRunner.run(*command)
 
     private companion object {
       const val USER_ACTIVITY_EVENT_OTHER = 2

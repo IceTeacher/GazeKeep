@@ -16,6 +16,7 @@ import cn.rainafter.app.gazekeep.backend.shizuku.oracle.PowerDumpOracle
 import cn.rainafter.app.gazekeep.core.backend.KeepAwakeBackend
 import cn.rainafter.app.gazekeep.core.backend.TimeoutOracle
 import cn.rainafter.app.gazekeep.core.engine.Alert
+import cn.rainafter.app.gazekeep.core.engine.DecisionRecord
 import cn.rainafter.app.gazekeep.core.engine.EngineEvent
 import cn.rainafter.app.gazekeep.core.engine.EngineSnapshot
 import cn.rainafter.app.gazekeep.core.engine.EngineState
@@ -38,6 +39,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.PrintWriter
 
@@ -47,6 +49,7 @@ class BackendSession(
   parentScope: CoroutineScope,
   private val config: GazeConfig,
   private val notifier: GazeNotifier,
+  private val recordDecision: (DecisionRecord) -> Unit = {},
 ) : AutoCloseable {
   private val jobs = kotlinx.coroutines.SupervisorJob(parentScope.coroutineContext[Job])
   private val scope = CoroutineScope(parentScope.coroutineContext + jobs)
@@ -65,8 +68,10 @@ class BackendSession(
   private var shizukuBackend: ShizukuKeepAwakeBackend? = null
   private var lsposedBackend: LsposedKeepAwakeBackend? = null
   private var backendSelector: BackendSelector? = null
+  private val backendSwitchLock = kotlinx.coroutines.sync.Mutex()
   private var frameSource: CameraXFrameSource? = null
   private var classifier: MlKitFrameClassifier? = null
+  private var gateProbe: AndroidGateProbe? = null
   fun start() {
     RuntimeStatusStore.intentionalStop = false
     val permission = context.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
@@ -87,8 +92,15 @@ class BackendSession(
     backend = selector.select()
     val gateProbe = AndroidGateProbe(
       context,
-      ForegroundAppSource { GazeA11yService.current?.foregroundPackage },
+      ForegroundAppSource {
+        when (val selected = backend) {
+          is ShizukuKeepAwakeBackend -> selected.foregroundPackage()
+          is LsposedKeepAwakeBackend -> engine?.snapshot?.value?.context?.foregroundPackage
+          else -> GazeA11yService.current?.foregroundPackage
+        }
+      },
     )
+    this.gateProbe = gateProbe
     frameSource = CameraXFrameSource(context)
     classifier = MlKitFrameClassifier()
     a11ySubscription = GazeA11yService.signals.subscribe(
@@ -126,6 +138,7 @@ class BackendSession(
         powerOracle?.requestRead()
       },
       onRecord = { record ->
+        recordDecision(record)
         record.attention?.let { attention ->
           RuntimeStatusStore.publish(RuntimeStatusStore.status.value.copy(lastDecision = attention))
         }
@@ -214,11 +227,12 @@ class BackendSession(
     backendSelector?.let { selector -> scope.launch { switchBackend(selector, config) } }
   }
 
-  private suspend fun switchBackend(selector: BackendSelector, config: GazeConfig) {
+  private suspend fun switchBackend(selector: BackendSelector, config: GazeConfig) = backendSwitchLock.withLock {
+    switchBackendLocked(selector, config)
+  }
+
+  private suspend fun switchBackendLocked(selector: BackendSelector, config: GazeConfig) {
     val target = selector.select()
-    if (target == null && config.backendLock == BackendLock.Auto && backend != null) {
-      return
-    }
     if (target?.id == backend?.id) return
 
     engine?.submit(EngineEvent.BackendSelected(null))
@@ -259,6 +273,7 @@ class BackendSession(
     oracle = when (selected) {
       is ShizukuKeepAwakeBackend -> PowerDumpOracle(
         readPower = { selected.readPower() },
+        isExternalActivity = selected::isExternalActivity,
         scope = scope,
         leadMs = config.leadMillis,
       ).also { it.start() }.also { powerOracle = it }
@@ -295,6 +310,8 @@ class BackendSession(
     idleOracle = null
     powerOracle?.close()
     powerOracle = null
+    gateProbe?.close()
+    gateProbe = null
     classifier?.close()
     classifier = null
     frameSource?.close()
@@ -329,12 +346,14 @@ class BackendSession(
       override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
           Intent.ACTION_SCREEN_OFF -> {
+            gateProbe?.setInteractive(false)
             engine?.submit(EngineEvent.ScreenOff)
             idleOracle?.markActivity()
             powerOracle?.requestRead()
           }
 
           Intent.ACTION_SCREEN_ON, Intent.ACTION_USER_PRESENT -> {
+            gateProbe?.setInteractive(true)
             engine?.submit(EngineEvent.ScreenOn)
             idleOracle?.markActivity()
             powerOracle?.requestRead()

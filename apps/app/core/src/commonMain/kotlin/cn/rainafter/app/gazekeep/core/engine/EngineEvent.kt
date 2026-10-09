@@ -1,6 +1,7 @@
 package cn.rainafter.app.gazekeep.core.engine
 
 import cn.rainafter.app.gazekeep.core.backend.ExtendResult
+import cn.rainafter.app.gazekeep.core.backend.ExtendToken
 import cn.rainafter.app.gazekeep.core.backend.TimeoutDeadline
 import cn.rainafter.app.gazekeep.core.model.Attention
 import cn.rainafter.app.gazekeep.core.model.BackendId
@@ -17,10 +18,21 @@ sealed interface EngineEvent {
   data class DeadlineUpdated(val deadline: TimeoutDeadline) : EngineEvent
   data class UserActivity(val uptime: Long) : EngineEvent
   data object WakeTimerFired : EngineEvent
-  data class GateResult(val result: GateDecision) : EngineEvent
-  data class CaptureFinished(val attention: Attention, val frames: List<FrameVerdict>, val latencyMs: Long) :
+  data class ScheduledWakeFired(val atUptime: Long) : EngineEvent
+  data class HoldLimitReached(val startUptime: Long) : EngineEvent
+  data class GateResult(
+    val result: GateDecision,
+    val foregroundPackage: String? = null,
+    val deadline: TimeoutDeadline? = null,
+  ) : EngineEvent
+  data class CaptureFinished(
+    val attention: Attention,
+    val frames: List<FrameVerdict>,
+    val latencyMs: Long,
+    val token: ExtendToken? = null,
+  ) : EngineEvent
+  data class CaptureAborted(val reason: AbortReason, val token: ExtendToken? = null, val latencyMs: Long? = null) :
     EngineEvent
-  data class CaptureAborted(val reason: AbortReason) : EngineEvent
-  data class ExtendFinished(val result: ExtendResult) : EngineEvent
+  data class ExtendFinished(val result: ExtendResult, val token: ExtendToken? = null) : EngineEvent
   data object CameraPermissionLost : EngineEvent
 }

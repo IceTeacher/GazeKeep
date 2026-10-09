@@ -10,7 +10,8 @@ const ALLOWED = {
   "backend:a11y": ["core"],
   "backend:shizuku": ["core"],
   "backend:lsposed": ["core", "bridge:protocol"],
-  xposed: ["bridge:protocol"],
+  xposed: ["bridge:protocol", "hidden-api-stubs"],
+  "hidden-api-stubs": [],
   "bridge:protocol": [],
 };
 const FORBIDDEN = {
@@ -56,6 +57,9 @@ export function violations(root) {
     errors.push("settings 中的模块与边界规则不一致，请同步维护规则");
   for (const [module, allowed] of Object.entries(ALLOWED)) {
     const directory = join(android, module.replaceAll(":", "/"));
+    const build = readFileSync(join(directory, "build.gradle.kts"), "utf8");
+    for (const match of build.matchAll(/(\w+)\(project\(":hidden-api-stubs"\)\)/g))
+      if (match[1] !== "compileOnly") errors.push(`${module}: 存根只能 compileOnly，禁止进入 APK`);
     for (const match of readFileSync(join(directory, "build.gradle.kts"), "utf8").matchAll(/project\(":([^"]+)"\)/g))
       if (!allowed.includes(match[1])) errors.push(`${module} 不应依赖 :${match[1]}`);
     for (const source of walk(join(directory, "src")).filter((n) => n.endsWith(".kt"))) {
@@ -77,4 +81,4 @@ export function violations(root) {
   return errors;
 }
 if (isMain(import.meta.url))
-  await cli(() => report(violations(context().root), "架构边界与目录/包名检查通过（9 个 Gradle 模块）"));
+  await cli(() => report(violations(context().root), "架构边界与目录/包名检查通过（10 个 Gradle 模块）"));

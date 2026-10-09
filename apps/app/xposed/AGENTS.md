@@ -6,7 +6,7 @@
 
 入口：entry/hook/power。
 
-禁止协程、DataStore、Compose、相机、模型和文件 I/O。候选逐签名解析，失配不安装，回调整体 try/catch(Throwable)，连续异常熔断；PMS 锁内只计算/投递，不 Binder、不取其他锁。保持 LegacyEntry 入口。
+禁止协程、DataStore、Compose、相机、模型和文件 I/O。候选逐签名解析，失配不安装，回调整体 try/catch(Throwable)，连续异常熔断；PMS 锁内只计算/投递，不 Binder、不取其他锁。保持 LegacyEntry 入口，ModernEntry 通过同一薄钩子适配；隐藏 API 存根只允许 compileOnly。
 
 相关专题：[当前架构](../../../docs/architecture/backends/lsposed.md)；按任务选择[测试 skill](../../../.agents/skills/testing-e2e/SKILL.md)，只加载受影响内容。
 
