@@ -48,7 +48,6 @@ class GazeService : LifecycleService() {
     // 重复启动也要兑现前台服务契约，不能只依赖首次 onCreate。
     promoteForeground()
     super.onStartCommand(intent, flags, startId)
-    if (intent?.getBooleanExtra(BACKEND_READY_EXTRA, false) == true) session?.backendReady()
     return START_STICKY
   }
 
@@ -69,9 +68,5 @@ class GazeService : LifecycleService() {
     } else {
       startForeground(GazeNotifier.NOTIFICATION_ID, notifier.serviceNotification())
     }
-  }
-
-  private companion object {
-    const val BACKEND_READY_EXTRA = "cn.rainafter.app.gazekeep.backend_ready"
   }
 }

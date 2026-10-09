@@ -8,6 +8,8 @@ AppGraph 为装配根；AndroidGazeKeepController 委托配置、自检、应用
 
 GazeService 适配生命周期，BackendSession 拥有 backend、oracle、engine、采集会话、屏幕广播和无障碍订阅。关闭会话取消定时/副作用/采集、注销订阅、释放相机/分类器并解绑后端。部分初始化失败也必须由已登记所有者清理。
 
+无障碍服务初始化 backend 后发布可观察的实例状态；运行会话持续跟踪实例及 readiness，覆盖服务后连接、断开和重连。断开同步摘除窗口，再清除实例；同类型的新实例也必须释放旧后端并重新选择、配置 oracle。旧服务延迟销毁不能清除新服务的实例状态，取消会话后不再注册后端。
+
 每次 onStartCommand 都兑现 startForeground。息屏保持 camera 前台服务空转，只释放检测资源；后台亮屏广播直接重启 camera FGS 的限制不能靠猜测绕过。保留空转服务是为了避免依赖后台广播重新启动 camera FGS；仍须验证存活与冷启动恢复。RuntimeStatusStore 只发布状态，不驱动保亮。
 
 ## 配置与迁移

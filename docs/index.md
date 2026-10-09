@@ -25,11 +25,11 @@
 | 文档                                     | 类型     | 加载时机                                        | 维护状态 | 最后复核   |
 | ---------------------------------------- | -------- | ----------------------------------------------- | -------- | ---------- |
 | `architecture/overview.md`               | 模块架构 | 修改仓库分区、依赖、进程、入口或资源归属时      | 持续维护 | 2026-10-08 |
-| `architecture/android-runtime.md`        | 运行架构 | 修改服务生命周期、配置、Manifest、通知或日志时  | 持续维护 | 2026-10-08 |
+| `architecture/android-runtime.md`        | 运行架构 | 修改服务生命周期、配置、Manifest、通知或日志时  | 持续维护 | 2026-10-09 |
 | `architecture/engine.md`                 | 决策架构 | 修改 reducer、时序、前台来源、退避或保亮上限时  | 持续维护 | 2026-10-08 |
 | `architecture/capture-classification.md` | 检测架构 | 修改 CameraX、传感器门控、ML Kit、阈值或投票时  | 持续维护 | 2026-10-08 |
 | `architecture/ui.md`                     | UI 架构  | 修改页面、导航、自检、平台契约或应用列表时      | 持续维护 | 2026-10-08 |
-| `architecture/backends/a11y.md`          | 后端架构 | 修改无障碍事件、Hold/Pulse 或空闲时钟时         | 持续维护 | 2026-10-08 |
+| `architecture/backends/a11y.md`          | 后端架构 | 修改无障碍事件、Hold/Pulse 或空闲时钟时         | 持续维护 | 2026-10-09 |
 | `architecture/backends/shizuku.md`       | 后端架构 | 修改 shell Binder、独立前台来源或同步超时恢复时 | 持续维护 | 2026-10-08 |
 | `architecture/backends/lsposed.md`       | 后端架构 | 修改系统候选、现代入口、前台来源、seq 或打包时  | 持续维护 | 2026-10-08 |
 

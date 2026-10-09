@@ -13,16 +13,19 @@
 
 ## 当前 APK 验证（2026-10-09）
 
-- 代码：基于 `aebe3ae168a3` 的未提交工作树；保留用户原有 `.gitignore` 变更，`git check-ignore apps/app/kls_database.db` 命中缓存忽略规则。
+- 本轮无障碍排查：安装 APK 的 SHA-256 为 `c0973045736816704f6b1c8395b041bd498961a6868963edd9438d0e1ad69573`；虽然 DEX 与本地旧构建不同，读取 DEX 已确认连接回调仅创建后端、运行会话启动时只读取当时实例。只读检查 Android 15 / API 35 模拟器：无障碍已绑定、总开关开启、自检记录存在、锁定 Accessibility、白名单关闭，但运行会话 `backend=null`，overlay 无 KEEP_SCREEN_ON；系统超时 60000 ms、充电常亮关闭。
+- 本轮连接修复：改为会话持续订阅实例及 readiness；同类型新实例重新切换，解绑同步摘窗口，旧服务销毁不清除新实例。新增 4 个回归用例；以仅启动时读取的旧逻辑作对照，后连接及实例替换两项断言失败，恢复修复逻辑后再跑门禁。应用 8 个与无障碍 2 个主机测试、Debug 构建、lint、文档/Agent 资产/架构/格式检查及 diff 检查通过；未安装修复 APK 或执行设备操作。
+- 用户手动验收：2026-10-09 用户确认本次无障碍后端修复手动测试成功，关闭本次故障待办。具体测试步骤、APK 校验值及上限熄屏等场景未单独提供，完整实机/UI 矩阵继续保留；代理没有代为安装或操作设备。
+- 代码：本轮无障碍连接修复基于 `3806a7a` 的未提交工作树；保留前轮验证记录与既有待办，未提交或发布。
 - 行为：先确认旧 reducer、超时恢复流程、配置回读及存根依赖守卫失败，再实现与回归。覆盖 Release、独立 Hold 上限、过期异步结果、真实活动重置、退避/暗光区分、同步恢复失败、命令超时、日志默认关闭与 24 小时清理。文档、许可证、忽略规则及局部 IDE 检查注解属于无行为变更例外。
 - Kotlin 主机：core 37、engine 6、a11y 2、Shizuku 14、xposed 11、android 4，共 74 个测试通过，失败/错误/跳过均为 0。`:shared:testAndroidHostTest` 为 NO-SOURCE；没有将其计为 UI 通过。
 - 构建：Debug、启用 R8/资源压缩的 unsigned Release 与 `:android:lintDebug` 通过；最终 APK 核对权限、现代/传统 Xposed 入口、Shizuku Provider、反射类保留和 hidden-api 编译存根未进入 DEX。
 - 仓库：18 个 Node 工具测试以及文档、Agent 资产、架构、格式和 `git diff --check` 门禁通过。架构守卫拒绝将 hidden-api 存根作为运行依赖。
 - IDE：在 IDEA 重新导入唯一 `apps/app` Gradle 工程，当前 47 个模块含新存根模块，无旧 `android.GazeKeep.*`/`app.GazeKeep.*` 模块组；`app.GazeKeep` 是导入根。补齐本地 Android API 37 项目 SDK 后，CameraX 的 12 条 ListenableFuture 错误及公共源码 Serializable 类路径错误清零；本次变更 Kotlin 文件 ERROR 检查为空。本地 `.idea` 配置未纳入交付。
-- APK 标识：Debug SHA-256 `35b965561e18eca2f612d30f05cd0afaf076f2b2acb9da557652333bc2719d0f`；unsigned Release SHA-256 `23fc5d489ab0d3bca139a21d8de03d53a30ca6abaa5c0c177607f075bea74b36`。
+- APK 标识：本轮修复 Debug SHA-256 `dc8b041078fce5aa657777e97339b6d83346bb7a30c8ff5d37e7671aa53c2d52`；修复前 unsigned Release SHA-256 `23fc5d489ab0d3bca139a21d8de03d53a30ca6abaa5c0c177607f075bea74b36`，本轮未重建 Release。
 - 模拟器：Android 15 / API 35、Google APIs x86_64，Android CLI 1.0.16500706；原 Pixel 8 AVD 无前置相机，独立测试 AVD 配置模拟前后相机。Android CLI 安装/布局/截图，ADB 实际点击、搜索、返回、权限与系统配置操作；没有 fake 或绕过自检。
 - 页面通过：八页导航/返回，后端未就绪原因，无障碍系统启用/关闭后的状态，检测/保护/日志修改及强停后冷启动回读，应用搜索/选择，权限拒绝/授权；首页深色、1.5 倍字体、滚动及横屏已查看截图。
 - 相机通过范围：无前置相机时 Unknown 不推进自检；带模拟前置相机时观察到实际连接/释放并得到 Away，仍停第一步；正在采集时返回/撤销权限后 3 秒内释放。后台释放阈值失败及首页摘要错误已登记，不能写成全套 UI 通过。
 - 熄屏：总开关关闭、自检未通过，临时设 15000 ms 并关闭充电常亮后，实际观察到 mWakefulness=Asleep。此结果不证明运行引擎、Hold 或上限熄屏通过。
 - 清理：原模拟器系统超时 2147483647 ms、充电常亮 1、字体 1.0、竖屏/浅色已恢复；应用配置恢复自动/8 秒/标准/30 分钟/空白名单/日志关闭，相机和无障碍关闭，无相机或服务残留。独立测试 AVD 停止并删除。既有物理设备未操作。
-- 未执行与风险：没有真人正视输入，未完成 Looking→Away、自检通过后运行引擎、Hold 上限、真实触摸/相机抢占、传感器与杀服务矩阵；未安装 Shizuku/LSPosed，未执行对应恢复/入口旅程。本轮未修改生产代码，前述同一 APK 的主机测试、构建与 IDE 检查证据来自 2026-10-08，未重复执行。正式签名未配置，未提交、推送或发布。
+- 未执行与风险：代理前轮页面验收没有真人正视输入，未完成 Looking→Away、自检通过后运行引擎、Hold 上限、真实触摸/相机抢占、传感器与杀服务矩阵；本轮用户手动确认无障碍修复成功，其他场景没有新增验收记录。未安装 Shizuku/LSPosed，未执行对应恢复/入口旅程。前轮完整主机测试、Release 构建与 IDE 检查证据来自 2026-10-08；本轮连接修复重新执行的门禁见上文。正式签名未配置，未提交、推送或发布。

@@ -64,10 +64,10 @@ class BackendSession(
   private var deadlineJob: Job? = null
   private var backendSelectionJob: Job? = null
   private var lsposedSelectionJob: Job? = null
+  private var a11ySelectionJob: Job? = null
   private var backend: KeepAwakeBackend? = null
   private var shizukuBackend: ShizukuKeepAwakeBackend? = null
   private var lsposedBackend: LsposedKeepAwakeBackend? = null
-  private var backendSelector: BackendSelector? = null
   private val backendSwitchLock = kotlinx.coroutines.sync.Mutex()
   private var frameSource: CameraXFrameSource? = null
   private var classifier: MlKitFrameClassifier? = null
@@ -88,7 +88,6 @@ class BackendSession(
       lsposedBackend?.let { put(BackendId.Lsposed, it) }
     }
     val selector = BackendSelector(config.backendLock, candidates)
-    backendSelector = selector
     backend = selector.select()
     val gateProbe = AndroidGateProbe(
       context,
@@ -111,10 +110,7 @@ class BackendSession(
         idleOracle?.markActivity(uptime, GazeA11yService.current?.foregroundPackage)
         powerOracle?.requestRead()
       },
-      onUnavailable = {
-        selector.unregister(BackendId.Accessibility)
-        scope.launch { switchBackend(selector, config) }
-      },
+      onUnavailable = {},
     )
     val runner = DefaultEngineEffectRunner(
       parentScope = scope,
@@ -188,12 +184,9 @@ class BackendSession(
         }
       }
     }
-    a11yBackend?.let { a11y ->
-      scope.launch {
-        a11y.attach()
-        a11y.readiness.collectLatest {
-          switchBackend(selector, config)
-        }
+    a11ySelectionJob = scope.launch {
+      selector.trackAvailability(BackendId.Accessibility, GazeA11yService.availableBackend) {
+        switchBackend(selector, config)
       }
     }
   }
@@ -222,18 +215,13 @@ class BackendSession(
     }
   }
 
-  fun backendReady() {
-    GazeA11yService.current?.backend?.let { backendSelector?.register(it) }
-    backendSelector?.let { selector -> scope.launch { switchBackend(selector, config) } }
-  }
-
   private suspend fun switchBackend(selector: BackendSelector, config: GazeConfig) = backendSwitchLock.withLock {
     switchBackendLocked(selector, config)
   }
 
   private suspend fun switchBackendLocked(selector: BackendSelector, config: GazeConfig) {
     val target = selector.select()
-    if (target?.id == backend?.id) return
+    if (target === backend) return
 
     engine?.submit(EngineEvent.BackendSelected(null))
     val previous = backend
@@ -303,6 +291,8 @@ class BackendSession(
     backendSelectionJob = null
     lsposedSelectionJob?.cancel()
     lsposedSelectionJob = null
+    a11ySelectionJob?.cancel()
+    a11ySelectionJob = null
     engine?.close()
     engine = null
     oracle = null
@@ -337,7 +327,6 @@ class BackendSession(
     backend = null
     shizukuBackend = null
     lsposedBackend = null
-    backendSelector = null
     RuntimeStatusStore.publish(RuntimeStatus())
   }
 

@@ -3,6 +3,7 @@ package cn.rainafter.app.gazekeep.backend.a11y
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
 import android.view.accessibility.AccessibilityEvent
+import cn.rainafter.app.gazekeep.core.backend.KeepAwakeBackend
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -21,6 +22,9 @@ class GazeA11yService : AccessibilityService() {
     private val _connected = MutableStateFlow(false)
     val connected: StateFlow<Boolean> = _connected.asStateFlow()
 
+    private val _availableBackend = MutableStateFlow<KeepAwakeBackend?>(null)
+    val availableBackend: StateFlow<KeepAwakeBackend?> = _availableBackend.asStateFlow()
+
     val signals = A11ySignals()
   }
 
@@ -34,9 +38,10 @@ class GazeA11yService : AccessibilityService() {
 
   override fun onServiceConnected() {
     super.onServiceConnected()
-    current = this
-    _connected.value = true
     backend = A11yKeepAwakeBackend(this) { signals.activity() }
+    current = this
+    _availableBackend.value = backend
+    _connected.value = true
     scope.launch {
       runCatching { backend.attach() }
     }
@@ -60,27 +65,23 @@ class GazeA11yService : AccessibilityService() {
   override fun onInterrupt() = Unit
 
   override fun onUnbind(intent: android.content.Intent?): Boolean {
-    scope.launch {
-      runCatching { backend.detach() }
-    }
-    signals.unavailable()
-    current = null
-    _connected.value = false
+    disconnect()
     return super.onUnbind(intent)
   }
 
   override fun onDestroy() {
-    if (::backend.isInitialized) {
-      scope.launch {
-        runCatching { backend.detach() }
-        scope.cancel()
-      }
-    } else {
-      scope.cancel()
-    }
-    signals.unavailable()
+    disconnect()
+    scope.cancel()
+    super.onDestroy()
+  }
+
+  private fun disconnect() {
+    if (::backend.isInitialized) backend.detachImmediately()
+    // 旧服务延迟销毁不能清掉已经连接的新实例。
+    if (current !== this) return
     current = null
     _connected.value = false
-    super.onDestroy()
+    _availableBackend.value = null
+    signals.unavailable()
   }
 }
