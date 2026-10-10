@@ -6,6 +6,8 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -39,27 +41,65 @@ class AndroidPlatformActions(
   private val activity: ComponentActivity,
   private val controller: AndroidGazeKeepController,
 ) : PlatformActions {
+  @Volatile private var pendingExportText: String = ""
+  private val exportLauncher: ActivityResultLauncher<String> =
+    activity.activityResultRegistry.register(
+      "gazekeep_export_logs",
+      ActivityResultContracts.CreateDocument("text/plain"),
+    ) { uri ->
+      val content = pendingExportText
+      if (uri != null && content.isNotEmpty()) {
+        runCatching {
+          activity.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { writer ->
+            writer.write(content)
+          }
+        }
+      }
+    }
+
   override fun requestCameraPermission() =
     ActivityCompat.requestPermissions(activity, arrayOf(Manifest.permission.CAMERA), 1001)
+
   override fun requestNotificationPermission() {
-    if (Build.VERSION.SDK_INT >=
-      33
-    ) {
+    if (Build.VERSION.SDK_INT >= 33) {
       ActivityCompat.requestPermissions(activity, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1002)
     }
   }
+
   override fun openAccessibilitySettings() {
     activity.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
   }
+
   override fun requestShizukuPermission() {
     runCatching { if (Shizuku.pingBinder()) Shizuku.requestPermission(2301) }
   }
+
   override fun openShizukuApp() {
     activity.packageManager.getLaunchIntentForPackage("moe.shizuku.privileged.api")?.let(activity::startActivity)
   }
+
   override fun openUrl(url: String) {
     runCatching {
       activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+    }
+  }
+
+  override fun shareLogs(text: String) {
+    if (text.isBlank()) return
+    runCatching {
+      val sendIntent = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_TEXT, text)
+      }
+      activity.startActivity(Intent.createChooser(sendIntent, null))
+    }
+  }
+
+  override fun exportLogs(text: String) {
+    if (text.isBlank()) return
+    pendingExportText = text
+    runCatching {
+      exportLauncher.launch("gazekeep-logs-${System.currentTimeMillis()}.log")
     }
   }
 

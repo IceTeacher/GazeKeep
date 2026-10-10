@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import cn.rainafter.app.gazekeep.core.model.Attention
 import cn.rainafter.app.gazekeep.core.model.BackendId
 import cn.rainafter.app.gazekeep.core.model.Readiness
 import cn.rainafter.app.gazekeep.ui.components.AppScaffold
@@ -33,11 +34,12 @@ import cn.rainafter.app.gazekeep.ui.contract.ControllerState
 import cn.rainafter.app.gazekeep.ui.contract.GazeKeepController
 import cn.rainafter.app.gazekeep.ui.contract.UiNotice
 import cn.rainafter.app.gazekeep.ui.navigation.SettingsScreen
-import cn.rainafter.app.gazekeep.ui.text.attentionLabel
 import cn.rainafter.app.gazekeep.ui.text.backendLabel
 import cn.rainafter.app.gazekeep.ui.text.backendName
 import gazekeep.shared.generated.resources.Res
 import gazekeep.shared.generated.resources.app_title
+import gazekeep.shared.generated.resources.home_decision_looking
+import gazekeep.shared.generated.resources.home_decision_not_looking
 import gazekeep.shared.generated.resources.home_info_android_version
 import gazekeep.shared.generated.resources.home_info_app_version
 import gazekeep.shared.generated.resources.home_info_backend_status
@@ -52,7 +54,6 @@ import gazekeep.shared.generated.resources.home_privacy_card_summary
 import gazekeep.shared.generated.resources.home_privacy_card_title
 import gazekeep.shared.generated.resources.home_status_stopped
 import gazekeep.shared.generated.resources.home_status_tap_to_start
-import gazekeep.shared.generated.resources.home_status_version
 import gazekeep.shared.generated.resources.home_status_version_with_decision
 import gazekeep.shared.generated.resources.home_status_waiting
 import gazekeep.shared.generated.resources.home_status_waiting_hint
@@ -192,16 +193,16 @@ private fun StatusBannerCard(state: ControllerState, onToggle: () -> Unit) {
   }
   val statusSubtitle = when (status) {
     HomeRunStatus.Working -> {
-      val decision = state.lastDecision
-      if (decision != null) {
-        stringResource(
-          Res.string.home_status_version_with_decision,
-          state.systemInfo.appVersion,
-          attentionLabel(decision),
-        )
+      val decisionLabel = if (state.lastDecision == Attention.Looking) {
+        stringResource(Res.string.home_decision_looking)
       } else {
-        stringResource(Res.string.home_status_version, state.systemInfo.appVersion)
+        stringResource(Res.string.home_decision_not_looking)
       }
+      stringResource(
+        Res.string.home_status_version_with_decision,
+        state.systemInfo.appVersion,
+        decisionLabel,
+      )
     }
 
     HomeRunStatus.Waiting -> stringResource(Res.string.home_status_waiting_hint)

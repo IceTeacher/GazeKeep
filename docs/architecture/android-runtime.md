@@ -28,14 +28,14 @@ applicationId 为 cn.rainafter.app.gazekeep；相机、camera 前台服务和通
 
 当前未声明 WAKE_LOCK、GET_USAGE_STATS 和电池优化权限，未实现 BootRecoveryReceiver。最终权限必须从 APK 检查。
 
-GazeNotifier 的异常通知按同类 10 分钟限频；不在可信 Looking 时提示。DecisionRecord 包含 uptime、包名、Attention、决策/门控/中止/分类原因、后端、extend 和耗时，运行状态另保存 lastDecision。
+GazeNotifier 的异常通知按同类 10 分钟限频；不在可信 Looking 时提示。DecisionRecord 包含 uptime、包名、Attention、决策/门控/中止/分类原因、后端、extend 和耗时，运行状态另保存 lastDecision（服务重配时保留，仅在显式关闭总开关时清空）。
 
 ## 验证要求
 
 单一 DataStore 避免 UI 与 Service 缓存分裂；迁移只继承后端选择，不继承启用资格，以避免未经自检的静默启用。运行 ConfigStoreTest、BackendSelectorTest 及应用构建/lint；真实设备验证快速启停、部分初始化失败、息屏空转、冷启动回读和通知限频。
 
-## 决策日志
+## 详细日志
 
-DecisionLogs 是应用进程单例，通过有界 IO 队列串行处理配置、写入与清理；默认关闭，隐私页显式开关进入 ConfigStore。文件位于 noBackupFilesDir/decisions，只保存允许字段，不保存传感器值或人脸特征。
+DecisionLogs 是应用进程单例，通过有界 IO 队列串行处理配置、写入、读取与清理，并对外发布最新日志列表；默认关闭，设置页「详细日志」开关进入 ConfigStore。文件位于 noBackupFilesDir/decisions，统一记录引擎状态、门控、采样、保亮判定与后端事件（含级别、时间戳、Tag、来源/目标标识与消息正文），只保存允许字段，不保存传感器值、图像或人脸特征。
 
-每条记录单独保存，写入、启动及每分钟清理超过 24 小时记录，关闭开关清除文件。进程停止期间无法执行定时删除，下次启动先清理再写入。队列满时丢弃日志而不阻塞引擎；文件错误不影响 Release 与默认熄屏。
+每条记录单独保存，写入、启动及每分钟清理超过 24 小时记录，关闭开关或点击「立即清空日志」清除文件。进程停止期间无法执行定时删除，下次启动先清理再写入。队列满时丢弃日志而不阻塞引擎；文件错误不影响 Release 与默认熄屏。

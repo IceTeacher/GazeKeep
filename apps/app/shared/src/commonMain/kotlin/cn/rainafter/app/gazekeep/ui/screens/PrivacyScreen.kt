@@ -19,6 +19,9 @@ import gazekeep.shared.generated.resources.Res
 import gazekeep.shared.generated.resources.privacy_line_1
 import gazekeep.shared.generated.resources.privacy_line_2
 import gazekeep.shared.generated.resources.privacy_line_3
+import gazekeep.shared.generated.resources.privacy_title_1
+import gazekeep.shared.generated.resources.privacy_title_2
+import gazekeep.shared.generated.resources.privacy_title_3
 import gazekeep.shared.generated.resources.settings_camera_pause
 import gazekeep.shared.generated.resources.settings_camera_pause_summary
 import gazekeep.shared.generated.resources.settings_dark_pause
@@ -27,7 +30,6 @@ import gazekeep.shared.generated.resources.settings_failure_policy
 import gazekeep.shared.generated.resources.settings_failure_summary
 import gazekeep.shared.generated.resources.settings_group_security
 import gazekeep.shared.generated.resources.settings_privacy
-import gazekeep.shared.generated.resources.settings_privacy_commitments
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
@@ -47,15 +49,20 @@ internal fun PrivacyScreen(onBack: () -> Unit) {
         .padding(horizontal = 16.dp, vertical = 12.dp),
       verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-      SettingsGroupTitle(text = stringResource(Res.string.settings_privacy_commitments))
-      Card(modifier = Modifier.fillMaxWidth()) {
-        BasicComponent(title = stringResource(Res.string.privacy_line_1))
-        BasicComponent(title = stringResource(Res.string.privacy_line_2))
-        BasicComponent(title = stringResource(Res.string.privacy_line_3))
-      }
-
       SettingsGroupTitle(text = stringResource(Res.string.settings_group_security))
       Card(modifier = Modifier.fillMaxWidth()) {
+        BasicComponent(
+          title = stringResource(Res.string.privacy_title_1),
+          summary = stringResource(Res.string.privacy_line_1),
+        )
+        BasicComponent(
+          title = stringResource(Res.string.privacy_title_2),
+          summary = stringResource(Res.string.privacy_line_2),
+        )
+        BasicComponent(
+          title = stringResource(Res.string.privacy_title_3),
+          summary = stringResource(Res.string.privacy_line_3),
+        )
         BasicComponent(
           title = stringResource(Res.string.settings_failure_policy),
           summary = stringResource(Res.string.settings_failure_summary),

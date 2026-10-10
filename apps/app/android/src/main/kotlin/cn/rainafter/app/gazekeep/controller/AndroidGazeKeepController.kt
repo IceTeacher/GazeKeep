@@ -8,6 +8,7 @@ import cn.rainafter.app.gazekeep.core.model.GazeConfig
 import cn.rainafter.app.gazekeep.core.policy.EnableRequirement
 import cn.rainafter.app.gazekeep.core.policy.enableRequirement
 import cn.rainafter.app.gazekeep.engine.config.ConfigStore
+import cn.rainafter.app.gazekeep.notification.DecisionLogs
 import cn.rainafter.app.gazekeep.runtime.RuntimeStatusStore
 import cn.rainafter.app.gazekeep.runtime.ServiceActivation
 import cn.rainafter.app.gazekeep.selftest.SelfTestCoordinator
@@ -40,6 +41,7 @@ class AndroidGazeKeepController(context: Context, private val store: ConfigStore
   private val readinessProbe = BackendReadinessProbe(context)
   private val selfTestCoordinator = SelfTestCoordinator(context, scope, store)
   override val selfTest = selfTestCoordinator.state
+  private val decisionLogs = DecisionLogs.get(this.context)
   private val appsRepository = LaunchableAppsRepository(context, scope) { apps ->
     mutableState.update { it.copy(apps = apps) }
   }
@@ -95,6 +97,11 @@ class AndroidGazeKeepController(context: Context, private val store: ConfigStore
         }
       }
     }
+    scope.launch {
+      decisionLogs.entries.collect { entries ->
+        mutableState.update { it.copy(logs = entries) }
+      }
+    }
     scope.launch { GazeA11yService.connected.collect { refresh() } }
   }
 
@@ -143,6 +150,8 @@ class AndroidGazeKeepController(context: Context, private val store: ConfigStore
 
         EnableRequirement.Ready -> Unit
       }
+    } else {
+      RuntimeStatusStore.clearLastDecision()
     }
     updateConfig { it.copy(enabled = enabled) }
     if (enabled && state.value.config.whitelistEnabled && state.value.config.packages.isEmpty()) {
@@ -158,11 +167,11 @@ class AndroidGazeKeepController(context: Context, private val store: ConfigStore
 
   override suspend fun beginSelfTest() {
     cancelSelfTest()
-    updateConfig { it.copy(enabled = false) }
     selfTestCoordinator.begin()
   }
 
   fun setPreviewSurface(provider: Preview.SurfaceProvider?) = selfTestCoordinator.setPreviewSurface(provider)
+
   override suspend fun captureSelfTest() {
     if (!state.value.cameraGranted) {
       mutableState.update { it.copy(notice = UiNotice.NeedsCamera) }
@@ -170,8 +179,12 @@ class AndroidGazeKeepController(context: Context, private val store: ConfigStore
     }
     selfTestCoordinator.capture(state.value.config.sensitivity)
   }
+
   fun pauseSelfTest() = selfTestCoordinator.pause()
   override fun cancelSelfTest() = selfTestCoordinator.cancel()
+
+  override fun clearLogs() = decisionLogs.clear()
+  override fun refreshLogs() = decisionLogs.refresh()
 
   override suspend fun loadApps() = appsRepository.load()
 

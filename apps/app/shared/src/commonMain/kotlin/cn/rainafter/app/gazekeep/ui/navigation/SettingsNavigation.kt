@@ -31,6 +31,7 @@ import cn.rainafter.app.gazekeep.ui.screens.AboutScreen
 import cn.rainafter.app.gazekeep.ui.screens.AppsScreen
 import cn.rainafter.app.gazekeep.ui.screens.BackendScreen
 import cn.rainafter.app.gazekeep.ui.screens.HomeScreen
+import cn.rainafter.app.gazekeep.ui.screens.LogScreen
 import cn.rainafter.app.gazekeep.ui.screens.NoticesScreen
 import cn.rainafter.app.gazekeep.ui.screens.PrivacyScreen
 import cn.rainafter.app.gazekeep.ui.screens.SelfTestScreen
@@ -56,6 +57,7 @@ enum class SettingsScreen {
   Settings,
   Backend,
   Apps,
+  Logs,
   Privacy,
   SelfTest,
   About,
@@ -154,7 +156,17 @@ internal fun SettingsNavigation(
   LaunchedEffect(currentScreen) {
     when (currentScreen) {
       SettingsScreen.SelfTest -> controller.beginSelfTest()
-      SettingsScreen.Apps -> controller.loadApps()
+
+      SettingsScreen.Apps -> {
+        controller.cancelSelfTest()
+        controller.loadApps()
+      }
+
+      SettingsScreen.Logs -> {
+        controller.cancelSelfTest()
+        controller.refreshLogs()
+      }
+
       else -> controller.cancelSelfTest()
     }
   }
@@ -234,6 +246,14 @@ internal fun SettingsNavigation(
       )
 
       SettingsScreen.Apps -> AppsScreen(
+        state = state,
+        scope = scope,
+        controller = controller,
+        actions = actions,
+        onBack = ::navigateBack,
+      )
+
+      SettingsScreen.Logs -> LogScreen(
         state = state,
         scope = scope,
         controller = controller,

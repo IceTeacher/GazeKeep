@@ -120,14 +120,25 @@ class BackendSession(
       snapshot = { engine?.snapshot?.value },
       backend = { backend },
       capture = { plan ->
-        AttentionCaptureSession(
-          checkNotNull(frameSource),
-          checkNotNull(classifier),
-        ).capture(
-          sensitivity = plan.sensitivity,
-          maxFrames = plan.maxFrames,
-          timeoutMs = (plan.abortAtUptime - SystemClock.uptimeMillis()).coerceAtLeast(1L),
-        )
+        if (RuntimeStatusStore.selfTestActive) {
+          cn.rainafter.app.gazekeep.engine.capture.AttentionCaptureResult(
+            attention = cn.rainafter.app.gazekeep.core.model.Attention.Unknown,
+            frames = emptyList(),
+            outcome = cn.rainafter.app.gazekeep.engine.camera.CaptureOutcome.Aborted(
+              cn.rainafter.app.gazekeep.engine.camera.AbortReason.Cancelled,
+            ),
+            elapsedMs = 0L,
+          )
+        } else {
+          AttentionCaptureSession(
+            checkNotNull(frameSource),
+            checkNotNull(classifier),
+          ).capture(
+            sensitivity = plan.sensitivity,
+            maxFrames = plan.maxFrames,
+            timeoutMs = (plan.abortAtUptime - SystemClock.uptimeMillis()).coerceAtLeast(1L),
+          )
+        }
       },
       onExtended = {
         idleOracle?.markExtended()
@@ -135,9 +146,7 @@ class BackendSession(
       },
       onRecord = { record ->
         recordDecision(record)
-        record.attention?.let { attention ->
-          RuntimeStatusStore.publish(RuntimeStatusStore.status.value.copy(lastDecision = attention))
-        }
+        record.attention?.let(RuntimeStatusStore::recordDecision)
       },
       onNotify = notifier::notifyAlert,
     )
@@ -157,13 +166,19 @@ class BackendSession(
     configureOracle(backend, config)
     scope.launch {
       engine?.snapshot?.collectLatest { snapshot ->
-        RuntimeStatusStore.publish(
-          RuntimeStatusStore.status.value.copy(running = true, backend = snapshot.backend),
-        )
+        RuntimeStatusStore.updateRunning(running = true, backend = snapshot.backend)
         if (config.debugLogEnabled) {
+          val stateName = snapshot.state::class.simpleName ?: "Unknown"
+          val target = snapshot.context.foregroundPackage ?: snapshot.backend?.name ?: "system"
           Log.d(
             TAG,
-            "state=${snapshot.state::class.simpleName} backend=${snapshot.backend}",
+            "state=$stateName backend=${snapshot.backend}",
+          )
+          cn.rainafter.app.gazekeep.notification.DecisionLogs.get(context).log(
+            level = cn.rainafter.app.gazekeep.ui.contract.LogLevel.Debug,
+            tag = TAG,
+            target = target,
+            message = "GazeEngine [main] state=$stateName backend=${snapshot.backend ?: "-"}",
           )
         }
       }
@@ -250,7 +265,15 @@ class BackendSession(
     if (selected is LsposedKeepAwakeBackend) {
       deadlineJob = scope.launch {
         selected.deadlines.collectLatest { deadline ->
-          if (config.debugLogEnabled) Log.d(TAG, "deadline")
+          if (config.debugLogEnabled) {
+            Log.d(TAG, "deadline")
+            cn.rainafter.app.gazekeep.notification.DecisionLogs.get(context).log(
+              level = cn.rainafter.app.gazekeep.ui.contract.LogLevel.Verbose,
+              tag = TAG,
+              target = deadline.foregroundPackage ?: "Lsposed",
+              message = "TimeoutOracle [main] deadline updated screenOffAt=${deadline.screenOffAtUptime}",
+            )
+          }
           engine?.submit(EngineEvent.DeadlineUpdated(deadline))
         }
       }
@@ -271,7 +294,15 @@ class BackendSession(
     val activeOracle = oracle ?: return
     deadlineJob = scope.launch {
       activeOracle.deadlines.collectLatest { deadline ->
-        if (config.debugLogEnabled) Log.d(TAG, "deadline")
+        if (config.debugLogEnabled) {
+          Log.d(TAG, "deadline")
+          cn.rainafter.app.gazekeep.notification.DecisionLogs.get(context).log(
+            level = cn.rainafter.app.gazekeep.ui.contract.LogLevel.Verbose,
+            tag = TAG,
+            target = deadline.foregroundPackage ?: selected?.id?.name ?: "system",
+            message = "TimeoutOracle [main] deadline updated screenOffAt=${deadline.screenOffAtUptime}",
+          )
+        }
         engine?.submit(EngineEvent.DeadlineUpdated(deadline))
       }
     }
@@ -327,7 +358,7 @@ class BackendSession(
     backend = null
     shizukuBackend = null
     lsposedBackend = null
-    RuntimeStatusStore.publish(RuntimeStatus())
+    RuntimeStatusStore.updateRunning(running = false, backend = null)
   }
 
   private fun registerScreenReceiver() {

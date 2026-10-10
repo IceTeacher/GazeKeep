@@ -10,6 +10,8 @@ interface PlatformActions {
   fun requestShizukuPermission()
   fun openShizukuApp()
   fun openUrl(url: String)
+  fun shareLogs(text: String)
+  fun exportLogs(text: String)
 
   @Composable fun HandleBack(enabled: Boolean, onBack: () -> Unit)
 

@@ -63,6 +63,8 @@ import gazekeep.shared.generated.resources.settings_self_test
 import gazekeep.shared.generated.resources.settings_sensitivity
 import gazekeep.shared.generated.resources.settings_standard
 import gazekeep.shared.generated.resources.settings_title
+import gazekeep.shared.generated.resources.settings_view_logs
+import gazekeep.shared.generated.resources.settings_view_logs_summary
 import gazekeep.shared.generated.resources.settings_whitelist
 import gazekeep.shared.generated.resources.settings_whitelist_summary
 import kotlinx.coroutines.CoroutineScope
@@ -332,6 +334,14 @@ internal fun SettingsTabScreen(
             scope.launch { controller.updateConfig { it.copy(debugLogEnabled = enabled) } }
           },
         )
+        if (state.config.debugLogEnabled) {
+          ArrowPreference(
+            title = stringResource(Res.string.settings_view_logs),
+            summary = stringResource(Res.string.settings_view_logs_summary),
+            startAction = { StartSettingIcon(MiuixIcons.Notes) },
+            onClick = { onNavigate(SettingsScreen.Logs) },
+          )
+        }
         ArrowPreference(
           title = stringResource(Res.string.settings_privacy),
           summary = stringResource(Res.string.settings_privacy_commitments),

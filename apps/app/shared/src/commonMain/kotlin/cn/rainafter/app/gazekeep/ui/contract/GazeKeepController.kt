@@ -11,6 +11,8 @@ interface GazeKeepController {
   suspend fun beginSelfTest()
   suspend fun captureSelfTest()
   fun cancelSelfTest()
+  fun clearLogs()
+  fun refreshLogs()
   fun refresh()
   suspend fun loadApps()
 }

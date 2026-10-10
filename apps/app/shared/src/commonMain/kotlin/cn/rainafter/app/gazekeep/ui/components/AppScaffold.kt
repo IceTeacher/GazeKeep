@@ -2,7 +2,6 @@ package cn.rainafter.app.gazekeep.ui.components
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import gazekeep.shared.generated.resources.Res
 import gazekeep.shared.generated.resources.settings_back
@@ -46,6 +45,7 @@ internal fun AppScaffold(
   title: String,
   onBack: (() -> Unit)? = null,
   scrollBehavior: ScrollBehavior = MiuixScrollBehavior(),
+  actions: @Composable RowScope.() -> Unit = {},
   bottomBar: @Composable () -> Unit = {},
   content: @Composable (PaddingValues, ScrollBehavior) -> Unit,
 ) {
@@ -56,6 +56,7 @@ internal fun AppScaffold(
         title = title,
         onBack = onBack,
         scrollBehavior = scrollBehavior,
+        actions = actions,
       )
     },
     bottomBar = bottomBar,

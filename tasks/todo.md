@@ -12,8 +12,10 @@
 
 ## 当前 APK 验证（2026-10-10）
 
-- 检测提前量与单次最长保亮自定义及无限制选项验证：
-  1. 设置页「检测提前量」支持 `5 秒 / 8 秒 / 自定义（0～60 秒整数）`，「单次最长保亮」支持 `10 分钟 / 30 分钟 / 60 分钟 / 自定义（1～1440 分钟整数） / 无限制`；点击「自定义」弹出含「取消」「确定」按钮的 `OverlayDialog` 数字输入框，点击「取消」仅关闭弹窗、不改动配置。
-  2. 先在 `ScreenDimmingPolicyTest`、`EngineReducerTest`、`ConfigStoreTest`、`PreTimeoutScheduleTest` 中新增 0 秒提前量最小窗口兜底、退避不放大、无限制保亮不触发上限及自定义范围持久化/越界拒绝单测，确认旧实现失败后再完成实现并全量通过。
-  3. `:android:assembleDebug`、`:android:lintDebug` 通过；`:shared:testAndroidHostTest` 为 `NO-SOURCE`，本轮未在设备上执行页面交互验收。
+- 详细日志页、首页状态、隐私页合并与自检体验优化验证：
+  1. 设置页「决策日志」改为「详细日志」（默认关闭，打开时保留最近 24 小时日志，关闭后清除已记录日志），开启后在下方展示「查看日志」入口；日志页提供搜索框、顶栏 4 项操作（级别筛选 `ALL/VERBOSE/DEBUG/INFO/WARNING/ERROR/FATAL`、系统分享、SAF 导出保存、更多菜单：`原始视图`切换/`滚动到顶部`/`滚动到底部`/`立即清空日志`）及带级别与来源方向的卡片/原始文本视图。
+  2. 首页「工作中」卡片副标题常驻展示「版本 · 最近：注视了屏幕/未注视屏幕」（不受详细日志开关影响，修改设置重配服务时不丢失最近判定状态，仅在显式关闭总开关时清空）。
+  3. 隐私页移除「隐私承诺」卡片，将原三条隐私承诺以标题+正文形式合入「安全与隐私」卡片顶部（共 6 项），正文逐字保持 `privacy_line_1`～`privacy_line_3`。
+  4. 相机自检页展示完整两步引导卡片及每步期望效果（第一步期望「注视了屏幕」、第二步期望「未注视屏幕」，按钮分别展示「检测第一步」与「检测第二步」）、本次检测结果与未达预期时的重试提示；进入、失败、中途返回或完成自检均不关闭已开启的「注视保亮」。
+  5. 先在 `DecisionLogStoreTest`、`RuntimeStatusStoreTest` 中新增结构化日志读写/清空、服务重配保留 `lastDecision` 及 `selfTestActive` 单测，确认旧实现失败后再完成实现并全量通过；`:android:assembleDebug`、`:android:lintDebug` 通过，`:shared:testAndroidHostTest` 为 `NO-SOURCE`，本轮未在设备上执行页面交互验收。
 - 门禁：`pnpm verify:docs`、`pnpm verify:agent-assets`、`pnpm verify:architecture`、`pnpm test:tools`、`pnpm format:check` 全部通过，`git diff --check` 无违规。

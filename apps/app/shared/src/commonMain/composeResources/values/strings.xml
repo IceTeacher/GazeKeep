@@ -1,8 +1,8 @@
 <resources>
     <string name="app_title">注视保亮</string>
     <string name="m0_capturing">检测中…</string>
-    <string name="m0_result_looking">在看</string>
-    <string name="m0_result_away">没在看</string>
+    <string name="m0_result_looking">注视了屏幕</string>
+    <string name="m0_result_away">未注视屏幕</string>
     <string name="m0_result_unknown">这次没看清</string>
     <string name="m2_shizuku_needs_start">请先启动 Shizuku</string>
     <string name="m2_shizuku_needs_permission">需要授予 Shizuku 权限</string>
@@ -62,8 +62,11 @@
     <string name="settings_camera_pause_summary">相机无法使用时放行系统熄屏，不与其他应用争用相机。</string>
     <string name="settings_dark_pause">看不清时正常熄屏</string>
     <string name="settings_dark_pause_summary">检测结果不可信时不保亮；不会因失败保持常亮。</string>
+    <string name="privacy_title_1">按需短暂采样</string>
+    <string name="privacy_title_2">画面仅在内存判断</string>
+    <string name="privacy_title_3">旁人或看不清即熄屏</string>
     <string name="privacy_line_1">只在快要熄屏时打开前置摄像头，看完立刻关闭。</string>
-    <string name="privacy_line_2">画面只在内存里判断「在不在看」，不保存、不上传。</string>
+    <string name="privacy_line_2">画面只在内存里判断「是否注视了屏幕」，不保存、不上传。</string>
     <string name="privacy_line_3">看不清、没看清、旁边有别人，都会让屏幕正常熄灭。</string>
     <string name="settings_version">GazeKeep 1.0</string>
     <string name="settings_need_camera">请授权前置摄像头后完成自检。</string>
@@ -71,11 +74,26 @@
     <string name="settings_empty_scope">白名单为空，当前不会保亮。请在范围中选择应用。</string>
     <string name="settings_save_failed">设置未能保存，已停止检测。请重试。</string>
     <string name="self_test_looking">第一步：正视手机</string>
+    <string name="self_test_looking_expect">期望效果：保持自然正视屏幕并睁眼，检测结果应为「注视了屏幕」</string>
     <string name="self_test_away">第二步：转头或移开视线</string>
+    <string name="self_test_away_expect">期望效果：转头或移开视线离开屏幕，检测结果应为「未注视屏幕」</string>
     <string name="self_test_complete">自检已通过</string>
-    <string name="self_test_description">自检期间停止保亮引擎。正视与转头都得到预期结果后，才能开启注视保亮。</string>
-    <string name="self_test_capture">检测这一步</string>
+    <string name="self_test_complete_summary">正视与转头两步验证均已达到期望效果。</string>
+    <string name="self_test_status_done">已通过</string>
+    <string name="self_test_status_current">当前步骤</string>
+    <string name="self_test_status_pending">待完成</string>
+    <string name="self_test_last_result">本次检测结果：%1$s</string>
+    <string
+    name="self_test_retry_looking_hint"
+  >未达到第一步期望效果「注视了屏幕」，请调整光线、保持正脸睁眼后重试。</string>
+    <string
+    name="self_test_retry_away_hint"
+  >未达到第二步期望效果「未注视屏幕」，请将头部转向侧面或移开视线后重试。</string>
+    <string name="self_test_description">完成正视与转头两个自检步骤，以确认前置相机与注视屏幕检测是否正常</string>
+    <string name="self_test_capture_step_1">检测第一步</string>
+    <string name="self_test_capture_step_2">检测第二步</string>
     <string name="self_test_enable">完成并开启</string>
+    <string name="self_test_finish">完成</string>
     <string name="self_test_camera_permission">授权相机</string>
     <string name="self_test_notification_permission">允许故障通知</string>
     <string name="self_test_preview_hint">点击检测时才会出现短暂预览。</string>
@@ -91,8 +109,31 @@
     <string name="settings_notice_title">需要注意</string>
     <string name="settings_auto_current">自动选择（当前：%1$s）</string>
     <string name="settings_privacy_commitments">隐私承诺</string>
-    <string name="settings_debug_log">决策日志</string>
-    <string name="settings_debug_log_summary">默认关闭。仅保存判定与原因，保留最近 24 小时，关闭后清除。</string>
+    <string name="settings_debug_log">详细日志</string>
+    <string
+    name="settings_debug_log_summary"
+  >默认关闭日志，打开时保留最近24小时的日志，关闭后清除已经记录的日志</string>
+    <string name="settings_view_logs">查看日志</string>
+    <string name="settings_view_logs_summary">查看、筛选、分享或导出已记录的详细日志</string>
+    <string name="logs_title">日志</string>
+    <string name="logs_search_placeholder">搜索</string>
+    <string name="logs_empty">暂无日志记录</string>
+    <string name="logs_level_all">ALL</string>
+    <string name="logs_level_verbose">VERBOSE</string>
+    <string name="logs_level_debug">DEBUG</string>
+    <string name="logs_level_info">INFO</string>
+    <string name="logs_level_warning">WARNING</string>
+    <string name="logs_level_error">ERROR</string>
+    <string name="logs_level_fatal">FATAL</string>
+    <string name="logs_menu_raw_view">原始视图</string>
+    <string name="logs_menu_card_view">卡片视图</string>
+    <string name="logs_menu_scroll_top">滚动到顶部</string>
+    <string name="logs_menu_scroll_bottom">滚动到底部</string>
+    <string name="logs_menu_clear">立即清空日志</string>
+    <string name="logs_action_filter">筛选日志级别</string>
+    <string name="logs_action_share">分享日志</string>
+    <string name="logs_action_export">导出日志</string>
+    <string name="logs_action_more">更多选项</string>
     <string name="nav_home">主页</string>
     <string name="nav_settings">设置</string>
     <string name="home_status_working">工作中</string>
@@ -100,6 +141,8 @@
     <string name="home_status_stopped">未工作</string>
     <string name="home_status_version">版本：%1$s</string>
     <string name="home_status_version_with_decision">版本：%1$s · 最近：%2$s</string>
+    <string name="home_decision_looking">注视了屏幕</string>
+    <string name="home_decision_not_looking">未注视屏幕</string>
     <string name="home_status_tap_to_start">点击开启注视保亮</string>
     <string name="home_status_waiting_hint">请检查所选后端授权或服务状态</string>
     <string name="home_info_app_version">应用版本</string>

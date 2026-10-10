@@ -43,7 +43,7 @@ object ServiceActivation {
       } catch (error: CancellationException) {
         throw error
       } catch (_: Exception) {
-        RuntimeStatusStore.publish(RuntimeStatus())
+        RuntimeStatusStore.updateRunning(running = false, backend = null)
       }
     }
   }
