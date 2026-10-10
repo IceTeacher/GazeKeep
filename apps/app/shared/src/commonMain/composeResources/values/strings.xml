@@ -66,7 +66,7 @@
     <string name="privacy_title_2">画面仅在内存判断</string>
     <string name="privacy_title_3">旁人或看不清即熄屏</string>
     <string name="privacy_line_1">只在快要熄屏时打开前置摄像头，看完立刻关闭。</string>
-    <string name="privacy_line_2">画面只在内存里判断「是否注视了屏幕」，不保存、不上传。</string>
+    <string name="privacy_line_2">画面只在内存里判断是否注视了屏幕，不保存、不上传。</string>
     <string name="privacy_line_3">看不清、没看清、旁边有别人，都会让屏幕正常熄灭。</string>
     <string name="settings_version">GazeKeep 1.0</string>
     <string name="settings_need_camera">请授权前置摄像头后完成自检。</string>
@@ -74,9 +74,9 @@
     <string name="settings_empty_scope">白名单为空，当前不会保亮。请在范围中选择应用。</string>
     <string name="settings_save_failed">设置未能保存，已停止检测。请重试。</string>
     <string name="self_test_looking">第一步：正视手机</string>
-    <string name="self_test_looking_expect">期望效果：保持自然正视屏幕并睁眼，检测结果应为「注视了屏幕」</string>
+    <string name="self_test_looking_expect">期望效果：保持自然正视屏幕并睁眼，检测结果应为“注视了屏幕”</string>
     <string name="self_test_away">第二步：转头或移开视线</string>
-    <string name="self_test_away_expect">期望效果：转头或移开视线离开屏幕，检测结果应为「未注视屏幕」</string>
+    <string name="self_test_away_expect">期望效果：转头或移开视线离开屏幕，检测结果应为“未注视屏幕”</string>
     <string name="self_test_complete">自检已通过</string>
     <string name="self_test_complete_summary">正视与转头两步验证均已达到期望效果。</string>
     <string name="self_test_status_done">已通过</string>
@@ -85,10 +85,10 @@
     <string name="self_test_last_result">本次检测结果：%1$s</string>
     <string
     name="self_test_retry_looking_hint"
-  >未达到第一步期望效果「注视了屏幕」，请调整光线、保持正脸睁眼后重试。</string>
+  >未达到第一步“注视了屏幕”的期望效果，请调整光线、保持正脸睁眼后重试。</string>
     <string
     name="self_test_retry_away_hint"
-  >未达到第二步期望效果「未注视屏幕」，请将头部转向侧面或移开视线后重试。</string>
+  >未达到第二步“未注视屏幕”的期望效果，请将头部转向侧面或移开视线后重试。</string>
     <string name="self_test_description">完成正视与转头两个自检步骤，以确认前置相机与注视屏幕检测是否正常</string>
     <string name="self_test_capture_step_1">检测第一步</string>
     <string name="self_test_capture_step_2">检测第二步</string>
