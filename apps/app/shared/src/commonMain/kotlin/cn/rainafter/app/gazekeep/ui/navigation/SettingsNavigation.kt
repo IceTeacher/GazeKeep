@@ -10,7 +10,6 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -28,14 +27,23 @@ import cn.rainafter.app.gazekeep.ui.contract.ControllerState
 import cn.rainafter.app.gazekeep.ui.contract.GazeKeepController
 import cn.rainafter.app.gazekeep.ui.contract.PlatformActions
 import cn.rainafter.app.gazekeep.ui.contract.SelfTestState
+import cn.rainafter.app.gazekeep.ui.screens.AboutScreen
 import cn.rainafter.app.gazekeep.ui.screens.AppsScreen
 import cn.rainafter.app.gazekeep.ui.screens.BackendScreen
-import cn.rainafter.app.gazekeep.ui.screens.DetectionScreen
 import cn.rainafter.app.gazekeep.ui.screens.HomeScreen
+import cn.rainafter.app.gazekeep.ui.screens.NoticesScreen
 import cn.rainafter.app.gazekeep.ui.screens.PrivacyScreen
-import cn.rainafter.app.gazekeep.ui.screens.ProtectionScreen
-import cn.rainafter.app.gazekeep.ui.screens.ScopeScreen
 import cn.rainafter.app.gazekeep.ui.screens.SelfTestScreen
+import cn.rainafter.app.gazekeep.ui.screens.SettingsTabScreen
+import gazekeep.shared.generated.resources.Res
+import gazekeep.shared.generated.resources.nav_home
+import gazekeep.shared.generated.resources.nav_settings
+import org.jetbrains.compose.resources.stringResource
+import top.yukonga.miuix.kmp.basic.NavigationBar
+import top.yukonga.miuix.kmp.basic.NavigationBarItem
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Home
+import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.math.PI
 import kotlin.math.cos
@@ -43,7 +51,18 @@ import kotlin.math.exp
 import kotlin.math.sin
 import kotlin.math.sqrt
 
-enum class SettingsScreen { Home, Backend, Detection, Scope, Apps, Protection, Privacy, SelfTest }
+enum class SettingsScreen {
+  Home,
+  Settings,
+  Backend,
+  Apps,
+  Privacy,
+  SelfTest,
+  About,
+  Notices,
+}
+
+private val TopLevelTabs = setOf(SettingsScreen.Home, SettingsScreen.Settings)
 
 private class MiuixNavSettleEasing(response: Float = 0.8f, damping: Float = 0.95f) : Easing {
   private val r: Float
@@ -82,14 +101,32 @@ internal fun SettingsNavigation(
   val backStack = rememberSaveable(
     saver = listSaver(
       save = { it.map { screen -> screen.name } },
-      restore = { saved -> saved.map { SettingsScreen.valueOf(it) }.toMutableStateList() },
+      restore = { saved ->
+        saved.mapNotNull { runCatching { SettingsScreen.valueOf(it) }.getOrNull() }
+          .ifEmpty { listOf(SettingsScreen.Home) }
+          .toMutableStateList()
+      },
     ),
   ) { mutableStateListOf(SettingsScreen.Home) }
 
   val currentScreen = backStack.lastOrNull() ?: SettingsScreen.Home
   var isNavigatingBack by remember { mutableStateOf(false) }
 
+  fun selectTab(tab: SettingsScreen) {
+    if (currentScreen == tab) return
+    isNavigatingBack = tab == SettingsScreen.Home
+    backStack.clear()
+    backStack.add(SettingsScreen.Home)
+    if (tab != SettingsScreen.Home) {
+      backStack.add(tab)
+    }
+  }
+
   fun navigateTo(screen: SettingsScreen) {
+    if (screen in TopLevelTabs) {
+      selectTab(screen)
+      return
+    }
     if (backStack.lastOrNull() != screen) {
       isNavigatingBack = false
       backStack.add(screen)
@@ -117,20 +154,42 @@ internal fun SettingsNavigation(
   LaunchedEffect(currentScreen) {
     when (currentScreen) {
       SettingsScreen.SelfTest -> controller.beginSelfTest()
-      SettingsScreen.Scope, SettingsScreen.Apps -> controller.loadApps()
+      SettingsScreen.Apps -> controller.loadApps()
       else -> controller.cancelSelfTest()
+    }
+  }
+
+  @Composable
+  fun BottomNavBar(selectedTab: SettingsScreen) {
+    NavigationBar {
+      NavigationBarItem(
+        selected = selectedTab == SettingsScreen.Home,
+        onClick = { selectTab(SettingsScreen.Home) },
+        icon = MiuixIcons.Home,
+        label = stringResource(Res.string.nav_home),
+      )
+      NavigationBarItem(
+        selected = selectedTab == SettingsScreen.Settings,
+        onClick = { selectTab(SettingsScreen.Settings) },
+        icon = MiuixIcons.Settings,
+        label = stringResource(Res.string.nav_settings),
+      )
     }
   }
 
   AnimatedContent(
     targetState = currentScreen,
     transitionSpec = {
+      val isTabSwitch = initialState in TopLevelTabs && targetState in TopLevelTabs
       val isPop = isNavigatingBack ||
         backStack.indexOf(targetState) < backStack.indexOf(initialState) ||
         (targetState == SettingsScreen.Home && initialState != SettingsScreen.Home)
       val animSpec = tween<IntOffset>(durationMillis = MIUIX_TRANSITION_DURATION, easing = MiuixNavEasing)
       val fadeSpec = tween<Float>(durationMillis = MIUIX_TRANSITION_DURATION, easing = MiuixNavEasing)
-      if (isPop) {
+      if (isTabSwitch) {
+        fadeIn(animationSpec = tween(durationMillis = 220))
+          .togetherWith(fadeOut(animationSpec = tween(durationMillis = 220)))
+      } else if (isPop) {
         (
           slideInHorizontally(animationSpec = animSpec) { -it / 4 } +
             fadeIn(animationSpec = fadeSpec, initialAlpha = 0.9f)
@@ -155,6 +214,15 @@ internal fun SettingsNavigation(
         scope = scope,
         controller = controller,
         onNavigate = ::navigateTo,
+        bottomBar = { BottomNavBar(selectedTab = SettingsScreen.Home) },
+      )
+
+      SettingsScreen.Settings -> SettingsTabScreen(
+        state = state,
+        scope = scope,
+        controller = controller,
+        onNavigate = ::navigateTo,
+        bottomBar = { BottomNavBar(selectedTab = SettingsScreen.Settings) },
       )
 
       SettingsScreen.Backend -> BackendScreen(
@@ -162,21 +230,6 @@ internal fun SettingsNavigation(
         scope = scope,
         controller = controller,
         actions = actions,
-        onBack = ::navigateBack,
-      )
-
-      SettingsScreen.Detection -> DetectionScreen(
-        state = state,
-        scope = scope,
-        controller = controller,
-        onBack = ::navigateBack,
-      )
-
-      SettingsScreen.Scope -> ScopeScreen(
-        state = state,
-        scope = scope,
-        controller = controller,
-        onNavigate = ::navigateTo,
         onBack = ::navigateBack,
       )
 
@@ -188,17 +241,7 @@ internal fun SettingsNavigation(
         onBack = ::navigateBack,
       )
 
-      SettingsScreen.Protection -> ProtectionScreen(
-        state = state,
-        scope = scope,
-        controller = controller,
-        onBack = ::navigateBack,
-      )
-
       SettingsScreen.Privacy -> PrivacyScreen(
-        state = state,
-        scope = scope,
-        controller = controller,
         onBack = ::navigateBack,
       )
 
@@ -210,6 +253,18 @@ internal fun SettingsNavigation(
         actions = actions,
         onBack = ::navigateBack,
         onComplete = ::navigateToHome,
+      )
+
+      SettingsScreen.About -> AboutScreen(
+        state = state,
+        actions = actions,
+        onNavigate = ::navigateTo,
+        onBack = ::navigateBack,
+      )
+
+      SettingsScreen.Notices -> NoticesScreen(
+        state = state,
+        onBack = ::navigateBack,
       )
     }
   }

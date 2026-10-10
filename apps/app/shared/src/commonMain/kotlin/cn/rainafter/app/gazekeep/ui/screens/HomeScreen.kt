@@ -1,61 +1,80 @@
 package cn.rainafter.app.gazekeep.ui.screens
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import cn.rainafter.app.gazekeep.core.model.Sensitivity
+import cn.rainafter.app.gazekeep.core.model.BackendId
+import cn.rainafter.app.gazekeep.core.model.Readiness
 import cn.rainafter.app.gazekeep.ui.components.AppScaffold
 import cn.rainafter.app.gazekeep.ui.components.NoticeCard
-import cn.rainafter.app.gazekeep.ui.components.SettingsGroupTitle
 import cn.rainafter.app.gazekeep.ui.contract.ControllerState
 import cn.rainafter.app.gazekeep.ui.contract.GazeKeepController
 import cn.rainafter.app.gazekeep.ui.contract.UiNotice
 import cn.rainafter.app.gazekeep.ui.navigation.SettingsScreen
 import cn.rainafter.app.gazekeep.ui.text.attentionLabel
 import cn.rainafter.app.gazekeep.ui.text.backendLabel
+import cn.rainafter.app.gazekeep.ui.text.backendName
 import gazekeep.shared.generated.resources.Res
 import gazekeep.shared.generated.resources.app_title
-import gazekeep.shared.generated.resources.settings_app_count
-import gazekeep.shared.generated.resources.settings_backend
-import gazekeep.shared.generated.resources.settings_detection
-import gazekeep.shared.generated.resources.settings_group_basic
-import gazekeep.shared.generated.resources.settings_group_security
-import gazekeep.shared.generated.resources.settings_group_tools
-import gazekeep.shared.generated.resources.settings_last_decision
-import gazekeep.shared.generated.resources.settings_lead_5
-import gazekeep.shared.generated.resources.settings_lead_8
+import gazekeep.shared.generated.resources.home_info_android_version
+import gazekeep.shared.generated.resources.home_info_app_version
+import gazekeep.shared.generated.resources.home_info_backend_status
+import gazekeep.shared.generated.resources.home_info_camera_granted
+import gazekeep.shared.generated.resources.home_info_camera_missing
+import gazekeep.shared.generated.resources.home_info_camera_selftest
+import gazekeep.shared.generated.resources.home_info_device_model
+import gazekeep.shared.generated.resources.home_info_fingerprint
+import gazekeep.shared.generated.resources.home_info_selftest_passed
+import gazekeep.shared.generated.resources.home_info_selftest_pending
+import gazekeep.shared.generated.resources.home_privacy_card_summary
+import gazekeep.shared.generated.resources.home_privacy_card_title
+import gazekeep.shared.generated.resources.home_status_stopped
+import gazekeep.shared.generated.resources.home_status_tap_to_start
+import gazekeep.shared.generated.resources.home_status_version
+import gazekeep.shared.generated.resources.home_status_version_with_decision
+import gazekeep.shared.generated.resources.home_status_waiting
+import gazekeep.shared.generated.resources.home_status_waiting_hint
+import gazekeep.shared.generated.resources.home_status_working
 import gazekeep.shared.generated.resources.settings_loading
-import gazekeep.shared.generated.resources.settings_loose
-import gazekeep.shared.generated.resources.settings_max_hold
-import gazekeep.shared.generated.resources.settings_need_camera
+import gazekeep.shared.generated.resources.settings_not_ready
 import gazekeep.shared.generated.resources.settings_off
-import gazekeep.shared.generated.resources.settings_privacy
-import gazekeep.shared.generated.resources.settings_privacy_commitments
-import gazekeep.shared.generated.resources.settings_protection
 import gazekeep.shared.generated.resources.settings_ready
-import gazekeep.shared.generated.resources.settings_running
-import gazekeep.shared.generated.resources.settings_scope
-import gazekeep.shared.generated.resources.settings_self_test
-import gazekeep.shared.generated.resources.settings_standard
-import gazekeep.shared.generated.resources.settings_waiting
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Info
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.PressFeedbackType
+
+private enum class HomeRunStatus { Working, Waiting, Stopped }
 
 @Composable
 internal fun HomeScreen(
@@ -63,10 +82,12 @@ internal fun HomeScreen(
   scope: CoroutineScope,
   controller: GazeKeepController,
   onNavigate: (SettingsScreen) -> Unit,
+  bottomBar: @Composable () -> Unit = {},
 ) {
   AppScaffold(
     title = stringResource(Res.string.app_title),
     onBack = null,
+    bottomBar = bottomBar,
   ) { padding, scrollBehavior ->
     Column(
       modifier = Modifier
@@ -91,7 +112,7 @@ internal fun HomeScreen(
               }
 
               UiNotice.EmptyScope -> {
-                { onNavigate(SettingsScreen.Scope) }
+                { onNavigate(SettingsScreen.Apps) }
               }
 
               UiNotice.SaveFailed -> null
@@ -99,109 +120,255 @@ internal fun HomeScreen(
           )
         }
 
-        Card(modifier = Modifier.fillMaxWidth()) {
-          SwitchPreference(
-            title = stringResource(Res.string.app_title),
-            checked = state.config.enabled,
-            summary = stringResource(
-              if (!state.config.enabled) {
-                Res.string.settings_off
-              } else if (state.serviceRunning) {
-                Res.string.settings_running
-              } else {
-                Res.string.settings_waiting
-              },
-            ),
-            onCheckedChange = { enabled ->
-              scope.launch {
-                controller.setEnabled(enabled)
-                if (controller.state.value.notice in
-                  listOf(UiNotice.NeedsCamera, UiNotice.NeedsSelfTest)
-                ) {
-                  onNavigate(SettingsScreen.SelfTest)
-                }
+        StatusBannerCard(
+          state = state,
+          onToggle = {
+            scope.launch {
+              val target = !state.config.enabled
+              controller.setEnabled(target)
+              if (target &&
+                controller.state.value.notice in listOf(UiNotice.NeedsCamera, UiNotice.NeedsSelfTest)
+              ) {
+                onNavigate(SettingsScreen.SelfTest)
               }
-            },
-          )
-          state.lastDecision?.let { decision ->
-            BasicComponent(
-              title = stringResource(Res.string.settings_last_decision),
-              summary = attentionLabel(decision),
-            )
-          }
-        }
+            }
+          },
+        )
 
-        SettingsGroupTitle(text = stringResource(Res.string.settings_group_basic))
-        Card(modifier = Modifier.fillMaxWidth()) {
-          ArrowPreference(
-            title = stringResource(Res.string.settings_backend),
-            summary = backendLabel(state.activeBackend, state.config.backendLock),
-            onClick = { onNavigate(SettingsScreen.Backend) },
-          )
-          ArrowPreference(
-            title = stringResource(Res.string.settings_detection),
-            summary = stringResource(
-              if (state.config.leadMillis ==
-                5_000L
-              ) {
-                Res.string.settings_lead_5
-              } else {
-                Res.string.settings_lead_8
-              },
-            ) + " · " + stringResource(
-              if (state.config.sensitivity ==
-                Sensitivity.Standard
-              ) {
-                Res.string.settings_standard
-              } else {
-                Res.string.settings_loose
-              },
-            ),
-            onClick = { onNavigate(SettingsScreen.Detection) },
-          )
-          ArrowPreference(
-            title = stringResource(Res.string.settings_scope),
-            summary = if (state.config.whitelistEnabled) {
-              stringResource(Res.string.settings_app_count, state.config.packages.size)
-            } else {
-              stringResource(Res.string.settings_off)
-            },
-            onClick = { onNavigate(SettingsScreen.Scope) },
-          )
-        }
+        SystemInfoCard(state = state)
 
-        SettingsGroupTitle(text = stringResource(Res.string.settings_group_security))
         Card(modifier = Modifier.fillMaxWidth()) {
-          ArrowPreference(
-            title = stringResource(Res.string.settings_protection),
-            summary =
-            stringResource(Res.string.settings_max_hold) + " " + state.config.maxHoldMinutes + " 分钟",
-            onClick = { onNavigate(SettingsScreen.Protection) },
-          )
-          ArrowPreference(
-            title = stringResource(Res.string.settings_privacy),
-            summary = stringResource(Res.string.settings_privacy_commitments),
-            onClick = { onNavigate(SettingsScreen.Privacy) },
-          )
-        }
-
-        SettingsGroupTitle(text = stringResource(Res.string.settings_group_tools))
-        Card(modifier = Modifier.fillMaxWidth()) {
-          ArrowPreference(
-            title = stringResource(Res.string.settings_self_test),
-            summary = if (state.cameraGranted) {
-              stringResource(
-                Res.string.settings_ready,
+          BasicComponent(
+            title = stringResource(Res.string.home_privacy_card_title),
+            summary = stringResource(Res.string.home_privacy_card_summary),
+            endActions = {
+              Icon(
+                imageVector = MiuixIcons.Info,
+                contentDescription = null,
+                tint = MiuixTheme.colorScheme.onSurface,
+                modifier = Modifier.size(22.dp),
               )
-            } else {
-              stringResource(Res.string.settings_need_camera)
             },
-            onClick = { onNavigate(SettingsScreen.SelfTest) },
+            onClick = { onNavigate(SettingsScreen.Privacy) },
           )
         }
 
         Spacer(Modifier.height(16.dp))
       }
     }
+  }
+}
+
+@Composable
+private fun StatusBannerCard(state: ControllerState, onToggle: () -> Unit) {
+  val status = when {
+    !state.config.enabled -> HomeRunStatus.Stopped
+    state.serviceRunning -> HomeRunStatus.Working
+    else -> HomeRunStatus.Waiting
+  }
+  val isDark = MiuixTheme.colorScheme.surface.luminance() < 0.5f
+
+  val containerColor = when (status) {
+    HomeRunStatus.Working -> if (isDark) Color(0xFF193623) else Color(0xFFDFF6E4)
+    HomeRunStatus.Waiting -> if (isDark) Color(0xFF3B2B11) else Color(0xFFFFF3D6)
+    HomeRunStatus.Stopped -> MiuixTheme.colorScheme.surfaceContainerHigh
+  }
+  val titleColor = when (status) {
+    HomeRunStatus.Working -> if (isDark) Color(0xFFE6FAEB) else Color(0xFF102A17)
+    HomeRunStatus.Waiting -> if (isDark) Color(0xFFFFEFD2) else Color(0xFF332100)
+    HomeRunStatus.Stopped -> MiuixTheme.colorScheme.onSurface
+  }
+  val subtitleColor = titleColor.copy(alpha = 0.78f)
+  val badgeColor = when (status) {
+    HomeRunStatus.Working -> if (isDark) Color(0xFF32D74B) else Color(0xFF34C759)
+    HomeRunStatus.Waiting -> if (isDark) Color(0xFFFF9F0A) else Color(0xFFFF9500)
+    HomeRunStatus.Stopped -> MiuixTheme.colorScheme.onSurfaceVariantActions.copy(alpha = 0.35f)
+  }
+
+  val statusTitle = when (status) {
+    HomeRunStatus.Working -> stringResource(Res.string.home_status_working)
+    HomeRunStatus.Waiting -> stringResource(Res.string.home_status_waiting)
+    HomeRunStatus.Stopped -> stringResource(Res.string.home_status_stopped)
+  }
+  val statusSubtitle = when (status) {
+    HomeRunStatus.Working -> {
+      val decision = state.lastDecision
+      if (decision != null) {
+        stringResource(
+          Res.string.home_status_version_with_decision,
+          state.systemInfo.appVersion,
+          attentionLabel(decision),
+        )
+      } else {
+        stringResource(Res.string.home_status_version, state.systemInfo.appVersion)
+      }
+    }
+
+    HomeRunStatus.Waiting -> stringResource(Res.string.home_status_waiting_hint)
+
+    HomeRunStatus.Stopped -> stringResource(Res.string.home_status_tap_to_start)
+  }
+  val bottomTag = when (status) {
+    HomeRunStatus.Working, HomeRunStatus.Waiting -> backendLabel(state.activeBackend, state.config.backendLock)
+    HomeRunStatus.Stopped -> stringResource(Res.string.settings_off)
+  }
+
+  Card(
+    modifier = Modifier.fillMaxWidth(),
+    insideMargin = PaddingValues(0.dp),
+    colors = CardDefaults.defaultColors(
+      color = containerColor,
+      contentColor = titleColor,
+    ),
+    pressFeedbackType = PressFeedbackType.Sink,
+    showIndication = true,
+    onClick = onToggle,
+  ) {
+    Box(modifier = Modifier.fillMaxWidth()) {
+      Column(
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 20.dp, vertical = 18.dp)
+          .padding(end = 76.dp),
+      ) {
+        Text(
+          text = statusTitle,
+          style = MiuixTheme.textStyles.title3,
+          fontWeight = FontWeight.Bold,
+          color = titleColor,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+          text = statusSubtitle,
+          style = MiuixTheme.textStyles.body2,
+          color = subtitleColor,
+        )
+        Spacer(Modifier.height(18.dp))
+        Text(
+          text = bottomTag,
+          style = MiuixTheme.textStyles.body1,
+          fontWeight = FontWeight.Medium,
+          color = titleColor,
+        )
+      }
+
+      Canvas(
+        modifier = Modifier
+          .size(92.dp)
+          .align(Alignment.BottomEnd)
+          .offset(x = 12.dp, y = 14.dp),
+      ) {
+        val strokeWidth = 8.dp.toPx()
+        val radius = (size.minDimension - strokeWidth) / 2f
+        val center = Offset(size.width / 2f, size.height / 2f)
+        drawCircle(
+          color = badgeColor,
+          radius = radius,
+          center = center,
+          style = Stroke(width = strokeWidth),
+        )
+        when (status) {
+          HomeRunStatus.Working -> {
+            drawLine(
+              color = badgeColor,
+              start = Offset(size.width * 0.29f, size.height * 0.52f),
+              end = Offset(size.width * 0.45f, size.height * 0.67f),
+              strokeWidth = strokeWidth,
+              cap = StrokeCap.Round,
+            )
+            drawLine(
+              color = badgeColor,
+              start = Offset(size.width * 0.45f, size.height * 0.67f),
+              end = Offset(size.width * 0.72f, size.height * 0.36f),
+              strokeWidth = strokeWidth,
+              cap = StrokeCap.Round,
+            )
+          }
+
+          HomeRunStatus.Waiting -> {
+            drawLine(
+              color = badgeColor,
+              start = Offset(center.x, size.height * 0.30f),
+              end = Offset(center.x, size.height * 0.54f),
+              strokeWidth = strokeWidth,
+              cap = StrokeCap.Round,
+            )
+            drawCircle(
+              color = badgeColor,
+              radius = strokeWidth * 0.55f,
+              center = Offset(center.x, size.height * 0.69f),
+            )
+          }
+
+          HomeRunStatus.Stopped -> {
+            drawLine(
+              color = badgeColor,
+              start = Offset(size.width * 0.34f, size.height * 0.34f),
+              end = Offset(size.width * 0.66f, size.height * 0.66f),
+              strokeWidth = strokeWidth,
+              cap = StrokeCap.Round,
+            )
+            drawLine(
+              color = badgeColor,
+              start = Offset(size.width * 0.66f, size.height * 0.34f),
+              end = Offset(size.width * 0.34f, size.height * 0.66f),
+              strokeWidth = strokeWidth,
+              cap = StrokeCap.Round,
+            )
+          }
+        }
+      }
+    }
+  }
+}
+
+@Composable
+private fun SystemInfoCard(state: ControllerState) {
+  val readyText = stringResource(Res.string.settings_ready)
+  val notReadyText = stringResource(Res.string.settings_not_ready)
+  val backendSummary = listOf(BackendId.Lsposed, BackendId.Shizuku, BackendId.Accessibility)
+    .map { id ->
+      val status = if (state.backends[id] == Readiness.Ready) readyText else notReadyText
+      "${backendName(id)}: $status"
+    }
+    .joinToString(" · ")
+  val cameraSelfTestSummary = listOf(
+    if (state.cameraGranted) {
+      stringResource(Res.string.home_info_camera_granted)
+    } else {
+      stringResource(Res.string.home_info_camera_missing)
+    },
+    if (state.selfTestPassed) {
+      stringResource(Res.string.home_info_selftest_passed)
+    } else {
+      stringResource(Res.string.home_info_selftest_pending)
+    },
+  ).joinToString(" · ")
+
+  Card(modifier = Modifier.fillMaxWidth()) {
+    BasicComponent(
+      title = stringResource(Res.string.home_info_app_version),
+      summary = state.systemInfo.appVersion,
+    )
+    BasicComponent(
+      title = stringResource(Res.string.home_info_backend_status),
+      summary = backendSummary,
+    )
+    BasicComponent(
+      title = stringResource(Res.string.home_info_camera_selftest),
+      summary = cameraSelfTestSummary,
+    )
+    BasicComponent(
+      title = stringResource(Res.string.home_info_android_version),
+      summary = state.systemInfo.androidVersion,
+    )
+    BasicComponent(
+      title = stringResource(Res.string.home_info_device_model),
+      summary = state.systemInfo.deviceModel,
+    )
+    BasicComponent(
+      title = stringResource(Res.string.home_info_fingerprint),
+      summary = state.systemInfo.systemFingerprint,
+    )
   }
 }

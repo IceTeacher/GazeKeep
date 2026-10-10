@@ -4,11 +4,15 @@ shared 是 KMP miuix UI，commonMain 仅依赖 core 和平台契约，不 import
 
 ## 当前页面与契约
 
-八页为 Home、Backend、Detection、Scope、Apps、Protection、Privacy、SelfTest。导航维护回退栈和转场；按钮与授权结果通过 controller/platform 契约进入 Android。
+顶层底栏提供 Home（主页）与 Settings（设置）两个一级标签页，二级页面为 Backend、Apps、Privacy、SelfTest、About、Notices（第三方开源许可）。导航维护一级标签切换、二级页面回退栈和转场；进入二级页面时隐藏底栏，按钮与授权结果通过 controller/platform 契约进入 Android。
 
-GazeKeepController 暴露 state/selfTest StateFlow，updateConfig、setEnabled、beginSelfTest、captureSelfTest、cancelSelfTest、refresh、loadApps。setEnabled 返回 Unit，结果通过 UiNotice（NeedsCamera、NeedsSelfTest、EmptyScope、SaveFailed）发布。
+主页顶部采用三态状态横幅卡片（工作中 / 等待可用后端 / 未工作），支持点击直接切换总开关或引导自检；中部卡片展示 6 项项目与系统环境信息（应用版本、后端就绪状态、相机与自检状态、Android 版本、设备型号、系统指纹）；底部卡片展示隐私承诺入口。
 
-PlatformActions 承担相机/通知/Shizuku 权限、无障碍/Shizuku 设置入口、HandleBack、SelfTestPreview、AppIcon。平台能力由 Android 实现，不能为了方便在 UI 内直接操作 Binder、配置文件或服务。
+设置页采用无外置分组标题的卡片分组与左侧图标（`startAction`），将检测提前量、灵敏度、单次最长保亮下拉项及白名单、决策日志开关直接内联在卡片中；当前后端、应用列表、相机自检、隐私与安全、关于通过箭头进入二级页面。关于页采用柔和渐变头部与卡片列表，展示隐私承诺、GitHub 项目及核心开源组件与内置 `THIRD_PARTY_NOTICES.txt` 许可详情。
+
+GazeKeepController 暴露 state/selfTest StateFlow（含只读系统环境摘要与第三方声明文本），updateConfig、setEnabled、beginSelfTest、captureSelfTest、cancelSelfTest、refresh、loadApps。setEnabled 返回 Unit，结果通过 UiNotice（NeedsCamera、NeedsSelfTest、EmptyScope、SaveFailed）发布。
+
+PlatformActions 承担相机/通知/Shizuku 权限、无障碍/Shizuku 设置入口、外部链接打开（`openUrl`）、HandleBack、SelfTestPreview、AppIcon。平台能力由 Android 实现，不能为了方便在 UI 内直接操作 Binder、配置文件或服务，也不申请 `INTERNET` 权限。
 
 ## 自检与启用
 

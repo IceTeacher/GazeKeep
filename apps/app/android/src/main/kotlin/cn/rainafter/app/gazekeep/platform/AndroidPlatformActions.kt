@@ -2,6 +2,7 @@ package cn.rainafter.app.gazekeep.platform
 
 import android.Manifest
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.activity.ComponentActivity
@@ -55,6 +56,11 @@ class AndroidPlatformActions(
   }
   override fun openShizukuApp() {
     activity.packageManager.getLaunchIntentForPackage("moe.shizuku.privileged.api")?.let(activity::startActivity)
+  }
+  override fun openUrl(url: String) {
+    runCatching {
+      activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+    }
   }
 
   @Composable override fun HandleBack(enabled: Boolean, onBack: () -> Unit) {

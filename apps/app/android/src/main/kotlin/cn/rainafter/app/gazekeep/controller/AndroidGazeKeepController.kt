@@ -35,7 +35,7 @@ class AndroidGazeKeepController(context: Context, private val store: ConfigStore
   private val context = context.applicationContext
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
   private val mutex = Mutex()
-  private val mutableState = MutableStateFlow(ControllerState())
+  private val mutableState = MutableStateFlow(ControllerState(systemInfo = readSystemInfo(this.context)))
   override val state = mutableState.asStateFlow()
   private val readinessProbe = BackendReadinessProbe(context)
   private val selfTestCoordinator = SelfTestCoordinator(context, scope, store)
@@ -51,6 +51,14 @@ class AndroidGazeKeepController(context: Context, private val store: ConfigStore
     Shizuku.addRequestPermissionResultListener(permissionListener)
     Shizuku.addBinderReceivedListenerSticky(binderReceived)
     Shizuku.addBinderDeadListener(binderDead)
+    scope.launch(Dispatchers.IO) {
+      val notices = runCatching {
+        this@AndroidGazeKeepController.context.assets.open("THIRD_PARTY_NOTICES.txt")
+          .bufferedReader()
+          .use { it.readText() }
+      }.getOrDefault("")
+      mutableState.update { it.copy(thirdPartyNotices = notices) }
+    }
     scope.launch {
       try {
         store.settings.collect { settings ->

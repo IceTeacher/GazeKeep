@@ -46,6 +46,7 @@ internal fun AppScaffold(
   title: String,
   onBack: (() -> Unit)? = null,
   scrollBehavior: ScrollBehavior = MiuixScrollBehavior(),
+  bottomBar: @Composable () -> Unit = {},
   content: @Composable (PaddingValues, ScrollBehavior) -> Unit,
 ) {
   Scaffold(
@@ -57,6 +58,7 @@ internal fun AppScaffold(
         scrollBehavior = scrollBehavior,
       )
     },
+    bottomBar = bottomBar,
   ) { padding ->
     content(padding, scrollBehavior)
   }

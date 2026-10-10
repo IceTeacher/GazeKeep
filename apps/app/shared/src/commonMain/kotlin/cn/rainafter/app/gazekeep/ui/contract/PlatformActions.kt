@@ -9,6 +9,7 @@ interface PlatformActions {
   fun openAccessibilitySettings()
   fun requestShizukuPermission()
   fun openShizukuApp()
+  fun openUrl(url: String)
 
   @Composable fun HandleBack(enabled: Boolean, onBack: () -> Unit)
 

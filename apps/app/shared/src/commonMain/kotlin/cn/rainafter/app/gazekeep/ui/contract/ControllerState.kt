@@ -13,6 +13,12 @@ data class SelfTestState(
   val attention: Attention? = null,
 )
 data class AppEntry(val packageName: String, val label: String)
+data class SystemInfo(
+  val appVersion: String = "v1.0 (1)",
+  val androidVersion: String = "-",
+  val deviceModel: String = "-",
+  val systemFingerprint: String = "-",
+)
 data class ControllerState(
   val loaded: Boolean = false,
   val config: GazeConfig = GazeConfig(),
@@ -24,4 +30,6 @@ data class ControllerState(
   val lastDecision: Attention? = null,
   val notice: UiNotice? = null,
   val apps: List<AppEntry> = emptyList(),
+  val systemInfo: SystemInfo = SystemInfo(),
+  val thirdPartyNotices: String = "",
 )

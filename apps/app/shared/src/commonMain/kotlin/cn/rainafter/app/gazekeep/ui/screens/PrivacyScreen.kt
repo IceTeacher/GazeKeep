@@ -12,36 +12,28 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import cn.rainafter.app.gazekeep.ui.components.AppScaffold
 import cn.rainafter.app.gazekeep.ui.components.SettingsGroupTitle
-import cn.rainafter.app.gazekeep.ui.contract.ControllerState
-import cn.rainafter.app.gazekeep.ui.contract.GazeKeepController
 import gazekeep.shared.generated.resources.Res
 import gazekeep.shared.generated.resources.privacy_line_1
 import gazekeep.shared.generated.resources.privacy_line_2
 import gazekeep.shared.generated.resources.privacy_line_3
-import gazekeep.shared.generated.resources.settings_debug_log
-import gazekeep.shared.generated.resources.settings_debug_log_summary
+import gazekeep.shared.generated.resources.settings_camera_pause
+import gazekeep.shared.generated.resources.settings_camera_pause_summary
+import gazekeep.shared.generated.resources.settings_dark_pause
+import gazekeep.shared.generated.resources.settings_dark_pause_summary
+import gazekeep.shared.generated.resources.settings_failure_policy
+import gazekeep.shared.generated.resources.settings_failure_summary
+import gazekeep.shared.generated.resources.settings_group_security
 import gazekeep.shared.generated.resources.settings_privacy
 import gazekeep.shared.generated.resources.settings_privacy_commitments
-import gazekeep.shared.generated.resources.settings_version
-import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.preference.SwitchPreference
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
-internal fun PrivacyScreen(
-  state: ControllerState,
-  scope: kotlinx.coroutines.CoroutineScope,
-  controller: GazeKeepController,
-  onBack: () -> Unit,
-) {
+internal fun PrivacyScreen(onBack: () -> Unit) {
   AppScaffold(
     title = stringResource(Res.string.settings_privacy),
     onBack = onBack,
@@ -62,24 +54,22 @@ internal fun PrivacyScreen(
         BasicComponent(title = stringResource(Res.string.privacy_line_3))
       }
 
+      SettingsGroupTitle(text = stringResource(Res.string.settings_group_security))
       Card(modifier = Modifier.fillMaxWidth()) {
-        SwitchPreference(
-          title = stringResource(Res.string.settings_debug_log),
-          summary = stringResource(Res.string.settings_debug_log_summary),
-          checked = state.config.debugLogEnabled,
-          onCheckedChange = { enabled ->
-            scope.launch { controller.updateConfig { it.copy(debugLogEnabled = enabled) } }
-          },
+        BasicComponent(
+          title = stringResource(Res.string.settings_failure_policy),
+          summary = stringResource(Res.string.settings_failure_summary),
+        )
+        BasicComponent(
+          title = stringResource(Res.string.settings_camera_pause),
+          summary = stringResource(Res.string.settings_camera_pause_summary),
+        )
+        BasicComponent(
+          title = stringResource(Res.string.settings_dark_pause),
+          summary = stringResource(Res.string.settings_dark_pause_summary),
         )
       }
-      Spacer(Modifier.height(24.dp))
-      Text(
-        text = stringResource(Res.string.settings_version),
-        style = MiuixTheme.textStyles.footnote1,
-        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-        modifier = Modifier.fillMaxWidth(),
-        textAlign = TextAlign.Center,
-      )
+
       Spacer(Modifier.height(16.dp))
     }
   }
