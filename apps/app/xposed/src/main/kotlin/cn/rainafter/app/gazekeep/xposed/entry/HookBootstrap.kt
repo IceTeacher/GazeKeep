@@ -1,6 +1,7 @@
 package cn.rainafter.app.gazekeep.xposed.entry
 
 import android.content.Context
+import android.util.Log
 import cn.rainafter.app.gazekeep.xposed.hook.HookFacade
 import cn.rainafter.app.gazekeep.xposed.hook.HookPlan
 import cn.rainafter.app.gazekeep.xposed.power.PowerHookCore
@@ -14,13 +15,21 @@ object HookBootstrap {
     synchronized(this) {
       activeCore?.let { return it }
       val core = PowerHookCore(systemContext)
-      val result = runCatching { HookPlan.install(facade, classLoader, core) }.getOrNull()
+      val install = runCatching { HookPlan.install(facade, classLoader, core) }
+      val result = install.getOrNull()
       if (result?.installed != true) {
+        Log.w(
+          TAG,
+          "hook_install_failed candidate=${result?.resolution?.candidate ?: "none"}",
+        )
         core.close()
         return null
       }
       activeCore = core
+      Log.i(TAG, "hook_installed")
       return core
     }
   }
+
+  private const val TAG = "GazeKeepXposed"
 }

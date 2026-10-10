@@ -22,7 +22,7 @@ DeadlineResolver 按真实返回值/参数签名解析候选；当前优先 A，
 
 同一绝对 off deadline 去重，避免重复 Hook 回调推动 seq 使当前采集失效。修改系统侧协议/入口后必须重启使新代码生效，验证前核对设备授权。
 
-LegacyEntry 与 ModernEntry 共用 HookFacade 和 HookBootstrap，一次安装系统钩子。现代入口使用 libxposed API 102 的 compileOnly 依赖与 META-INF/xposed/java_init.list，旧入口继续保留。ActivityThread 最小存根来自独立 hidden-api-stubs compileOnly 模块，最终 APK 不包含存根类定义。
+LegacyEntry 与 ModernEntry 共用 HookFacade 和 HookBootstrap，一次安装系统钩子。当前主流成熟框架（LSPosed 1.9.3）采用经典 LegacyEntry（IXposedHookLoadPackage）稳定注入 `system_server`；打包时通过 resources excludes 隔离 `java_init.list` 以兼容框架运行时环境；作用域同时声明 `system` 与 `android`。ActivityThread 存根及 Context 解析采用多级反射容错，最终 APK 不包含存根类定义。
 
 Handler 派发 deadline 时通过 ActivityTaskManager.getInstance().getTasks(1) 查询 topActivity 包名，异常或签名不匹配返回未知；查询不在 PMS 锁内。系统按配置 lead 提前派发，App reducer 依据有效退避 lead 再调度采集，不在采集中重注册客户端或改变 seq。
 

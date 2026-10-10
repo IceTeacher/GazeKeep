@@ -14,6 +14,8 @@ import gazekeep.shared.generated.resources.m0_result_unknown
 import gazekeep.shared.generated.resources.m2_accessibility_unavailable
 import gazekeep.shared.generated.resources.m2_shizuku_needs_permission
 import gazekeep.shared.generated.resources.m2_shizuku_needs_start
+import gazekeep.shared.generated.resources.m3_lsposed_install_framework
+import gazekeep.shared.generated.resources.m3_lsposed_reboot
 import gazekeep.shared.generated.resources.m3_lsposed_unavailable
 import gazekeep.shared.generated.resources.settings_accessibility
 import gazekeep.shared.generated.resources.settings_auto
@@ -75,7 +77,9 @@ internal fun readinessLabel(readiness: Readiness?) = stringResource(
       SetupStep.StartShizuku -> Res.string.m2_shizuku_needs_start
       SetupStep.GrantShizukuPermission -> Res.string.m2_shizuku_needs_permission
       SetupStep.EnableAccessibilityService -> Res.string.m2_accessibility_unavailable
-      else -> Res.string.m3_lsposed_unavailable
+      SetupStep.InstallFramework -> Res.string.m3_lsposed_install_framework
+      SetupStep.Reboot -> Res.string.m3_lsposed_reboot
+      SetupStep.EnableModuleScope -> Res.string.m3_lsposed_install_framework
     }
 
     else -> Res.string.settings_not_ready

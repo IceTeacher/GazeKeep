@@ -11,7 +11,9 @@
     <string name="m2_backend_auto_status">自动选择当前可用的后端</string>
     <string name="m2_accessibility_unavailable">无障碍服务未启用</string>
     <string name="m2_accessibility_open_settings">打开无障碍设置</string>
-    <string name="m3_lsposed_unavailable">LSPosed 尚未接入或需要重启</string>
+    <string name="m3_lsposed_install_framework">未检测到 LSPosed 系统注入，请启用系统框架作用域并重启</string>
+    <string name="m3_lsposed_reboot">系统框架 Hook 未响应，请确认作用域并重启系统</string>
+    <string name="m3_lsposed_unavailable">LSPosed 当前不可用</string>
     <string name="settings_backend">当前后端</string>
     <string name="settings_detection">检测</string>
     <string name="settings_scope">范围</string>

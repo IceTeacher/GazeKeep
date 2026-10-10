@@ -31,7 +31,7 @@
 | `architecture/ui.md`                     | UI 架构  | 修改页面、导航、自检、平台契约或应用列表时      | 持续维护 | 2026-10-08 |
 | `architecture/backends/a11y.md`          | 后端架构 | 修改无障碍事件、Hold/Pulse 或空闲时钟时         | 持续维护 | 2026-10-09 |
 | `architecture/backends/shizuku.md`       | 后端架构 | 修改 shell Binder、独立前台来源或同步超时恢复时 | 持续维护 | 2026-10-08 |
-| `architecture/backends/lsposed.md`       | 后端架构 | 修改系统候选、现代入口、前台来源、seq 或打包时  | 持续维护 | 2026-10-08 |
+| `architecture/backends/lsposed.md`       | 后端架构 | 修改系统候选、现代入口、前台来源、seq 或打包时  | 持续维护 | 2026-10-10 |
 
 ## 发布
 

@@ -8,8 +8,14 @@ import io.github.libxposed.api.XposedModuleInterface
 import java.lang.reflect.Method
 
 /** 现代入口与旧入口共享薄钩子和一次安装保护。 */
-class ModernEntry : XposedModule() {
+class ModernEntry() : XposedModule() {
+  constructor(
+    base: XposedInterface,
+    param: XposedModuleInterface.ModuleLoadedParam,
+  ) : this()
+
   override fun onSystemServerStarting(param: XposedModuleInterface.SystemServerStartingParam) {
+    log(android.util.Log.INFO, TAG, "system_server_starting")
     runCatching {
       val loader = param.classLoader
       val facade = ModernHookFacade(this)
@@ -23,7 +29,11 @@ class ModernEntry : XposedModule() {
           SystemContextResolver.resolve(loader)?.let { HookBootstrap.onSystemServerLoaded(it, loader, facade) }
         }
       }
-    }.onFailure { log(android.util.Log.WARN, "GazeKeepXposed", "modern initialization failed") }
+    }.onFailure { log(android.util.Log.WARN, TAG, "modern_initialization_failed") }
+  }
+
+  private companion object {
+    const val TAG = "GazeKeepXposed"
   }
 }
 
