@@ -6,9 +6,9 @@
 
 EngineReducer 是状态转移唯一入口，显式接收 uptime，返回 snapshot 与 effects。运行端串行处理事件并执行副作用；采集与 Extend 结果带本轮 token，门控结果带 deadline，迟到结果不影响新轮次。
 
-TimeoutDeadline 保留真实 off 与有效 dim（0 < dim <= off），优先在 dim−有效 lead 调度，未知 dim 使用 off−lead。采集截止为 min(off−200 ms, now+1600 ms)，不会为了检测修改系统降亮设置。
+TimeoutDeadline 保留真实 off 与有效 dim（0 < dim <= off），优先在 dim−有效 lead 调度，未知 dim 使用 off−lead，且唤醒时刻不晚于 off−2500 ms。采集截止为 min(off−200 ms, now+1600 ms)，不会为了检测修改系统降亮设置。
 
-默认三帧两票；连续两轮 Looking 后 lead 减少 3000 ms、至少 4000 ms，最多两帧且仍要求两票 Looking。首次成功 Extend 的起点用于单次保亮上限，独立定时携带起点，旧定时不能结束新会话。
+默认三帧两票；连续两轮 Looking 后 lead 减少 3000 ms（下限 4000 ms 且不超过用户设定值），最多两帧且仍要求两票 Looking。开启单次保亮上限（maxHoldMinutes > 0）时，首次成功 Extend 的起点用于计算上限，独立定时携带起点，旧定时不能结束新会话；设为无限制（0）时不调度或触发上限。
 
 ## 默认熄屏与恢复
 

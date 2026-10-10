@@ -20,4 +20,10 @@ class PreTimeoutScheduleTest {
   fun attachingAfterCheckTimeNotifiesImmediately() {
     assertEquals(49_000L, preTimeoutAt(60_000L, 48_000L, 8_000L, 49_000L))
   }
+
+  @Test
+  fun zeroLeadUsesDimOrCapsAtMinimumCaptureWindowBeforeScreenOff() {
+    assertEquals(48_000L, preTimeoutAt(60_000L, 48_000L, 0L, 0L))
+    assertEquals(57_500L, preTimeoutAt(60_000L, -1L, 0L, 0L))
+  }
 }

@@ -15,8 +15,8 @@ data class GazeConfig(
   val debugLogEnabled: Boolean = false,
 ) {
   init {
-    require(leadMillis > 0L)
-    require(maxHoldMinutes > 0)
+    require(leadMillis >= 0L)
+    require(maxHoldMinutes >= 0)
   }
 }
 

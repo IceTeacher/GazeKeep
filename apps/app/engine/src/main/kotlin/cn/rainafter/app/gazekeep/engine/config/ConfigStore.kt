@@ -49,6 +49,10 @@ class ConfigStore internal constructor(private val store: DataStore<Preferences>
     private val SELF_TEST = longPreferencesKey("self_test_passed_at")
     internal val MIGRATED = booleanPreferencesKey("m4_migrated")
 
+    private fun isValidLeadMillis(value: Long): Boolean = value in 0L..60_000L && value % 1_000L == 0L
+
+    private fun isValidMaxHoldMinutes(value: Int): Boolean = value in 0..1_440
+
     private fun decodeSettings(values: Preferences) = StoredSettings(
       config = GazeConfig(
         enabled = values[ENABLED] ?: false,
@@ -56,20 +60,20 @@ class ConfigStore internal constructor(private val store: DataStore<Preferences>
         backendLock = runCatching {
           BackendLock.valueOf(values[BACKEND].orEmpty())
         }.getOrDefault(BackendLock.Auto),
-        leadMillis = values[LEAD]?.takeIf { it == 5_000L || it == 8_000L } ?: 8_000L,
+        leadMillis = values[LEAD]?.takeIf(::isValidLeadMillis) ?: 8_000L,
         sensitivity = runCatching {
           Sensitivity.valueOf(values[SENSITIVITY].orEmpty())
         }.getOrDefault(Sensitivity.Standard),
         whitelistEnabled = values[WHITELIST] ?: true,
         packages = values[PACKAGES].orEmpty(),
-        maxHoldMinutes = values[MAX_HOLD]?.takeIf { it in listOf(10, 30, 60) } ?: 30,
+        maxHoldMinutes = values[MAX_HOLD]?.takeIf(::isValidMaxHoldMinutes) ?: 30,
       ),
       selfTestPassedAt = values[SELF_TEST],
     )
 
     private fun writeConfig(values: MutablePreferences, config: GazeConfig) {
-      require(config.leadMillis in listOf(5_000L, 8_000L))
-      require(config.maxHoldMinutes in listOf(10, 30, 60))
+      require(isValidLeadMillis(config.leadMillis))
+      require(isValidMaxHoldMinutes(config.maxHoldMinutes))
       values[ENABLED] = config.enabled
       values[DEBUG_LOG] = config.debugLogEnabled
       values[BACKEND] = config.backendLock.name

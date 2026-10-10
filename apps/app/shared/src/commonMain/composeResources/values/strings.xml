@@ -34,6 +34,9 @@
     <string name="settings_lead_summary">在系统降亮前留出检测时间，未知降亮点时在熄屏前检测。</string>
     <string name="settings_lead_5">5 秒</string>
     <string name="settings_lead_8">8 秒</string>
+    <string name="settings_custom">自定义</string>
+    <string name="settings_lead_custom_value">自定义（%1$d 秒）</string>
+    <string name="settings_lead_custom_hint">输入 0～60 秒整数</string>
     <string name="settings_sensitivity">灵敏度</string>
     <string name="settings_standard">标准：正脸并睁眼</string>
     <string name="settings_loose">宽松：有正脸即可</string>
@@ -50,6 +53,11 @@
     <string name="settings_hold_10">10 分钟</string>
     <string name="settings_hold_30">30 分钟</string>
     <string name="settings_hold_60">60 分钟</string>
+    <string name="settings_hold_custom_value">自定义（%1$d 分钟）</string>
+    <string name="settings_hold_custom_hint">输入 1～1440 分钟整数</string>
+    <string name="settings_hold_unlimited">无限制</string>
+    <string name="settings_dialog_cancel">取消</string>
+    <string name="settings_dialog_confirm">确定</string>
     <string name="settings_camera_pause">相机占用时暂停</string>
     <string name="settings_camera_pause_summary">相机无法使用时放行系统熄屏，不与其他应用争用相机。</string>
     <string name="settings_dark_pause">看不清时正常熄屏</string>

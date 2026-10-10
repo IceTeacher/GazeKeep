@@ -8,7 +8,7 @@ shared 是 KMP miuix UI，commonMain 仅依赖 core 和平台契约，不 import
 
 主页顶部采用三态状态横幅卡片（工作中 / 等待可用后端 / 未工作），支持点击直接切换总开关或引导自检；中部卡片展示 6 项项目与系统环境信息（应用版本、后端就绪状态、相机与自检状态、Android 版本、设备型号、系统指纹）；底部卡片展示隐私承诺入口。
 
-设置页采用无外置分组标题的卡片分组与左侧图标（`startAction`），将检测提前量、灵敏度、单次最长保亮下拉项及白名单、决策日志开关直接内联在卡片中；当前后端、应用列表、相机自检、隐私与安全、关于通过箭头进入二级页面。关于页采用柔和渐变头部与卡片列表，展示隐私承诺、GitHub 项目及核心开源组件与内置 `THIRD_PARTY_NOTICES.txt` 许可详情。
+设置页采用无外置分组标题的卡片分组与左侧图标（`startAction`），将检测提前量（5 秒 / 8 秒 / 自定义 0～60 秒）、灵敏度、单次最长保亮（10 / 30 / 60 分钟 / 自定义 1～1440 分钟 / 无限制）下拉项及白名单、决策日志开关直接内联在卡片中，点击自定义弹出带取消/确定的 `OverlayDialog` 数字输入框；当前后端、应用列表、相机自检、隐私与安全、关于通过箭头进入二级页面。关于页采用柔和渐变头部与卡片列表，展示隐私承诺、GitHub 项目及核心开源组件与内置 `THIRD_PARTY_NOTICES.txt` 许可详情。
 
 GazeKeepController 暴露 state/selfTest StateFlow（含只读系统环境摘要与第三方声明文本），updateConfig、setEnabled、beginSelfTest、captureSelfTest、cancelSelfTest、refresh、loadApps。setEnabled 返回 Unit，结果通过 UiNotice（NeedsCamera、NeedsSelfTest、EmptyScope、SaveFailed）发布。
 

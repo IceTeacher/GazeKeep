@@ -12,8 +12,8 @@
 
 ## 当前 APK 验证（2026-10-10）
 
-- Miuix UI 重构与系统信息格式化验证：
-  1. 首页改为三态状态横幅卡片（工作中 / 等待可用后端 / 未工作）+ 6 项项目与系统环境信息卡片 + 底部隐私承诺卡片；设置页改为无外置分组标题、配左侧图标与内联下拉/开关的 4 卡片布局（并修正相机自检摘要在已授权但未完成自检时显示待自检）；新增渐变头部与开源致谢卡片的关于页及第三方开源许可查看页。
-  2. 新增 `SystemInfoFormatterTest` 覆盖应用版本与品牌/设备型号去重格式化，先确认未实现前编译失败，实现后 `:android:testDebugUnitTest` 通过。
+- 检测提前量与单次最长保亮自定义及无限制选项验证：
+  1. 设置页「检测提前量」支持 `5 秒 / 8 秒 / 自定义（0～60 秒整数）`，「单次最长保亮」支持 `10 分钟 / 30 分钟 / 60 分钟 / 自定义（1～1440 分钟整数） / 无限制`；点击「自定义」弹出含「取消」「确定」按钮的 `OverlayDialog` 数字输入框，点击「取消」仅关闭弹窗、不改动配置。
+  2. 先在 `ScreenDimmingPolicyTest`、`EngineReducerTest`、`ConfigStoreTest`、`PreTimeoutScheduleTest` 中新增 0 秒提前量最小窗口兜底、退避不放大、无限制保亮不触发上限及自定义范围持久化/越界拒绝单测，确认旧实现失败后再完成实现并全量通过。
   3. `:android:assembleDebug`、`:android:lintDebug` 通过；`:shared:testAndroidHostTest` 为 `NO-SOURCE`，本轮未在设备上执行页面交互验收。
 - 门禁：`pnpm verify:docs`、`pnpm verify:agent-assets`、`pnpm verify:architecture`、`pnpm test:tools`、`pnpm format:check` 全部通过，`git diff --check` 无违规。

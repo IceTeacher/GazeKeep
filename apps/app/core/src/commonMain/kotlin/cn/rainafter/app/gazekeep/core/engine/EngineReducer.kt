@@ -1,6 +1,7 @@
 package cn.rainafter.app.gazekeep.core.engine
 
 import cn.rainafter.app.gazekeep.core.backend.ExtendResult
+import cn.rainafter.app.gazekeep.core.backend.MIN_CAPTURE_WINDOW_MS
 import cn.rainafter.app.gazekeep.core.backend.TimeoutDeadline
 import cn.rainafter.app.gazekeep.core.backend.captureWakeAtUptime
 import cn.rainafter.app.gazekeep.core.model.Attention
@@ -14,8 +15,6 @@ import cn.rainafter.app.gazekeep.core.policy.LeadBackoff
  * 引擎唯一修改状态的入口；Android 侧只负责把副作用结果重新投递成事件。
  */
 object EngineReducer {
-  private const val MIN_CAPTURE_WINDOW_MS = 2_500L
-
   fun reduce(snapshot: EngineSnapshot, event: EngineEvent, now: Long): Transition = when (event) {
     is EngineEvent.ConfigChanged -> configChanged(snapshot, event.config, now)
 
@@ -37,8 +36,8 @@ object EngineReducer {
       Transition(snapshot)
     }
 
-    is EngineEvent.HoldLimitReached -> if (snapshot.context.holdStartUptime ==
-      event.startUptime
+    is EngineEvent.HoldLimitReached -> if (snapshot.config.maxHoldMinutes > 0 &&
+      snapshot.context.holdStartUptime == event.startUptime
     ) {
       maxHold(snapshot, now)
     } else {
@@ -90,6 +89,16 @@ object EngineReducer {
           !updated.cameraPermissionGranted -> Alert.CameraPermissionLost
           else -> null
         },
+      )
+    } else if (config.maxHoldMinutes == 0 && updated.context.forcedYieldPending) {
+      val nextState = if (updated.state == EngineState.Yielded(YieldReason.MaxHold)) {
+        EngineState.Yielded(YieldReason.WaitingDeadline)
+      } else {
+        updated.state
+      }
+      Transition(
+        updated.copy(state = nextState, context = updated.context.copy(forcedYieldPending = false)),
+        listOf(EngineEffect.CancelHoldLimit),
       )
     } else {
       Transition(updated)
@@ -322,7 +331,8 @@ object EngineReducer {
     return when (result) {
       ExtendResult.Done -> {
         val start = snapshot.context.holdStartUptime ?: now
-        val forced = now - start >= snapshot.config.maxHoldMinutes * 60_000L
+        val maxHoldMs = snapshot.config.maxHoldMinutes * 60_000L
+        val forced = maxHoldMs > 0L && now - start >= maxHoldMs
         val context = snapshot.context.copy(
           holdStartUptime = start,
           lookingStreak = snapshot.context.lookingStreak + 1,
@@ -334,10 +344,8 @@ object EngineReducer {
         Transition(
           next,
           buildList {
-            if (snapshot.context.holdStartUptime ==
-              null
-            ) {
-              add(EngineEffect.ScheduleHoldLimit(start, start + snapshot.config.maxHoldMinutes * 60_000L))
+            if (snapshot.context.holdStartUptime == null && maxHoldMs > 0L) {
+              add(EngineEffect.ScheduleHoldLimit(start, start + maxHoldMs))
             }
             add(
               EngineEffect.Record(
@@ -376,8 +384,11 @@ object EngineReducer {
     }
   }
 
-  private fun holdExpired(snapshot: EngineSnapshot, now: Long): Boolean =
-    snapshot.context.holdStartUptime?.let { now - it >= snapshot.config.maxHoldMinutes * 60_000L } == true
+  private fun holdExpired(snapshot: EngineSnapshot, now: Long): Boolean {
+    val maxHoldMs = snapshot.config.maxHoldMinutes * 60_000L
+    if (maxHoldMs <= 0L) return false
+    return snapshot.context.holdStartUptime?.let { now - it >= maxHoldMs } == true
+  }
 
   private fun maxHold(snapshot: EngineSnapshot, now: Long): Transition {
     val next = snapshot.copy(

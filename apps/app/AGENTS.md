@@ -27,7 +27,7 @@
 3. **帧不出 `ImageAnalysis.Analyzer` 回调。** 不保存、不复制到长期存在的缓冲、不写文件、不进日志、不跨进程。唯一的预览只在自检向导页。
 4. **禁止权限**：`INTERNET`、存储/相册类、`QUERY_ALL_PACKAGES`、`SYSTEM_ALERT_WINDOW`、`READ_PHONE_STATE`。新增依赖若经 Manifest 合并带入 `INTERNET`，用 `tools:node="remove"` 去掉。不接任何统计、崩溃上报、广告 SDK。
 5. **日志只存枚举**：时间、包名、Attention、跳过/中止原因、后端、是否 extend、耗时。不存图像、人脸框、欧拉角、概率。调试日志默认关，开启后 24 小时滚动删除。
-6. **单次最长保亮**（默认 30 分钟）到点必须熄一次。
+6. **单次最长保亮**（默认 30 分钟，支持自定义或设为无限制）未设为无限制时，到点必须熄一次。
 7. **system_server 安全**：钩子方法逐候选解析，签名不匹配就不安装并记录，绝不抛异常到系统进程；钩子回调体整体 `try/catch(Throwable)`；PMS 锁内只做计算与 `Handler` 投递，不做 binder 调用、不取其他锁。
 8. **不改用户设置**，除了 Shizuku 退路临时改 `screen_off_timeout`，且必须先把原值持久化到 `pendingTimeoutRestore`，并在服务重启 / binder 重连 / 息屏时写回（见[Shizuku 恢复要求](../../docs/architecture/backends/shizuku.md)）。
 9. **不静默失效。** 服务被杀、相机拿不到、后端掉线、无障碍被关，必须发一条通知（同类 10 分钟内最多一条）。检测到「在看」时不弹任何提示。

@@ -95,8 +95,18 @@ class ConfigStoreTest {
       val saved = store.settings.first()
       assertEquals(5_000L, saved.config.leadMillis)
       assertEquals(10, saved.config.maxHoldMinutes)
-      assertFailsWith<IllegalArgumentException> { store.update { it.copy(leadMillis = 6_000L) } }
+      assertFailsWith<IllegalArgumentException> { store.update { it.copy(leadMillis = 60_001L) } }
+      assertFailsWith<IllegalArgumentException> { store.update { it.copy(leadMillis = 5_500L) } }
+      assertFailsWith<IllegalArgumentException> { store.update { it.copy(maxHoldMinutes = 1_441) } }
       assertEquals(saved, store.settings.first())
+
+      store.update { it.copy(leadMillis = 0L, maxHoldMinutes = 0) }
+      assertEquals(0L, store.settings.first().config.leadMillis)
+      assertEquals(0, store.settings.first().config.maxHoldMinutes)
+
+      store.update { it.copy(leadMillis = 12_000L, maxHoldMinutes = 45) }
+      assertEquals(12_000L, store.settings.first().config.leadMillis)
+      assertEquals(45, store.settings.first().config.maxHoldMinutes)
     } finally {
       job.cancelAndJoin()
       directory.deleteRecursively()

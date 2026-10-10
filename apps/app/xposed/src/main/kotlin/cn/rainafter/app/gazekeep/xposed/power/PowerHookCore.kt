@@ -114,7 +114,7 @@ class PowerHookCore(private val systemContext: Context) {
     }
     val binder = data.readStrongBinder()
     val callback = IGazeKeepClient.Stub.asInterface(binder)
-    val leadMillis = data.readLong().coerceAtLeast(1L)
+    val leadMillis = data.readLong().coerceAtLeast(0L)
     if (callback == null) {
       reply.writeNoException()
       reply.writeInt(BridgeProtocol.RESULT_UNAVAILABLE)

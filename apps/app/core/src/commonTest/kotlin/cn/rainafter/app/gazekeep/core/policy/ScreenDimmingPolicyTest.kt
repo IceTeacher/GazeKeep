@@ -49,4 +49,11 @@ class ScreenDimmingPolicyTest {
       assertEquals(53_000L, TimeoutDeadline(61_000L, screenDimAtUptime = dimAt).captureWakeAtUptime(8_000L))
     }
   }
+
+  @Test
+  fun zeroLeadChecksAtDimmingAndCapsAtMinimumCaptureWindowWhenUnknownOrTight() {
+    assertEquals(43_000L, TimeoutDeadline(61_000L, screenDimAtUptime = 43_000L).captureWakeAtUptime(0L))
+    assertEquals(58_500L, TimeoutDeadline(61_000L, screenDimAtUptime = null).captureWakeAtUptime(0L))
+    assertEquals(58_500L, TimeoutDeadline(61_000L, screenDimAtUptime = 60_000L).captureWakeAtUptime(0L))
+  }
 }

@@ -300,4 +300,48 @@ class EngineReducerTest {
     assertEquals(EngineState.Disabled, transition.snapshot.state)
     assertTrue(transition.effects.any { it == EngineEffect.Notify(Alert.CameraPermissionLost) })
   }
+
+  @Test
+  fun smallOrZeroLeadBackoffNeverIncreasesConfiguredLead() {
+    val twoSecondLead = ready(
+      config = GazeConfig(enabled = true, leadMillis = 2_000L),
+      context = EngineContext(lookingStreak = 2),
+    )
+    val armedTwo = EngineReducer.reduce(twoSecondLead, EngineEvent.DeadlineUpdated(deadline), 0L).snapshot
+    assertEquals(17_500L, assertIs<EngineState.Armed>(armedTwo.state).wakeAt)
+
+    val zeroLead = ready(
+      config = GazeConfig(enabled = true, leadMillis = 0L),
+      context = EngineContext(lookingStreak = 2),
+    )
+    val armedZero = EngineReducer.reduce(
+      zeroLead,
+      EngineEvent.DeadlineUpdated(deadline.copy(screenDimAtUptime = 15_000L)),
+      0L,
+    ).snapshot
+    assertEquals(15_000L, assertIs<EngineState.Armed>(armedZero.state).wakeAt)
+  }
+
+  @Test
+  fun unlimitedMaxHoldDoesNotScheduleOrTriggerHoldLimit() {
+    val config = GazeConfig(enabled = true, maxHoldMinutes = 0)
+    val extending = EngineReducer.reduce(
+      capturing(ready(config = config)),
+      EngineEvent.CaptureFinished(Attention.Looking, emptyList(), 25L),
+      13_000L,
+    ).snapshot
+    val done = EngineReducer.reduce(extending, EngineEvent.ExtendFinished(ExtendResult.Done), 13_001L)
+    assertTrue(done.effects.none { it is EngineEffect.ScheduleHoldLimit })
+    assertFalse(done.snapshot.context.forcedYieldPending)
+
+    val longHeld = ready(
+      config = config,
+      context = EngineContext(holdStartUptime = 100L, lookingStreak = 5),
+      state = EngineState.Gating(deadline),
+    )
+    val gated = EngineReducer.reduce(longHeld, EngineEvent.GateResult(GateDecision.Proceed), 99_999_999L)
+    assertIs<EngineState.Capturing>(gated.snapshot.state)
+    val timerIgnored = EngineReducer.reduce(gated.snapshot, EngineEvent.HoldLimitReached(100L), 99_999_999L)
+    assertIs<EngineState.Capturing>(timerIgnored.snapshot.state)
+  }
 }
