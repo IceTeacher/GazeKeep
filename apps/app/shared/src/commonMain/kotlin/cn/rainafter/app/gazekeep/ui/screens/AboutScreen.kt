@@ -1,6 +1,6 @@
 package cn.rainafter.app.gazekeep.ui.screens
 
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,17 +16,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
@@ -45,8 +42,10 @@ import gazekeep.shared.generated.resources.about_dep_mlkit
 import gazekeep.shared.generated.resources.about_dep_shizuku
 import gazekeep.shared.generated.resources.about_github
 import gazekeep.shared.generated.resources.about_third_party_notices
+import gazekeep.shared.generated.resources.app_icon
 import gazekeep.shared.generated.resources.settings_back
 import gazekeep.shared.generated.resources.settings_privacy_commitments
+import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
@@ -104,7 +103,13 @@ internal fun AboutScreen(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
       ) {
-        GazeWatermarkLogo(isDark = isDark)
+        Image(
+          painter = painterResource(Res.drawable.app_icon),
+          contentDescription = stringResource(Res.string.about_brand_name),
+          modifier = Modifier
+            .size(96.dp)
+            .clip(RoundedCornerShape(22.dp)),
+        )
         Spacer(Modifier.height(20.dp))
         Text(
           text = stringResource(Res.string.about_brand_name),
@@ -165,48 +170,6 @@ internal fun AboutScreen(
         }
       }
     }
-  }
-}
-
-@Composable
-private fun GazeWatermarkLogo(isDark: Boolean) {
-  val strokeColor = if (isDark) Color(0x99E5D4FF) else Color(0x99E5C5E8)
-  val fillColor = if (isDark) Color(0x33FFFFFF) else Color(0xB3FFFFFF)
-
-  Canvas(modifier = Modifier.size(112.dp)) {
-    val stroke = 3.5.dp.toPx()
-    val cardSize = Size(size.width * 0.82f, size.height * 0.82f)
-    val topLeft = Offset((size.width - cardSize.width) / 2f, (size.height - cardSize.height) / 2f)
-
-    drawRoundRect(
-      color = fillColor,
-      topLeft = topLeft,
-      size = cardSize,
-      cornerRadius = CornerRadius(26.dp.toPx(), 26.dp.toPx()),
-    )
-    drawRoundRect(
-      color = strokeColor,
-      topLeft = topLeft,
-      size = cardSize,
-      cornerRadius = CornerRadius(26.dp.toPx(), 26.dp.toPx()),
-      style = Stroke(width = stroke),
-    )
-
-    val center = Offset(size.width / 2f, size.height / 2f)
-    val eyeWidth = cardSize.width * 0.58f
-    val eyeHeight = cardSize.height * 0.34f
-    val eyePath = Path().apply {
-      moveTo(center.x - eyeWidth / 2f, center.y)
-      quadraticTo(center.x, center.y - eyeHeight, center.x + eyeWidth / 2f, center.y)
-      quadraticTo(center.x, center.y + eyeHeight, center.x - eyeWidth / 2f, center.y)
-      close()
-    }
-    drawPath(path = eyePath, color = strokeColor, style = Stroke(width = stroke))
-    drawCircle(
-      color = strokeColor,
-      radius = cardSize.minDimension * 0.11f,
-      center = center,
-    )
   }
 }
 
