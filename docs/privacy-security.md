@@ -5,7 +5,7 @@
 ## 隐私文案真源
 
 1. 只在快要熄屏时打开前置摄像头，看完立刻关闭。
-2. 画面只在内存里判断「是否注视了屏幕」，不保存、不上传。
+2. 画面只在内存里判断是否注视了屏幕，不保存、不上传。
 3. 看不清、没看清、旁边有别人，都会让屏幕正常熄灭。
 
 资源 `apps/app/shared/src/commonMain/composeResources/values/strings.xml` 中 `privacy_line_1`～`privacy_line_3` 必须与本页逐字一致。改文案同时维护本页和资源，保持唯一真源。
