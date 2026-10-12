@@ -81,7 +81,12 @@ class BackendSession(
     } else {
       ShizukuKeepAwakeBackend(context)
     }
-    lsposedBackend = LsposedKeepAwakeBackend(context, config.leadMillis)
+    lsposedBackend = LsposedKeepAwakeBackend(
+      context = context,
+      leadMillis = config.leadMillis,
+      // 隐私指示器状态只在后端真正选中后同步，避免 attach 顺序覆盖非 LSPosed 后端的恢复状态。
+      hideCameraIndicator = false,
+    )
     val candidates = mutableMapOf<BackendId, KeepAwakeBackend>().apply {
       a11yBackend?.let { put(BackendId.Accessibility, it) }
       shizukuBackend?.let { put(BackendId.Shizuku, it) }
@@ -214,6 +219,7 @@ class BackendSession(
     writer.println("sensitivity=${snapshot?.config?.sensitivity}")
     writer.println("whitelistEnabled=${snapshot?.config?.whitelistEnabled}")
     writer.println("maxHoldMinutes=${snapshot?.config?.maxHoldMinutes}")
+    writer.println("hideCameraIndicator=${snapshot?.config?.hideCameraIndicator}")
     writer.println("backend=${snapshot?.backend}")
     writer.println("state=${snapshot?.state?.let { it::class.simpleName }}")
     writer.println("backendReadiness=${backend?.readiness?.value?.let { it::class.simpleName }}")
@@ -236,7 +242,12 @@ class BackendSession(
 
   private suspend fun switchBackendLocked(selector: BackendSelector, config: GazeConfig) {
     val target = selector.select()
-    if (target === backend) return
+    if (target === backend) {
+      runCatching {
+        lsposedBackend?.syncHideCameraIndicator(config.hideCameraIndicator && target is LsposedKeepAwakeBackend)
+      }
+      return
+    }
 
     engine?.submit(EngineEvent.BackendSelected(null))
     val previous = backend
@@ -244,6 +255,9 @@ class BackendSession(
       runCatching { previous.release() }
     }
     backend = target
+    runCatching {
+      lsposedBackend?.syncHideCameraIndicator(config.hideCameraIndicator && target is LsposedKeepAwakeBackend)
+    }
     engine?.submit(EngineEvent.BackendSelected(target?.id))
     // Oracle 启动会立即发出首个 deadline；等 reducer 先确认后端，避免首个事件落在 Disabled 状态。
     if (target != null) {

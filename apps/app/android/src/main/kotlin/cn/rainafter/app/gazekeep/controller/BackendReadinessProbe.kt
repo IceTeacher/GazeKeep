@@ -15,11 +15,22 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import rikka.shizuku.Shizuku
 
-data class BackendReadinessSnapshot(val cameraGranted: Boolean, val backends: Map<BackendId, Readiness>)
+data class BackendReadinessSnapshot(
+  val cameraGranted: Boolean,
+  val backends: Map<BackendId, Readiness>,
+  val hideCameraIndicatorReady: Boolean,
+)
 
 /** 设置页只探测能力，不注册单客户端的运行回调。 */
 class BackendReadinessProbe(private val context: Context) {
   private val lsposed = LsposedKeepAwakeBackend(context)
+
+  suspend fun syncHideCameraIndicator(enabled: Boolean) {
+    withContext(Dispatchers.IO) {
+      lsposed.syncHideCameraIndicator(enabled)
+    }
+  }
+
   suspend fun read(): BackendReadinessSnapshot {
     val lsposedReadiness = withContext(Dispatchers.IO) { lsposed.checkReadiness() }
     val shizukuReadiness = runCatching {
@@ -49,6 +60,9 @@ class BackendReadinessProbe(private val context: Context) {
           Readiness.NeedsSetup(SetupStep.EnableAccessibilityService)
         },
       ),
+      hideCameraIndicatorReady = withContext(Dispatchers.IO) {
+        lsposed.checkIndicatorHookReadiness()
+      },
     )
   }
 }

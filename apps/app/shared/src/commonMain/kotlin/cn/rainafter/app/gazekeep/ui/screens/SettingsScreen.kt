@@ -23,6 +23,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import cn.rainafter.app.gazekeep.core.model.Sensitivity
+import cn.rainafter.app.gazekeep.core.policy.canConfigureHideCameraIndicator
 import cn.rainafter.app.gazekeep.ui.components.AppScaffold
 import cn.rainafter.app.gazekeep.ui.contract.ControllerState
 import cn.rainafter.app.gazekeep.ui.contract.GazeKeepController
@@ -39,6 +40,9 @@ import gazekeep.shared.generated.resources.settings_debug_log
 import gazekeep.shared.generated.resources.settings_debug_log_summary
 import gazekeep.shared.generated.resources.settings_dialog_cancel
 import gazekeep.shared.generated.resources.settings_dialog_confirm
+import gazekeep.shared.generated.resources.settings_hide_camera_indicator
+import gazekeep.shared.generated.resources.settings_hide_camera_indicator_disabled_summary
+import gazekeep.shared.generated.resources.settings_hide_camera_indicator_summary
 import gazekeep.shared.generated.resources.settings_hold_10
 import gazekeep.shared.generated.resources.settings_hold_30
 import gazekeep.shared.generated.resources.settings_hold_60
@@ -192,6 +196,11 @@ internal fun SettingsTabScreen(
   } else {
     stringResource(Res.string.settings_custom)
   }
+  val canHideCameraIndicator = canConfigureHideCameraIndicator(
+    activeBackend = state.activeBackend,
+    backendLock = state.config.backendLock,
+    backends = state.backends,
+  ) && state.hideCameraIndicatorReady
 
   AppScaffold(
     title = stringResource(Res.string.settings_title),
@@ -302,6 +311,22 @@ internal fun SettingsTabScreen(
 
               else -> scope.launch { controller.updateConfig { it.copy(maxHoldMinutes = 0) } }
             }
+          },
+        )
+        SwitchPreference(
+          title = stringResource(Res.string.settings_hide_camera_indicator),
+          summary = stringResource(
+            if (canHideCameraIndicator) {
+              Res.string.settings_hide_camera_indicator_summary
+            } else {
+              Res.string.settings_hide_camera_indicator_disabled_summary
+            },
+          ),
+          startAction = { StartSettingIcon(MiuixIcons.Lock) },
+          enabled = canHideCameraIndicator,
+          checked = state.config.hideCameraIndicator && canHideCameraIndicator,
+          onCheckedChange = { enabled ->
+            scope.launch { controller.updateConfig { it.copy(hideCameraIndicator = enabled) } }
           },
         )
       }

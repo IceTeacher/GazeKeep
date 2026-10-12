@@ -13,6 +13,7 @@ data class GazeConfig(
   val skipAfterDarkFailures: Boolean = true,
   val pauseOnLowBattery: Boolean = false,
   val debugLogEnabled: Boolean = false,
+  val hideCameraIndicator: Boolean = false,
 ) {
   init {
     require(leadMillis >= 0L)

@@ -26,4 +26,6 @@ LegacyEntry 与 ModernEntry 共用 HookFacade 和 HookBootstrap，一次安装�
 
 Handler 派发 deadline 时通过 ActivityTaskManager.getInstance().getTasks(1) 查询 topActivity 包名，异常或签名不匹配返回未知；查询不在 PMS 锁内。系统按配置 lead 提前派发，App reducer 依据有效退避 lead 再调度采集，不在采集中重注册客户端或改变 seq。
 
-验证入口为 xposed 的候选/调度/令牌/回调保护测试，以及[实机矩阵](../../testing.md#实机完整矩阵)。故意错误钩点仍能开机、禁用作用域正常熄屏、完整长超时与触摸矩阵尚需补证。
+CameraIndicatorResolver 独立解析 `com.android.server.appop.AppOpsService` 的相机活跃通知与 `isOperationActive` 签名，使用独立 HookCallbackGuard 与电源超时钩子隔离：当用户开启实验性“隐藏相机隐私指示器”并经 `TX_SET_HIDE_INDICATOR` 或 `TX_REGISTER` 同步至 PowerHookCore 时，单向过滤 GazeKeep 自身的 `OP_CAMERA`（26）活跃状态通知（保持 `startOp` 返回 `MODE_ALLOWED` 不变）；候选未命中或异常熔断仅降级绿点隐藏，不影响电源超时钩子 `HOOK_READY` 状态，详情见[隐私指示器分析](../camera-privacy-indicator.md)与 [ADR 0001](../../adr/0001-lsposed-hide-camera-privacy-indicator.md)。
+
+验证入口为 xposed 的候选/调度/令牌/回调保护/指示器过滤测试，以及[实机矩阵](../../testing.md#实机完整矩阵)。故意错误钩点仍能开机、禁用作用域正常熄屏、完整长超时与触摸矩阵尚需补证。

@@ -45,6 +45,7 @@ data class ControllerState(
   val selfTestPassed: Boolean = false,
   val cameraGranted: Boolean = false,
   val backends: Map<BackendId, Readiness> = emptyMap(),
+  val hideCameraIndicatorReady: Boolean = false,
   val activeBackend: BackendId? = null,
   val serviceRunning: Boolean = false,
   val lastDecision: Attention? = null,

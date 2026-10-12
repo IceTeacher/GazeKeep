@@ -19,7 +19,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-class LsposedKeepAwakeBackend(context: Context, private val leadMillis: Long = 8_000L) : KeepAwakeBackend {
+class LsposedKeepAwakeBackend(
+  context: Context,
+  private val leadMillis: Long = 8_000L,
+  private val hideCameraIndicator: Boolean = false,
+) : KeepAwakeBackend {
   private val resolver = SystemPowerBinderResolver()
   private val _readiness = MutableStateFlow<Readiness>(Readiness.NeedsSetup(SetupStep.InstallFramework))
   private val _deadlines = MutableSharedFlow<TimeoutDeadline>(extraBufferCapacity = 8)
@@ -35,11 +39,26 @@ class LsposedKeepAwakeBackend(context: Context, private val leadMillis: Long = 8
     val power = resolver.resolve()
     val readiness = when {
       power == null -> Readiness.NeedsSetup(SetupStep.InstallFramework)
-      !ping(power) -> Readiness.NeedsSetup(SetupStep.Reboot)
+      ping(power)?.mainReady != true -> Readiness.NeedsSetup(SetupStep.Reboot)
       else -> Readiness.Ready
     }
     _readiness.value = readiness
     return readiness
+  }
+
+  fun checkIndicatorHookReadiness(): Boolean {
+    val power = resolver.resolve() ?: return false
+    return ping(power)?.indicatorReady == true
+  }
+
+  /** 将实验性隐藏相机隐私指示器开关状态实时同步至 system_server。 */
+  fun syncHideCameraIndicator(enabled: Boolean): Boolean {
+    val power = binder ?: resolver.resolve() ?: return false
+    val status = ping(power) ?: return false
+    if (!status.mainReady || (enabled && !status.indicatorReady)) return false
+    return transact(power, BridgeProtocol.TX_SET_HIDE_INDICATOR) { data ->
+      data.writeInt(if (enabled) 1 else 0)
+    } == BridgeProtocol.RESULT_OK
   }
 
   override suspend fun attach() {
@@ -51,7 +70,7 @@ class LsposedKeepAwakeBackend(context: Context, private val leadMillis: Long = 8
     binder = power
     val client = Callback { deadline -> _deadlines.tryEmit(deadline) }
     callback = client
-    if (!ping(power)) {
+    if (ping(power)?.mainReady != true) {
       binder = null
       callback = null
       _readiness.value = Readiness.NeedsSetup(SetupStep.Reboot)
@@ -60,6 +79,7 @@ class LsposedKeepAwakeBackend(context: Context, private val leadMillis: Long = 8
     val result = transact(power, BridgeProtocol.TX_REGISTER) { data ->
       data.writeStrongBinder(client.asBinder())
       data.writeLong(leadMillis)
+      data.writeInt(if (hideCameraIndicator) 1 else 0)
     }
     _readiness.value =
       if (result == BridgeProtocol.RESULT_OK) Readiness.Ready else Readiness.NeedsSetup(SetupStep.Reboot)
@@ -107,17 +127,23 @@ class LsposedKeepAwakeBackend(context: Context, private val leadMillis: Long = 8
     }
   }
 
-  private fun ping(power: IBinder): Boolean {
+  private data class PingStatus(val mainReady: Boolean, val indicatorReady: Boolean)
+
+  private fun ping(power: IBinder): PingStatus? {
     val data = Parcel.obtain()
     val reply = Parcel.obtain()
     return try {
       data.writeInterfaceToken(BridgeProtocol.DESCRIPTOR)
-      if (!power.transact(BridgeProtocol.TX_PING, data, reply, 0)) return false
+      if (!power.transact(BridgeProtocol.TX_PING, data, reply, 0)) return null
       reply.readException()
-      reply.readInt() == BridgeProtocol.PROTOCOL_VERSION &&
+      val protocol = reply.readInt()
+      val mainReady = reply.readInt() == BridgeProtocol.HOOK_READY
+      reply.readString()
+      val indicatorReady = reply.dataAvail() >= Int.SIZE_BYTES &&
         reply.readInt() == BridgeProtocol.HOOK_READY
+      if (protocol != BridgeProtocol.PROTOCOL_VERSION) null else PingStatus(mainReady, indicatorReady)
     } catch (_: Throwable) {
-      false
+      null
     } finally {
       data.recycle()
       reply.recycle()

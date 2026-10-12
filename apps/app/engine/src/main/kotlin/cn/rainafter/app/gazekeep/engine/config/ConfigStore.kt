@@ -40,6 +40,7 @@ class ConfigStore internal constructor(private val store: DataStore<Preferences>
   companion object {
     private val ENABLED = booleanPreferencesKey("enabled")
     private val DEBUG_LOG = booleanPreferencesKey("debug_log_enabled")
+    private val HIDE_CAMERA_INDICATOR = booleanPreferencesKey("hide_camera_indicator")
     private val BACKEND = stringPreferencesKey("backend_lock")
     private val LEAD = longPreferencesKey("lead_millis")
     private val SENSITIVITY = stringPreferencesKey("sensitivity")
@@ -57,6 +58,7 @@ class ConfigStore internal constructor(private val store: DataStore<Preferences>
       config = GazeConfig(
         enabled = values[ENABLED] ?: false,
         debugLogEnabled = values[DEBUG_LOG] ?: false,
+        hideCameraIndicator = values[HIDE_CAMERA_INDICATOR] ?: false,
         backendLock = runCatching {
           BackendLock.valueOf(values[BACKEND].orEmpty())
         }.getOrDefault(BackendLock.Auto),
@@ -76,6 +78,7 @@ class ConfigStore internal constructor(private val store: DataStore<Preferences>
       require(isValidMaxHoldMinutes(config.maxHoldMinutes))
       values[ENABLED] = config.enabled
       values[DEBUG_LOG] = config.debugLogEnabled
+      values[HIDE_CAMERA_INDICATOR] = config.hideCameraIndicator
       values[BACKEND] = config.backendLock.name
       values[LEAD] = config.leadMillis
       values[SENSITIVITY] = config.sensitivity.name

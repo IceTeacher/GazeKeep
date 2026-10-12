@@ -71,7 +71,52 @@ object HookPlan {
         }
       }
     }
+    installCameraIndicatorHook(facade, classLoader, core)
     return HookInstallResult(resolution, installed = true)
+  }
+
+  private fun installCameraIndicatorHook(facade: HookFacade, classLoader: ClassLoader, core: PowerHookCore) {
+    val indicatorPlan = runCatching { CameraIndicatorResolver(classLoader).resolve() }.getOrNull() ?: return
+    val activeChanged = indicatorPlan.activeChanged ?: return
+    val indicatorGuard = HookCallbackGuard(
+      onFailure = { Log.w("GazeKeepXposed", "indicator hook failed", it) },
+      onDisabled = core::disableIndicatorHook,
+    )
+    runCatching {
+      facade.hookBefore(activeChanged.method) { param ->
+        indicatorGuard.run {
+          if (
+            shouldSuppressCameraActiveNotification(
+              args = param.args,
+              activeArgIndex = activeChanged.activeArgIndex,
+              hideEnabled = core.shouldHideCameraIndicator(),
+              isTargetApp = core::isOurCameraOp,
+            )
+          ) {
+            param.setResult(null)
+          }
+        }
+      }
+      indicatorPlan.operationActiveMethod?.let { opActiveMethod ->
+        facade.hookBefore(opActiveMethod) { param ->
+          indicatorGuard.run {
+            if (
+              shouldOverrideCameraOperationActive(
+                args = param.args,
+                hideEnabled = core.shouldHideCameraIndicator(),
+                isTargetApp = core::isOurCameraOp,
+              )
+            ) {
+              param.setResult(false)
+            }
+          }
+        }
+      }
+      core.markIndicatorHookInstalled()
+      Log.i("GazeKeepXposed", "indicator_hook_installed candidate=${activeChanged.candidate}")
+    }.onFailure { error ->
+      Log.w("GazeKeepXposed", "indicator_hook_install_failed", error)
+    }
   }
 
   private fun triedCandidates(): List<String> = listOf(

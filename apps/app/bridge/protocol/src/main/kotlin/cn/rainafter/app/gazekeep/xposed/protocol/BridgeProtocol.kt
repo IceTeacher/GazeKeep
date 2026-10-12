@@ -7,6 +7,7 @@ object BridgeProtocol {
   const val TX_REGISTER = TX_BASE + 2
   const val TX_EXTEND = TX_BASE + 3
   const val TX_UNREGISTER = TX_BASE + 4
+  const val TX_SET_HIDE_INDICATOR = TX_BASE + 5
   const val PROTOCOL_VERSION = 2
 
   const val RESULT_OK = 0

@@ -36,7 +36,31 @@ class PowerHookCore(private val systemContext: Context) {
 
   @Volatile private var appUid: Int? = null
 
+  @Volatile private var hideCameraIndicator = false
+
+  @Volatile private var indicatorHookInstalled = false
+
+  @Volatile private var indicatorHookDisabled = false
+
   @Volatile private var closed = false
+
+  fun markIndicatorHookInstalled() {
+    indicatorHookInstalled = true
+  }
+
+  /** 隐私指示器 Hook 异常熔断仅降级绿点隐藏，不关闭电源超时主链路。 */
+  fun disableIndicatorHook() {
+    indicatorHookDisabled = true
+    hideCameraIndicator = false
+  }
+
+  fun shouldHideCameraIndicator(): Boolean = !closed && !indicatorHookDisabled && hideCameraIndicator
+
+  fun isOurCameraOp(uid: Int, packageName: String?): Boolean {
+    if (packageName != PACKAGE_NAME) return false
+    val knownUid = appUid ?: return false
+    return appId(uid) == appId(knownUid)
+  }
 
   /** 在 PMS 锁内调用；这里只计算并向自己的 Handler 投递消息。 */
   fun onDeadlineComputed(screenOffAt: Long, lastActivityTime: Long, screenDimAt: Long = -1L) {
@@ -68,6 +92,13 @@ class PowerHookCore(private val systemContext: Context) {
           reply.writeInt(BridgeProtocol.PROTOCOL_VERSION)
           reply.writeInt(BridgeProtocol.HOOK_READY)
           reply.writeString("runtime")
+          reply.writeInt(
+            if (indicatorHookInstalled && !indicatorHookDisabled) {
+              BridgeProtocol.HOOK_READY
+            } else {
+              BridgeProtocol.HOOK_UNSUPPORTED
+            },
+          )
         }
 
         BridgeProtocol.TX_REGISTER -> register(data, reply, callingUid)
@@ -75,6 +106,8 @@ class PowerHookCore(private val systemContext: Context) {
         BridgeProtocol.TX_EXTEND -> extend(data, reply, callingUid)
 
         BridgeProtocol.TX_UNREGISTER -> unregister(reply, callingUid)
+
+        BridgeProtocol.TX_SET_HIDE_INDICATOR -> setHideIndicator(data, reply, callingUid)
 
         else -> {
           reply.writeNoException()
@@ -91,6 +124,7 @@ class PowerHookCore(private val systemContext: Context) {
 
   fun disable() {
     closed = true
+    hideCameraIndicator = false
     tickets.invalidate()
     currentSeq.incrementAndGet()
     handler.post { close() }
@@ -98,6 +132,7 @@ class PowerHookCore(private val systemContext: Context) {
 
   fun close() {
     closed = true
+    hideCameraIndicator = false
     tickets.invalidate()
     currentSeq.incrementAndGet()
     client.getAndSet(null)?.let { runCatching { it.binder.unlinkToDeath(it.deathRecipient, 0) } }
@@ -115,11 +150,13 @@ class PowerHookCore(private val systemContext: Context) {
     val binder = data.readStrongBinder()
     val callback = IGazeKeepClient.Stub.asInterface(binder)
     val leadMillis = data.readLong().coerceAtLeast(0L)
+    val hideIndicator = if (data.dataAvail() >= Int.SIZE_BYTES) data.readInt() != 0 else hideCameraIndicator
     if (callback == null) {
       reply.writeNoException()
       reply.writeInt(BridgeProtocol.RESULT_UNAVAILABLE)
       return
     }
+    hideCameraIndicator = hideIndicator
     tickets.invalidate()
     currentSeq.incrementAndGet()
     client.getAndSet(null)?.let { runCatching { it.binder.unlinkToDeath(it.deathRecipient, 0) } }
@@ -140,6 +177,17 @@ class PowerHookCore(private val systemContext: Context) {
       client.compareAndSet(record, null)
       throw error
     }
+    reply.writeNoException()
+    reply.writeInt(BridgeProtocol.RESULT_OK)
+  }
+
+  private fun setHideIndicator(data: Parcel, reply: Parcel, callingUid: Int) {
+    if (!isOurUid(callingUid)) {
+      reply.writeNoException()
+      reply.writeInt(BridgeProtocol.RESULT_DENIED)
+      return
+    }
+    hideCameraIndicator = data.readInt() != 0
     reply.writeNoException()
     reply.writeInt(BridgeProtocol.RESULT_OK)
   }

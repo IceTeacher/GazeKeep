@@ -1,6 +1,11 @@
 package cn.rainafter.app.gazekeep.core.policy
 
 import cn.rainafter.app.gazekeep.core.model.Attention
+import cn.rainafter.app.gazekeep.core.model.BackendId
+import cn.rainafter.app.gazekeep.core.model.BackendLock
+import cn.rainafter.app.gazekeep.core.model.GazeConfig
+import cn.rainafter.app.gazekeep.core.model.Readiness
+import cn.rainafter.app.gazekeep.core.model.SetupStep
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -27,5 +32,40 @@ class SetupPolicyTest {
     assertEquals(EnableRequirement.Camera, enableRequirement(false, true))
     assertEquals(EnableRequirement.SelfTest, enableRequirement(true, false))
     assertEquals(EnableRequirement.Ready, enableRequirement(true, true))
+  }
+
+  @Test fun hideCameraIndicatorDefaultsToFalseAndRequiresLsposedReadyOrActive() {
+    val defaultConfig = GazeConfig()
+    assertFalse(defaultConfig.hideCameraIndicator)
+
+    val readyBackends = mapOf(
+      BackendId.Lsposed to Readiness.Ready,
+      BackendId.Shizuku to Readiness.Ready,
+      BackendId.Accessibility to Readiness.Ready,
+    )
+    val unreadyBackends = mapOf(
+      BackendId.Lsposed to Readiness.NeedsSetup(SetupStep.InstallFramework),
+      BackendId.Shizuku to Readiness.Ready,
+    )
+
+    assertTrue(canConfigureHideCameraIndicator(BackendId.Lsposed, BackendLock.Auto, readyBackends))
+    assertTrue(canConfigureHideCameraIndicator(null, BackendLock.Auto, readyBackends))
+    assertTrue(canConfigureHideCameraIndicator(null, BackendLock.Lsposed, readyBackends))
+    assertFalse(canConfigureHideCameraIndicator(BackendId.Shizuku, BackendLock.Auto, readyBackends))
+    assertFalse(canConfigureHideCameraIndicator(null, BackendLock.Shizuku, readyBackends))
+    assertFalse(canConfigureHideCameraIndicator(null, BackendLock.Accessibility, readyBackends))
+    assertFalse(canConfigureHideCameraIndicator(null, BackendLock.Auto, unreadyBackends))
+
+    val enabledConfig = defaultConfig.copy(hideCameraIndicator = true, backendLock = BackendLock.Auto)
+    assertTrue(shouldSyncHideCameraIndicator(enabledConfig, BackendId.Lsposed, readyBackends))
+    assertTrue(shouldSyncHideCameraIndicator(enabledConfig, null, readyBackends))
+    assertFalse(shouldSyncHideCameraIndicator(enabledConfig, BackendId.Shizuku, readyBackends))
+    assertFalse(
+      shouldSyncHideCameraIndicator(
+        enabledConfig.copy(backendLock = BackendLock.Shizuku),
+        null,
+        readyBackends,
+      ),
+    )
   }
 }

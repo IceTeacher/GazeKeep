@@ -7,6 +7,7 @@ import cn.rainafter.app.gazekeep.backend.a11y.GazeA11yService
 import cn.rainafter.app.gazekeep.core.model.GazeConfig
 import cn.rainafter.app.gazekeep.core.policy.EnableRequirement
 import cn.rainafter.app.gazekeep.core.policy.enableRequirement
+import cn.rainafter.app.gazekeep.core.policy.shouldSyncHideCameraIndicator
 import cn.rainafter.app.gazekeep.engine.config.ConfigStore
 import cn.rainafter.app.gazekeep.notification.DecisionLogs
 import cn.rainafter.app.gazekeep.runtime.RuntimeStatusStore
@@ -18,6 +19,7 @@ import cn.rainafter.app.gazekeep.ui.contract.UiNotice
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,6 +38,8 @@ class AndroidGazeKeepController(context: Context, private val store: ConfigStore
   private val context = context.applicationContext
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
   private val mutex = Mutex()
+  private val indicatorSyncMutex = Mutex()
+  private var indicatorSyncJob: Job? = null
   private val mutableState = MutableStateFlow(ControllerState(systemInfo = readSystemInfo(this.context)))
   override val state = mutableState.asStateFlow()
   private val readinessProbe = BackendReadinessProbe(context)
@@ -73,6 +77,7 @@ class AndroidGazeKeepController(context: Context, private val store: ConfigStore
               settings.selfTestPassedAt != null,
             )
           }
+          syncIndicatorState()
           if (firstLoad && settings.config.enabled && settings.selfTestPassedAt != null &&
             !RuntimeStatusStore.status.value.running
           ) {
@@ -95,6 +100,7 @@ class AndroidGazeKeepController(context: Context, private val store: ConfigStore
             lastDecision = runtime.lastDecision,
           )
         }
+        syncIndicatorState()
       }
     }
     scope.launch {
@@ -108,7 +114,14 @@ class AndroidGazeKeepController(context: Context, private val store: ConfigStore
   override fun refresh() {
     scope.launch {
       val readiness = readinessProbe.read()
-      mutableState.update { it.copy(cameraGranted = readiness.cameraGranted, backends = readiness.backends) }
+      mutableState.update {
+        it.copy(
+          cameraGranted = readiness.cameraGranted,
+          backends = readiness.backends,
+          hideCameraIndicatorReady = readiness.hideCameraIndicatorReady,
+        )
+      }
+      syncIndicatorState()
     }
   }
 
@@ -122,6 +135,22 @@ class AndroidGazeKeepController(context: Context, private val store: ConfigStore
     } catch (_: Exception) {
       mutableState.update { it.copy(notice = UiNotice.SaveFailed) }
       stopEngine()
+    }
+  }
+
+  private fun syncIndicatorState() {
+    val current = state.value
+    if (!current.loaded) return
+    val shouldHide = shouldSyncHideCameraIndicator(
+      config = current.config,
+      activeBackend = current.activeBackend,
+      backends = current.backends,
+    ) && current.hideCameraIndicatorReady
+    indicatorSyncJob?.cancel()
+    indicatorSyncJob = scope.launch {
+      indicatorSyncMutex.withLock {
+        readinessProbe.syncHideCameraIndicator(shouldHide)
+      }
     }
   }
 

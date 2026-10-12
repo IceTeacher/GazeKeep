@@ -62,6 +62,15 @@
     <string name="settings_camera_pause_summary">相机无法使用时放行系统熄屏，不与其他应用争用相机。</string>
     <string name="settings_dark_pause">看不清时正常熄屏</string>
     <string name="settings_dark_pause_summary">检测结果不可信时不保亮；不会因失败保持常亮。</string>
+    <string name="settings_hide_camera_indicator">隐藏相机隐私指示器</string>
+    <string
+    name="settings_hide_camera_indicator_summary"
+  >实验性 · 仅 LSPosed 后端生效，采样时不显示状态栏绿点。</string>
+    <string name="settings_hide_camera_indicator_disabled_summary">实验性 · 需启用并选择 LSPosed 后端后可用。</string>
+    <string name="privacy_indicator_title">实验性隐私指示器豁免</string>
+    <string
+    name="privacy_indicator_summary"
+  >默认保留状态栏摄像头绿点；仅在 LSPosed 后端下可选隐藏自身采样绿点，不影响其他应用。</string>
     <string name="privacy_title_1">按需短暂采样</string>
     <string name="privacy_title_2">画面仅在内存判断</string>
     <string name="privacy_title_3">旁人或看不清即熄屏</string>

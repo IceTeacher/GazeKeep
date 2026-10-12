@@ -34,6 +34,7 @@ class ConfigStoreTest {
     try {
       val initial = store.settings.first()
       assertFalse(initial.config.enabled)
+      assertFalse(initial.config.hideCameraIndicator)
       assertTrue(initial.config.whitelistEnabled)
       assertTrue(initial.config.packages.isEmpty())
       assertNull(initial.selfTestPassedAt)
@@ -56,6 +57,7 @@ class ConfigStoreTest {
       packages = setOf("example.reader"),
       maxHoldMinutes = 10,
       debugLogEnabled = true,
+      hideCameraIndicator = true,
     )
     first.update { expected }
     first.completeSelfTest()
