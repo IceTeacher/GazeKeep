@@ -84,6 +84,8 @@ class AndroidPlatformActions(
     }
   }
 
+  override fun formatLogTimestamp(epochMillis: Long): String = formatLogTimestampUtc8(epochMillis)
+
   override fun shareLogs(text: String) {
     if (text.isBlank()) return
     runCatching {

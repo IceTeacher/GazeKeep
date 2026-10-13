@@ -25,18 +25,22 @@ import cn.rainafter.app.gazekeep.ui.components.AppScaffold
 import cn.rainafter.app.gazekeep.ui.components.SearchTextField
 import cn.rainafter.app.gazekeep.ui.components.SettingsGroupTitle
 import cn.rainafter.app.gazekeep.ui.contract.AppEntry
+import cn.rainafter.app.gazekeep.ui.contract.AppListLoadState
 import cn.rainafter.app.gazekeep.ui.contract.ControllerState
 import cn.rainafter.app.gazekeep.ui.contract.GazeKeepController
 import cn.rainafter.app.gazekeep.ui.contract.PlatformActions
 import gazekeep.shared.generated.resources.Res
 import gazekeep.shared.generated.resources.settings_apps
+import gazekeep.shared.generated.resources.settings_apps_load_failed
 import gazekeep.shared.generated.resources.settings_apps_selected
 import gazekeep.shared.generated.resources.settings_loading
 import gazekeep.shared.generated.resources.settings_no_apps
+import gazekeep.shared.generated.resources.settings_retry
 import gazekeep.shared.generated.resources.settings_search_apps
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
+import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.preference.SwitchPreference
@@ -114,14 +118,28 @@ internal fun AppsScreen(
           modifier = Modifier.fillMaxSize().padding(32.dp),
           contentAlignment = Alignment.Center,
         ) {
-          Text(
-            text = stringResource(
-              if (state.apps.isEmpty()) Res.string.settings_loading else Res.string.settings_no_apps,
-            ),
-            style = MiuixTheme.textStyles.subtitle,
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            textAlign = TextAlign.Center,
-          )
+          Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+          ) {
+            Text(
+              text = stringResource(
+                when (state.appsLoadState) {
+                  AppListLoadState.NotLoaded, AppListLoadState.Loading -> Res.string.settings_loading
+                  AppListLoadState.Loaded -> Res.string.settings_no_apps
+                  AppListLoadState.Failed -> Res.string.settings_apps_load_failed
+                },
+              ),
+              style = MiuixTheme.textStyles.subtitle,
+              color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+              textAlign = TextAlign.Center,
+            )
+            if (state.appsLoadState == AppListLoadState.Failed) {
+              Button(onClick = { scope.launch { controller.loadApps() } }) {
+                Text(stringResource(Res.string.settings_retry))
+              }
+            }
+          }
         }
       } else {
         LazyColumn(

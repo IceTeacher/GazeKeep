@@ -8,7 +8,6 @@ class SystemInfoFormatterTest {
   fun `does not duplicate manufacturer when model already starts with manufacturer`() {
     val info = buildSystemInfo(
       versionName = "1.0.0",
-      versionCode = 1L,
       release = "14",
       sdkInt = 34,
       manufacturer = "Xiaomi",
@@ -28,7 +27,6 @@ class SystemInfoFormatterTest {
   fun `prefixes manufacturer when model only contains model code`() {
     val info = buildSystemInfo(
       versionName = "1.0",
-      versionCode = 1L,
       release = "15",
       sdkInt = 35,
       manufacturer = "Xiaomi",

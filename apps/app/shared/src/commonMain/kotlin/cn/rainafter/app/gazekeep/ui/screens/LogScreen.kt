@@ -165,7 +165,7 @@ internal fun LogScreen(
 
       IconButton(
         onClick = {
-          actions.shareLogs(formatLogsAsRawText(filteredLogs))
+          actions.shareLogs(formatLogsAsRawText(filteredLogs, actions))
         },
       ) {
         Icon(
@@ -176,7 +176,7 @@ internal fun LogScreen(
 
       IconButton(
         onClick = {
-          actions.exportLogs(formatLogsAsRawText(filteredLogs))
+          actions.exportLogs(formatLogsAsRawText(filteredLogs, actions))
         },
       ) {
         Icon(
@@ -289,9 +289,9 @@ internal fun LogScreen(
             contentType = { if (rawView) "raw" else "card" },
           ) { entry ->
             if (rawView) {
-              RawLogItem(entry = entry)
+              RawLogItem(entry = entry, actions = actions)
             } else {
-              LogCardItem(entry = entry)
+              LogCardItem(entry = entry, actions = actions)
             }
           }
         }
@@ -301,7 +301,7 @@ internal fun LogScreen(
 }
 
 @Composable
-private fun LogCardItem(entry: LogEntry) {
+private fun LogCardItem(entry: LogEntry, actions: PlatformActions) {
   val badgeColor = when (entry.level) {
     LogLevel.Verbose -> Color(0xFF6B7280)
     LogLevel.Debug -> Color(0xFF10B981)
@@ -349,7 +349,7 @@ private fun LogCardItem(entry: LogEntry) {
           )
         }
         Text(
-          text = formatTimestamp(entry.timestampMs),
+          text = actions.formatLogTimestamp(entry.timestampMs),
           style = MiuixTheme.textStyles.footnote1,
           color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
         )
@@ -374,9 +374,9 @@ private fun LogCardItem(entry: LogEntry) {
 }
 
 @Composable
-private fun RawLogItem(entry: LogEntry) {
+private fun RawLogItem(entry: LogEntry, actions: PlatformActions) {
   Text(
-    text = formatSingleLogLine(entry),
+    text = formatSingleLogLine(entry, actions),
     style = MiuixTheme.textStyles.footnote1,
     fontFamily = FontFamily.Monospace,
     color = MiuixTheme.colorScheme.onSurface,
@@ -384,33 +384,9 @@ private fun RawLogItem(entry: LogEntry) {
   )
 }
 
-private fun formatLogsAsRawText(entries: List<LogEntry>): String =
-  entries.joinToString("\n", transform = ::formatSingleLogLine)
+private fun formatLogsAsRawText(entries: List<LogEntry>, actions: PlatformActions): String =
+  entries.joinToString("\n") { formatSingleLogLine(it, actions) }
 
-private fun formatSingleLogLine(entry: LogEntry): String =
-  "${formatTimestamp(entry.timestampMs)} ${entry.level.badge}/${entry.tag} " +
+private fun formatSingleLogLine(entry: LogEntry, actions: PlatformActions): String =
+  "${actions.formatLogTimestamp(entry.timestampMs)} ${entry.level.badge}/${entry.tag} " +
     "(${entry.source} -> ${entry.target}): ${entry.message}"
-
-/** 纯 Kotlin 格式化 MM-dd HH:mm:ss（以 UTC+8 本地偏移展示，不引入平台日期依赖）。 */
-private fun formatTimestamp(epochMillis: Long): String {
-  val localSeconds = (epochMillis / 1_000L) + 8L * 3_600L
-  val days = localSeconds.floorDiv(86_400L)
-  val secondsOfDay = localSeconds.mod(86_400L).toInt()
-  val hour = secondsOfDay / 3_600
-  val minute = (secondsOfDay % 3_600) / 60
-  val second = secondsOfDay % 60
-
-  // Howard Hinnant civil-from-days algorithm
-  val z = days + 719_468L
-  val era = if (z >= 0) z / 146_097L else (z - 146_096L) / 146_097L
-  val doe = (z - era * 146_097L).toInt()
-  val yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365
-  val doy = doe - (365 * yoe + yoe / 4 - yoe / 100)
-  val mp = (5 * doy + 2) / 153
-  val day = doy - (153 * mp + 2) / 5 + 1
-  val month = mp + if (mp < 10) 3 else -9
-
-  return "${pad2(month)}-${pad2(day)} ${pad2(hour)}:${pad2(minute)}:${pad2(second)}"
-}
-
-private fun pad2(value: Int): String = if (value < 10) "0$value" else value.toString()

@@ -2,12 +2,10 @@ package cn.rainafter.app.gazekeep.controller
 
 import android.content.Context
 import android.os.Build
-import androidx.core.content.pm.PackageInfoCompat
 import cn.rainafter.app.gazekeep.ui.contract.SystemInfo
 
 internal fun buildSystemInfo(
   versionName: String,
-  versionCode: Long,
   release: String,
   sdkInt: Int,
   manufacturer: String,
@@ -35,10 +33,8 @@ internal fun readSystemInfo(context: Context): SystemInfo {
     context.packageManager.getPackageInfo(context.packageName, 0)
   }.getOrNull()
   val versionName = pkgInfo?.versionName ?: "1.0.0"
-  val versionCode = pkgInfo?.let { PackageInfoCompat.getLongVersionCode(it) } ?: 1L
   return buildSystemInfo(
     versionName = versionName,
-    versionCode = versionCode,
     release = Build.VERSION.RELEASE ?: "-",
     sdkInt = Build.VERSION.SDK_INT,
     manufacturer = Build.MANUFACTURER ?: "",

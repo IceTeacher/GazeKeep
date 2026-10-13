@@ -12,6 +12,7 @@ interface PlatformActions {
   fun openUrl(url: String)
   fun shareLogs(text: String)
   fun exportLogs(text: String)
+  fun formatLogTimestamp(epochMillis: Long): String
 
   @Composable fun HandleBack(enabled: Boolean, onBack: () -> Unit)
 

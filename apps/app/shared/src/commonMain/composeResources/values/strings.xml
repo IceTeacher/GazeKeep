@@ -15,16 +15,11 @@
     <string name="m3_lsposed_reboot">系统框架 Hook 未响应，请确认作用域并重启系统</string>
     <string name="m3_lsposed_unavailable">LSPosed 当前不可用</string>
     <string name="settings_backend">当前后端</string>
-    <string name="settings_detection">检测</string>
-    <string name="settings_scope">范围</string>
-    <string name="settings_protection">保护</string>
     <string name="settings_privacy">隐私</string>
     <string name="settings_self_test">相机自检</string>
     <string name="settings_back">返回</string>
     <string name="settings_loading">正在读取设置…</string>
     <string name="settings_off">已关闭</string>
-    <string name="settings_running">运行中</string>
-    <string name="settings_waiting">等待可用后端</string>
     <string name="settings_auto">自动选择</string>
     <string name="settings_lsposed">LSPosed</string>
     <string name="settings_shizuku">Shizuku</string>
@@ -47,6 +42,8 @@
     <string name="settings_apps">应用列表</string>
     <string name="settings_app_count">已选择 %1$d 个应用</string>
     <string name="settings_search_apps">搜索应用名称或包名</string>
+    <string name="settings_apps_load_failed">应用列表读取失败，请重试。</string>
+    <string name="settings_retry">重试</string>
     <string name="settings_no_apps">没有匹配的启动器应用</string>
     <string name="settings_max_hold">单次最长保亮</string>
     <string name="settings_max_hold_summary">到达上限后必须让屏幕按系统超时熄灭一次。</string>
@@ -77,7 +74,6 @@
     <string name="privacy_line_1">只在快要熄屏时打开前置摄像头，看完立刻关闭。</string>
     <string name="privacy_line_2">画面只在内存里判断是否注视了屏幕，不保存、不上传。</string>
     <string name="privacy_line_3">看不清、没看清、旁边有别人，都会让屏幕正常熄灭。</string>
-    <string name="settings_version">GazeKeep 1.0</string>
     <string name="settings_need_camera">请授权前置摄像头后完成自检。</string>
     <string name="settings_need_self_test">完成正视和转头自检后才能开启。</string>
     <string name="settings_empty_scope">白名单为空，当前不会保亮。请在范围中选择应用。</string>
@@ -109,10 +105,7 @@
     <string name="settings_open_shizuku">打开 Shizuku</string>
     <string name="settings_ready">已就绪</string>
     <string name="settings_not_ready">尚未就绪，请检查授权或服务</string>
-    <string name="settings_group_basic">基础配置</string>
     <string name="settings_group_security">安全与隐私</string>
-    <string name="settings_group_tools">诊断与工具</string>
-    <string name="settings_last_decision">最近检测</string>
     <string name="settings_apps_selected">已选 %1$d 个应用</string>
     <string name="settings_search_clear">清空</string>
     <string name="settings_notice_title">需要注意</string>
@@ -148,7 +141,6 @@
     <string name="home_status_working">工作中</string>
     <string name="home_status_waiting">等待可用后端</string>
     <string name="home_status_stopped">未工作</string>
-    <string name="home_status_version">版本：%1$s</string>
     <string name="home_decision_looking">注视了屏幕</string>
     <string name="home_decision_not_looking">未注视屏幕</string>
     <string name="home_status_tap_to_start">点击开启注视保亮</string>

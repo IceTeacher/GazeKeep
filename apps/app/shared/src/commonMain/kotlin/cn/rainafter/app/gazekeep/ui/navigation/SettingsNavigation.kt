@@ -1,7 +1,7 @@
 package cn.rainafter.app.gazekeep.ui.navigation
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.Easing
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -46,11 +46,6 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Home
 import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.exp
-import kotlin.math.sin
-import kotlin.math.sqrt
 
 enum class SettingsScreen {
   Home,
@@ -66,29 +61,6 @@ enum class SettingsScreen {
 
 private val TopLevelTabs = setOf(SettingsScreen.Home, SettingsScreen.Settings)
 
-private class MiuixNavSettleEasing(response: Float = 0.8f, damping: Float = 0.95f) : Easing {
-  private val r: Float
-  private val w: Float
-  private val c2: Float
-
-  init {
-    val omega = 2.0 * PI / response
-    val k = omega * omega
-    val c = damping * 4.0 * PI / response
-
-    w = (sqrt(4.0 * k - c * c) / 2.0).toFloat()
-    r = (-c / 2.0).toFloat()
-    c2 = r / w
-  }
-
-  override fun transform(fraction: Float): Float {
-    val t = fraction.toDouble()
-    val decay = exp(r * t)
-    return (decay * (-cos(w * t) + c2 * sin(w * t)) + 1.0).toFloat()
-  }
-}
-
-private val MiuixNavEasing: Easing = MiuixNavSettleEasing()
 private const val MIUIX_TRANSITION_DURATION = 450
 
 @Composable
@@ -164,7 +136,6 @@ internal fun SettingsNavigation(
 
       SettingsScreen.Logs -> {
         controller.cancelSelfTest()
-        controller.refreshLogs()
       }
 
       else -> controller.cancelSelfTest()
@@ -196,8 +167,8 @@ internal fun SettingsNavigation(
       val isPop = isNavigatingBack ||
         backStack.indexOf(targetState) < backStack.indexOf(initialState) ||
         (targetState == SettingsScreen.Home && initialState != SettingsScreen.Home)
-      val animSpec = tween<IntOffset>(durationMillis = MIUIX_TRANSITION_DURATION, easing = MiuixNavEasing)
-      val fadeSpec = tween<Float>(durationMillis = MIUIX_TRANSITION_DURATION, easing = MiuixNavEasing)
+      val animSpec = tween<IntOffset>(durationMillis = MIUIX_TRANSITION_DURATION, easing = FastOutSlowInEasing)
+      val fadeSpec = tween<Float>(durationMillis = MIUIX_TRANSITION_DURATION, easing = FastOutSlowInEasing)
       if (isTabSwitch) {
         fadeIn(animationSpec = tween(durationMillis = 220))
           .togetherWith(fadeOut(animationSpec = tween(durationMillis = 220)))

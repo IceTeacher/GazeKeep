@@ -46,8 +46,8 @@ class AndroidGazeKeepController(context: Context, private val store: ConfigStore
   private val selfTestCoordinator = SelfTestCoordinator(context, scope, store)
   override val selfTest = selfTestCoordinator.state
   private val decisionLogs = DecisionLogs.get(this.context)
-  private val appsRepository = LaunchableAppsRepository(context, scope) { apps ->
-    mutableState.update { it.copy(apps = apps) }
+  private val appsRepository = LaunchableAppsRepository(context, scope) { loadState, apps ->
+    mutableState.update { it.copy(apps = apps, appsLoadState = loadState) }
   }
   private val permissionListener = Shizuku.OnRequestPermissionResultListener { _, _ -> refresh() }
   private val binderReceived = Shizuku.OnBinderReceivedListener { refresh() }
@@ -195,7 +195,6 @@ class AndroidGazeKeepController(context: Context, private val store: ConfigStore
   private fun reconfigureEngine() = ServiceActivation.reconfigure(context)
 
   override suspend fun beginSelfTest() {
-    cancelSelfTest()
     selfTestCoordinator.begin()
   }
 
@@ -218,7 +217,6 @@ class AndroidGazeKeepController(context: Context, private val store: ConfigStore
   override suspend fun loadApps() = appsRepository.load()
 
   override fun close() {
-    cancelSelfTest()
     appsRepository.close()
     selfTestCoordinator.close()
     Shizuku.removeRequestPermissionResultListener(permissionListener)
