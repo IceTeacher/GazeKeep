@@ -22,7 +22,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
-import cn.rainafter.app.gazekeep.engine.camera.AbortReason as CameraAbortReason
 
 /** 所有异步副作用属于运行会话，关闭时先取消任务，再由会话释放硬件。 */
 class DefaultEngineEffectRunner(
@@ -69,7 +68,7 @@ class DefaultEngineEffectRunner(
         gateJob?.cancel()
         gateJob = scope.launch {
           val snapshot = snapshot()
-          val input = gateProbe.collect(GateContext(snapshot?.context?.darkUnknownStreak ?: 0))
+          val input = gateProbe.collect()
           val decision = GatePolicy.decide(input, GateContext(snapshot?.context?.darkUnknownStreak ?: 0), config)
           if (config.debugLogEnabled) {
             Log.d(
@@ -110,7 +109,7 @@ class DefaultEngineEffectRunner(
               }
 
               is CaptureOutcome.Aborted -> emit(
-                EngineEvent.CaptureAborted(outcome.reason.toEngineReason(), token, result.elapsedMs),
+                EngineEvent.CaptureAborted(outcome.reason, token, result.elapsedMs),
               )
             }
           }
@@ -154,14 +153,6 @@ class DefaultEngineEffectRunner(
 
       is EngineEffect.Notify -> onNotify(effect.alert)
     }
-  }
-
-  private fun CameraAbortReason.toEngineReason(): AbortReason = when (this) {
-    CameraAbortReason.Deadline -> AbortReason.Deadline
-    CameraAbortReason.CameraInUse -> AbortReason.CameraInUse
-    CameraAbortReason.CameraDisabled -> AbortReason.CameraDisabled
-    CameraAbortReason.Cancelled -> AbortReason.Cancelled
-    CameraAbortReason.Error -> AbortReason.Error
   }
 
   override fun close() {

@@ -11,8 +11,6 @@ data class GateInput(
   val proximityNear: Boolean?,
   val lux: Float?,
   val faceDown: Boolean?,
-  val batteryPercent: Int,
-  val powerSave: Boolean,
 )
 
 data class GateContext(val darkUnknownStreak: Int = 0)
@@ -33,7 +31,6 @@ enum class SkipReason {
   Pocket,
   FaceDown,
   TooDarkRepeatedly,
-  LowBattery,
 }
 
 object GatePolicy {
@@ -54,15 +51,12 @@ object GatePolicy {
       if (packageName in cameraPackages) return GateDecision.Skip(SkipReason.CameraSensitiveApp)
     }
     if (input.audioMode in setOf(2, 3, 5)) return GateDecision.Skip(SkipReason.InCall)
-    if (config.pauseWhenCameraBusy && !input.frontCameraAvailable) {
+    if (!input.frontCameraAvailable) {
       return GateDecision.Skip(SkipReason.CameraBusy)
-    }
-    if (config.pauseOnLowBattery && input.batteryPercent in 0..14) {
-      return GateDecision.Skip(SkipReason.LowBattery)
     }
     if (input.proximityNear == true) return GateDecision.Skip(SkipReason.Pocket)
     if (input.faceDown == true) return GateDecision.Skip(SkipReason.FaceDown)
-    if (config.skipAfterDarkFailures && context.darkUnknownStreak >= 2 && input.lux != null && input.lux < 3f) {
+    if (context.darkUnknownStreak >= 2 && input.lux != null && input.lux < 3f) {
       return GateDecision.Skip(SkipReason.TooDarkRepeatedly)
     }
     return GateDecision.Proceed

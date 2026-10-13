@@ -3,15 +3,13 @@ package cn.rainafter.app.gazekeep.engine.gate
 import android.app.KeyguardManager
 import android.content.Context
 import android.media.AudioManager
-import android.os.BatteryManager
 import android.os.PowerManager
-import cn.rainafter.app.gazekeep.core.policy.GateContext
 import cn.rainafter.app.gazekeep.core.policy.GateInput
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 interface GateProbe {
-  suspend fun collect(context: GateContext): GateInput
+  suspend fun collect(): GateInput
 }
 
 fun interface ForegroundAppSource {
@@ -26,9 +24,8 @@ class AndroidGateProbe(private val context: Context, private val foreground: For
   private val power = context.getSystemService(PowerManager::class.java)
   private val keyguard = context.getSystemService(KeyguardManager::class.java)
   private val audio = context.getSystemService(AudioManager::class.java)
-  private val battery = context.getSystemService(BatteryManager::class.java)
 
-  override suspend fun collect(context: GateContext): GateInput = withContext(Dispatchers.Default) {
+  override suspend fun collect(): GateInput = withContext(Dispatchers.Default) {
     GateInput(
       interactive = power?.isInteractive == true,
       keyguardLocked = keyguard?.isKeyguardLocked == true,
@@ -38,16 +35,9 @@ class AndroidGateProbe(private val context: Context, private val foreground: For
       proximityNear = environment.proximityNear(),
       lux = environment.lux(),
       faceDown = environment.faceDown(),
-      batteryPercent = batteryPercent(),
-      powerSave = power?.isPowerSaveMode == true,
     )
   }
 
   fun setInteractive(interactive: Boolean) = environment.setInteractive(interactive)
   override fun close() = environment.close()
-
-  private fun batteryPercent(): Int {
-    val value = battery?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
-    return value.takeIf { it in 0..100 } ?: 100
-  }
 }

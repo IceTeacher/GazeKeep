@@ -6,10 +6,12 @@ import cn.rainafter.app.gazekeep.core.model.FaceFeatures
 import cn.rainafter.app.gazekeep.core.model.FrameVerdict
 import cn.rainafter.app.gazekeep.core.model.Sensitivity
 import cn.rainafter.app.gazekeep.core.policy.judgeFeatures
+import com.google.android.gms.tasks.Task
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetector
 import com.google.mlkit.vision.face.FaceDetectorOptions
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
@@ -30,7 +32,7 @@ class MlKitFrameClassifier(private val thresholds: ClassifierThresholds = Classi
     return try {
       val faces = detector.process(
         InputImage.fromMediaImage(mediaImage, image.imageInfo.rotationDegrees),
-      ).await()
+      ).awaitClassification()
       val rotatedWidth = if (image.imageInfo.rotationDegrees % 180 == 0) image.width else image.height
       val minWidth = thresholds.minFaceWidthRatio * 0.6f
       val significant = faces.filter { it.boundingBox.width().toFloat() / rotatedWidth >= minWidth }
@@ -51,7 +53,9 @@ class MlKitFrameClassifier(private val thresholds: ClassifierThresholds = Classi
           thresholds,
         )
       }
-    } catch (_: Throwable) {
+    } catch (error: CancellationException) {
+      throw error
+    } catch (_: Exception) {
       FrameVerdict.NotLooking(FrameVerdict.Reason.ClassifierError)
     }
   }
@@ -61,8 +65,25 @@ class MlKitFrameClassifier(private val thresholds: ClassifierThresholds = Classi
   }
 }
 
-private suspend fun <T> com.google.android.gms.tasks.Task<T>.await(): T = suspendCancellableCoroutine { continuation ->
-  addOnSuccessListener { if (continuation.isActive) continuation.resume(it) }
-    .addOnFailureListener { if (continuation.isActive) continuation.resumeWith(Result.failure(it)) }
-    .addOnCanceledListener { continuation.cancel() }
+private suspend fun <T> Task<T>.awaitClassification(): T = awaitClassificationResult { success, failure, cancelled ->
+  addOnSuccessListener({ it.run() }, success)
+    .addOnFailureListener({ it.run() }, failure)
+    .addOnCanceledListener({ it.run() }, cancelled)
+}
+
+/** SDK 自行取消属于本轮分类失败；调用方取消仍由 continuation 传播。 */
+internal suspend fun <T> awaitClassificationResult(
+  register: (success: (T) -> Unit, failure: (Exception) -> Unit, cancelled: () -> Unit) -> Unit,
+): T = suspendCancellableCoroutine { continuation ->
+  register(
+    { if (continuation.isActive) continuation.resume(it) },
+    { if (continuation.isActive) continuation.resumeWith(Result.failure(it)) },
+    {
+      if (continuation.isActive) {
+        continuation.resumeWith(
+          Result.failure(IllegalStateException("classification task cancelled")),
+        )
+      }
+    },
+  )
 }

@@ -17,7 +17,6 @@ sealed interface EngineEvent {
   data object KeyguardDismissed : EngineEvent
   data class DeadlineUpdated(val deadline: TimeoutDeadline) : EngineEvent
   data class UserActivity(val uptime: Long) : EngineEvent
-  data object WakeTimerFired : EngineEvent
   data class ScheduledWakeFired(val atUptime: Long) : EngineEvent
   data class HoldLimitReached(val startUptime: Long) : EngineEvent
   data class GateResult(

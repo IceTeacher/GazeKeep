@@ -26,7 +26,11 @@ class EngineReducerTest {
 
   private fun capturing(snapshot: EngineSnapshot = ready()): EngineSnapshot {
     val armed = EngineReducer.reduce(snapshot, EngineEvent.DeadlineUpdated(deadline), 0L).snapshot
-    val gating = EngineReducer.reduce(armed, EngineEvent.WakeTimerFired, 12_000L).snapshot
+    val gating = EngineReducer.reduce(
+      armed,
+      EngineEvent.ScheduledWakeFired((armed.state as EngineState.Armed).wakeAt),
+      12_000L,
+    ).snapshot
     return EngineReducer.reduce(gating, EngineEvent.GateResult(GateDecision.Proceed), 12_100L).snapshot
   }
 
@@ -172,7 +176,11 @@ class EngineReducerTest {
     val start = ready(context = EngineContext(lookingStreak = 2))
     val armed = EngineReducer.reduce(start, EngineEvent.DeadlineUpdated(deadline), 0L).snapshot
     assertEquals(15_000L, assertIs<EngineState.Armed>(armed.state).wakeAt)
-    val gating = EngineReducer.reduce(armed, EngineEvent.WakeTimerFired, 15_000L).snapshot
+    val gating = EngineReducer.reduce(
+      armed,
+      EngineEvent.ScheduledWakeFired((armed.state as EngineState.Armed).wakeAt),
+      15_000L,
+    ).snapshot
     val captured = EngineReducer.reduce(gating, EngineEvent.GateResult(GateDecision.Proceed), 15_000L)
     assertEquals(2, captured.effects.filterIsInstance<EngineEffect.StartCapture>().single().plan.maxFrames)
   }

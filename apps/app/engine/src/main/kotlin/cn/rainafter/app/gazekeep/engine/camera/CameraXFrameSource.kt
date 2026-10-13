@@ -11,6 +11,9 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
+import cn.rainafter.app.gazekeep.core.engine.AbortReason
+import cn.rainafter.app.gazekeep.core.engine.CapturePlan
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
@@ -18,7 +21,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-/** M0 的短生命周期前摄采集器；不创建 Preview，也不复制 ImageProxy。 */
+/** 短生命周期前摄采集器；仅自检可附加预览，不复制 ImageProxy。 */
 class CameraXFrameSource(context: Context) :
   FrameSource,
   AutoCloseable {
@@ -41,14 +44,16 @@ class CameraXFrameSource(context: Context) :
     var accepted = 0
     var lastAcceptedAt = Long.MIN_VALUE
     return suspendCancellableCoroutine { continuation ->
-      fun finish(outcome: CaptureOutcome) {
+      fun finish(outcome: CaptureOutcome, cancellation: CancellationException? = null) {
         if (!done.compareAndSet(false, true)) return
         mainHandler.post {
           mainHandler.removeCallbacksAndMessages(owner)
           provider.unbindAll()
           owner.destroy()
           executor.shutdownNow()
-          if (continuation.isActive) continuation.resume(outcome)
+          if (continuation.isActive) {
+            if (cancellation != null) continuation.resumeWithException(cancellation) else continuation.resume(outcome)
+          }
         }
       }
 
@@ -94,15 +99,12 @@ class CameraXFrameSource(context: Context) :
 
         accepted++
         lastAcceptedAt = now
-        val keepGoing = try {
-          onFrame(image)
-        } catch (_: Throwable) {
-          false
-        } finally {
-          image.close()
-        }
-        if (!keepGoing || accepted >= plan.maxFrames) {
-          finish(CaptureOutcome.Completed(accepted))
+        val frame = analyzeFrame(image, onFrame)
+        val error = frame.exceptionOrNull()
+        when {
+          error is CancellationException -> finish(CaptureOutcome.Aborted(AbortReason.Cancelled), error)
+          error != null -> finish(CaptureOutcome.Aborted(AbortReason.Error))
+          !frame.getOrThrow() || accepted >= plan.maxFrames -> finish(CaptureOutcome.Completed)
         }
       }
 
@@ -164,3 +166,12 @@ private suspend fun <T> com.google.common.util.concurrent.ListenableFuture<T>.aw
     )
     continuation.invokeOnCancellation { cancel(true) }
   }
+
+/** 图像在同步回调返回后关闭，随后由调用方发布结果并解绑相机。 */
+internal fun analyzeFrame(image: ImageProxy, onFrame: (ImageProxy) -> Boolean): Result<Boolean> = try {
+  Result.success(onFrame(image))
+} catch (error: Throwable) {
+  Result.failure(error)
+} finally {
+  image.close()
+}

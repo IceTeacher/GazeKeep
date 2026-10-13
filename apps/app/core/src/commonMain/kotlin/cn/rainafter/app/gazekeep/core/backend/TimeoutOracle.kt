@@ -4,12 +4,8 @@ import cn.rainafter.app.gazekeep.core.model.BackendId
 import kotlinx.coroutines.flow.Flow
 
 interface TimeoutOracle {
-  val source: OracleSource
   val deadlines: Flow<TimeoutDeadline>
-  fun millisUntilScreenOff(): Long?
 }
-
-enum class OracleSource { System, PowerDump, IdleClock }
 
 data class TimeoutDeadline(
   val screenOffAtUptime: Long,

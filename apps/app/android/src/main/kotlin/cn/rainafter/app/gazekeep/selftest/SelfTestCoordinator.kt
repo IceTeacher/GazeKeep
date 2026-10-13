@@ -1,14 +1,18 @@
 package cn.rainafter.app.gazekeep.selftest
 
 import android.content.Context
+import android.os.SystemClock
 import androidx.camera.core.Preview
+import cn.rainafter.app.gazekeep.core.engine.CapturePlan
 import cn.rainafter.app.gazekeep.core.model.Attention
 import cn.rainafter.app.gazekeep.core.model.Sensitivity
 import cn.rainafter.app.gazekeep.core.policy.SelfTestProgress
 import cn.rainafter.app.gazekeep.core.policy.advanceSelfTest
 import cn.rainafter.app.gazekeep.engine.camera.CameraXFrameSource
 import cn.rainafter.app.gazekeep.engine.camera.CaptureOutcome
+import cn.rainafter.app.gazekeep.engine.camera.FrameSource
 import cn.rainafter.app.gazekeep.engine.capture.AttentionCaptureSession
+import cn.rainafter.app.gazekeep.engine.classify.FrameClassifier
 import cn.rainafter.app.gazekeep.engine.classify.MlKitFrameClassifier
 import cn.rainafter.app.gazekeep.engine.config.ConfigStore
 import cn.rainafter.app.gazekeep.runtime.RuntimeStatusStore
@@ -23,10 +27,19 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /** 自检拥有自己的采集资源，退出设置页不会关闭服务会话的相机。 */
-class SelfTestCoordinator(context: Context, private val scope: CoroutineScope, private val store: ConfigStore) :
-  AutoCloseable {
-  private val frameSource = CameraXFrameSource(context)
-  private val classifier = MlKitFrameClassifier()
+class SelfTestCoordinator internal constructor(
+  private val scope: CoroutineScope,
+  private val frameSource: FrameSource,
+  private val classifier: FrameClassifier,
+  private val savePassed: suspend () -> Unit,
+  private val clock: () -> Long = { SystemClock.uptimeMillis() },
+) : AutoCloseable {
+  constructor(context: Context, scope: CoroutineScope, store: ConfigStore) : this(
+    scope,
+    CameraXFrameSource(context),
+    MlKitFrameClassifier(),
+    store::completeSelfTest,
+  )
   private val mutableSelfTest = MutableStateFlow(SelfTestState())
   val state = mutableSelfTest.asStateFlow()
   private var testJob: Job? = null
@@ -42,7 +55,7 @@ class SelfTestCoordinator(context: Context, private val scope: CoroutineScope, p
   }
 
   fun setPreviewSurface(provider: Preview.SurfaceProvider?) {
-    frameSource.previewSurfaceProvider = provider
+    (frameSource as? CameraXFrameSource)?.previewSurfaceProvider = provider
   }
 
   fun capture(sensitivity: Sensitivity) {
@@ -51,11 +64,18 @@ class SelfTestCoordinator(context: Context, private val scope: CoroutineScope, p
     testJob = scope.launch {
       mutableSelfTest.update { it.copy(running = true, attention = null, lastStepFailed = false) }
       try {
-        val result = AttentionCaptureSession(frameSource, classifier).capture(sensitivity = sensitivity)
+        val result = AttentionCaptureSession(frameSource, classifier, clock).capture(
+          CapturePlan(
+            abortAtUptime = clock() + 1_600L,
+            sensitivity = sensitivity,
+          ),
+        )
         val attention =
           if (result.outcome is CaptureOutcome.Completed) result.attention else Attention.Unknown
-        progress = advanceSelfTest(progress, attention)
-        if (progress.complete) store.completeSelfTest()
+        val nextProgress = advanceSelfTest(progress, attention)
+        // 保存失败时保留第二步，用户可以重试；不能先提交完成状态。
+        if (nextProgress.complete) savePassed()
+        progress = nextProgress
         val nextStep = when {
           progress.complete -> SelfTestStep.Complete
           progress.lookingPassed -> SelfTestStep.Away

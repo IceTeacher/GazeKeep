@@ -12,7 +12,6 @@ import cn.rainafter.app.gazekeep.core.backend.KeepAwakeBackend
 import cn.rainafter.app.gazekeep.core.model.BackendId
 import cn.rainafter.app.gazekeep.core.model.Readiness
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,10 +21,7 @@ class A11yKeepAwakeBackend(
   private val service: AccessibilityService,
   private val onExternalActivity: () -> Unit = {},
 ) : KeepAwakeBackend {
-  private enum class KeepAwakeMode { Pulse, Hold }
-
   // 已验证：小米 12 Pro（2207122MC，HyperOS V816，Android 14）脉冲释放不会重置完整熄屏周期。
-  private val mode = KeepAwakeMode.Hold
   override val id: BackendId = BackendId.Accessibility
   private val _readiness =
     MutableStateFlow<Readiness>(
@@ -90,15 +86,12 @@ class A11yKeepAwakeBackend(
     if (token is ExtendToken.Seq) lastSequence = token.value
     val updated = runCatching { setKeepScreenOn(true) }.getOrDefault(false)
     if (!updated) return@withContext ExtendResult.Failed(IllegalStateException("overlay unavailable"))
-    if (mode == KeepAwakeMode.Pulse) {
-      delay(300L)
-      runCatching { setKeepScreenOn(false) }
-    }
     ExtendResult.Done
   }
 
   override suspend fun release() = withContext(Dispatchers.Main.immediate) {
-    if (mode == KeepAwakeMode.Hold) runCatching { setKeepScreenOn(false) }
+    runCatching { setKeepScreenOn(false) }
+    Unit
   }
 
   private fun setKeepScreenOn(enabled: Boolean): Boolean {

@@ -39,7 +39,7 @@ class DecisionLogStore(private val directory: File, private val clock: () -> Lon
     val packageName = record.foregroundPackage?.takeIf { PACKAGE.matches(it) }
     val target = packageName ?: record.backend?.name ?: "system"
     val level = when (record.reason) {
-      DecisionReason.Extended, DecisionReason.Looking -> LogLevel.Info
+      DecisionReason.Extended -> LogLevel.Info
 
       DecisionReason.NotLooking, DecisionReason.GateSkipped, DecisionReason.MaxHold -> LogLevel.Debug
 

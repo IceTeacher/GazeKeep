@@ -16,17 +16,15 @@ import cn.rainafter.app.gazekeep.core.policy.LeadBackoff
  */
 object EngineReducer {
   fun reduce(snapshot: EngineSnapshot, event: EngineEvent, now: Long): Transition = when (event) {
-    is EngineEvent.ConfigChanged -> configChanged(snapshot, event.config, now)
+    is EngineEvent.ConfigChanged -> configChanged(snapshot, event.config)
 
-    is EngineEvent.BackendSelected -> backendChanged(snapshot, event.backend, now)
+    is EngineEvent.BackendSelected -> backendChanged(snapshot, event.backend)
 
     EngineEvent.ScreenOff -> screenOff(snapshot)
 
     EngineEvent.ScreenOn, EngineEvent.KeyguardDismissed -> screenOn(snapshot)
 
     is EngineEvent.DeadlineUpdated -> deadlineUpdated(snapshot, event.deadline, now)
-
-    EngineEvent.WakeTimerFired -> wakeTimer(snapshot)
 
     is EngineEvent.ScheduledWakeFired -> if ((snapshot.state as? EngineState.Armed)?.wakeAt ==
       event.atUptime
@@ -79,7 +77,7 @@ object EngineReducer {
     EngineEvent.CameraPermissionLost -> disabled(snapshot, Alert.CameraPermissionLost)
   }
 
-  private fun configChanged(snapshot: EngineSnapshot, config: GazeConfig, now: Long): Transition {
+  private fun configChanged(snapshot: EngineSnapshot, config: GazeConfig): Transition {
     val updated = snapshot.copy(config = config)
     return if (!config.enabled || !updated.cameraPermissionGranted || updated.backend == null) {
       disabled(
@@ -105,7 +103,7 @@ object EngineReducer {
     }
   }
 
-  private fun backendChanged(snapshot: EngineSnapshot, backend: BackendId?, now: Long): Transition {
+  private fun backendChanged(snapshot: EngineSnapshot, backend: BackendId?): Transition {
     val updated = snapshot.copy(backend = backend)
     return if (backend == null || !updated.config.enabled || !updated.cameraPermissionGranted) {
       disabled(

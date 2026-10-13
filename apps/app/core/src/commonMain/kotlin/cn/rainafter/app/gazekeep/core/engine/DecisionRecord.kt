@@ -10,7 +10,6 @@ enum class Alert { BackendUnavailable, CameraPermissionLost, CameraUnavailable, 
 enum class DecisionReason {
   GateSkipped,
   TooLate,
-  Looking,
   NotLooking,
   Unknown,
   Aborted,

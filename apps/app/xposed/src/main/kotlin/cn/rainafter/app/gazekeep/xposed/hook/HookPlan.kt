@@ -20,13 +20,9 @@ class HookBeforeParam(val args: Array<Any?>, private val resultWriter: (Any?) ->
 object HookPlan {
   fun install(facade: HookFacade, classLoader: ClassLoader, core: PowerHookCore): HookInstallResult {
     val resolver = DeadlineResolver(classLoader)
-    val resolutions = resolver.resolveAll()
-    val resolution = resolutions.firstOrNull()?.let { (candidate, method) ->
-      HookResolution(candidate, method, triedCandidates())
-    } ?: HookResolution(null, null, triedCandidates())
-    if (resolutions.none { it.first == HookCandidate.A_ATTENTION || it.first == HookCandidate.C_INACTIVITY }) {
-      return HookInstallResult(resolution, installed = false)
-    }
+    val resolution = resolver.resolve()
+    val candidate = resolution.candidate ?: return HookInstallResult(resolution, installed = false)
+    val method = resolution.method ?: return HookInstallResult(resolution, installed = false)
     val bridgeMethod = resolver.resolveBridge()
       ?: return HookInstallResult(resolution, installed = false)
 
@@ -38,27 +34,20 @@ object HookPlan {
       onFailure = { Log.w("GazeKeepXposed", "bridge hook failed", it) },
       onDisabled = core::disable,
     )
-    // A 是目标 ROM 的主路径；只有 A 不存在时才启用 C，避免两个候选同时刷新 seq。
-    val selected = resolutions.firstOrNull { it.first == HookCandidate.A_ATTENTION }
-      ?: resolutions.firstOrNull { it.first == HookCandidate.C_INACTIVITY }
-    if (selected != null) {
-      when (selected.first) {
-        HookCandidate.A_ATTENTION -> facade.hookAfter(selected.second) { args, _ ->
-          deadlineGuard.run {
-            val nextDimming = args.firstOrNull() as? Long ?: return@run
-            val dimDuration = args.getOrNull(1) as? Long ?: 0L
-            core.onDeadlineComputed(nextDimming + dimDuration, -1L, nextDimming)
-          }
+    when (candidate) {
+      HookCandidate.A_ATTENTION -> facade.hookAfter(method) { args, _ ->
+        deadlineGuard.run {
+          val nextDimming = args.firstOrNull() as? Long ?: return@run
+          val dimDuration = args.getOrNull(1) as? Long ?: 0L
+          core.onDeadlineComputed(nextDimming + dimDuration, -1L, nextDimming)
         }
+      }
 
-        HookCandidate.C_INACTIVITY -> facade.hookBefore(selected.second) { param ->
-          deadlineGuard.run {
-            val timeout = param.args.firstOrNull() as? Long ?: return@run
-            core.onDeadlineComputed(timeout, -1L)
-          }
+      HookCandidate.C_INACTIVITY -> facade.hookBefore(method) { param ->
+        deadlineGuard.run {
+          val timeout = param.args.firstOrNull() as? Long ?: return@run
+          core.onDeadlineComputed(timeout, -1L)
         }
-
-        HookCandidate.B_SUMMARY -> Unit
       }
     }
     facade.hookBefore(bridgeMethod) { param ->
@@ -118,10 +107,4 @@ object HookPlan {
       Log.w("GazeKeepXposed", "indicator_hook_install_failed", error)
     }
   }
-
-  private fun triedCandidates(): List<String> = listOf(
-    "A_ATTENTION:com.android.server.power.AttentionDetector#updateUserActivity",
-    "B_SUMMARY:com.android.server.power.PowerManagerService#updateUserActivitySummaryLocked",
-    "C_INACTIVITY:com.android.server.power.PowerManagerService#scheduleUserInactivityTimeout",
-  )
 }

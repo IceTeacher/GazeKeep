@@ -1,6 +1,5 @@
 package cn.rainafter.app.gazekeep.backend.lsposed
 
-import android.content.Context
 import android.os.IBinder
 import android.os.Parcel
 import cn.rainafter.app.gazekeep.core.backend.ExtendResult
@@ -20,7 +19,6 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 class LsposedKeepAwakeBackend(
-  context: Context,
   private val leadMillis: Long = 8_000L,
   private val hideCameraIndicator: Boolean = false,
 ) : KeepAwakeBackend {

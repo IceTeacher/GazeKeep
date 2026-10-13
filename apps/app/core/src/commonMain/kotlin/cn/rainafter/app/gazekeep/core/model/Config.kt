@@ -8,10 +8,6 @@ data class GazeConfig(
   val whitelistEnabled: Boolean = true,
   val packages: Set<String> = emptySet(),
   val maxHoldMinutes: Int = 30,
-  val classifier: ClassifierKind = ClassifierKind.MlKit,
-  val pauseWhenCameraBusy: Boolean = true,
-  val skipAfterDarkFailures: Boolean = true,
-  val pauseOnLowBattery: Boolean = false,
   val debugLogEnabled: Boolean = false,
   val hideCameraIndicator: Boolean = false,
 ) {
@@ -22,7 +18,6 @@ data class GazeConfig(
 }
 
 enum class BackendId { Lsposed, Shizuku, Accessibility }
-enum class ClassifierKind { MlKit, MediaPipe }
 enum class BackendLock { Auto, Lsposed, Shizuku, Accessibility }
 
 sealed interface Readiness {

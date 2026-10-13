@@ -23,7 +23,7 @@ data class BackendReadinessSnapshot(
 
 /** 设置页只探测能力，不注册单客户端的运行回调。 */
 class BackendReadinessProbe(private val context: Context) {
-  private val lsposed = LsposedKeepAwakeBackend(context)
+  private val lsposed = LsposedKeepAwakeBackend()
 
   suspend fun syncHideCameraIndicator(enabled: Boolean) {
     withContext(Dispatchers.IO) {

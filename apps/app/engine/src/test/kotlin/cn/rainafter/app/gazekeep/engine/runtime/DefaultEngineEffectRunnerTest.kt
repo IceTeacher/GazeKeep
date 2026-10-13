@@ -27,7 +27,7 @@ import kotlin.test.assertTrue
 
 class DefaultEngineEffectRunnerTest {
   private val plan = CapturePlan(abortAtUptime = 10_000L, sensitivity = Sensitivity.Standard)
-  private val looking = AttentionCaptureResult(Attention.Looking, emptyList(), 100L, CaptureOutcome.Completed(2))
+  private val looking = AttentionCaptureResult(Attention.Looking, emptyList(), 100L, CaptureOutcome.Completed)
 
   private class Scheduler : WakeScheduler {
     var pending: (() -> Unit)? = null
@@ -44,7 +44,7 @@ class DefaultEngineEffectRunnerTest {
     scheduler: Scheduler = Scheduler(),
     capture: suspend (CapturePlan) -> AttentionCaptureResult = { error("unexpected capture") },
     gate: GateProbe = object : GateProbe {
-      override suspend fun collect(context: GateContext): GateInput = error("unexpected gate")
+      override suspend fun collect(): GateInput = error("unexpected gate")
     },
     onExtended: () -> Unit = { error("must not extend") },
   ) = DefaultEngineEffectRunner(
@@ -91,7 +91,7 @@ class DefaultEngineEffectRunnerTest {
       scheduler,
       capture = { captureResult.await() },
       gate = object : GateProbe {
-        override suspend fun collect(context: GateContext) = gateResult.await()
+        override suspend fun collect() = gateResult.await()
       },
     )
     val events = mutableListOf<EngineEvent>()
@@ -101,7 +101,7 @@ class DefaultEngineEffectRunnerTest {
       runner.run(EngineEffect.StartCapture(plan), events::add)
       runner.close()
       captureResult.complete(looking)
-      gateResult.complete(GateInput(true, false, null, 0, true, null, null, null, 100, false))
+      gateResult.complete(GateInput(true, false, null, 0, true, null, null, null))
       assertTrue(events.isEmpty())
       assertEquals(null, scheduler.pending)
       assertTrue(parent.isActive)

@@ -6,6 +6,8 @@
 
 AttentionCaptureSession 在 FrameSource 的 analyzer 同步回调内调用分类器，结果只保留判定枚举；ImageProxy 不进入结果对象。CameraX 每帧 finally close，采集结束 unbindAll，取消异常继续传播。只有自检可附加 Preview。
 
+core 的 CapturePlan 是采集计划唯一类型，包含帧数、间隔、绝对截止和灵敏度，直接传到采集会话与 FrameSource。中止原因统一使用 core 类型；正常完成不重复保存帧数，回调异常必须中止，不能当作正常结束。SDK 自行取消按分类错误处理；调用方取消在释放后继续传播。
+
 当前 CameraX 参数：640×480、YUV420、KEEP_ONLY_LATEST；150 ms 帧间隔；预热在少于两帧且未满 200 ms 时丢帧。采集最多三帧，投票已有可信结论可提前结束。打开时间预算和实际设备延迟不能混称，验收时分别记录相机打开与整次采集延迟，不能混用。
 
 相机占用、禁用、权限丢失、截止或错误中止时，已有 Looking 样本也不允许 Extend。异常释放与默认熄屏优先于获得新样本。

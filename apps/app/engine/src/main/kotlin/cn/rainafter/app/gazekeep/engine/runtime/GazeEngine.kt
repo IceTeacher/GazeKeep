@@ -7,6 +7,9 @@ import cn.rainafter.app.gazekeep.core.engine.EngineEffect
 import cn.rainafter.app.gazekeep.core.engine.EngineEvent
 import cn.rainafter.app.gazekeep.core.engine.EngineReducer
 import cn.rainafter.app.gazekeep.core.engine.EngineSnapshot
+import cn.rainafter.app.gazekeep.core.engine.EngineState
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -22,8 +25,9 @@ class GazeEngine(
   initial: EngineSnapshot,
   private val effectRunner: EngineEffectRunner,
   private val clock: () -> Long = { SystemClock.uptimeMillis() },
+  dispatcher: CoroutineDispatcher = Dispatchers.Default.limitedParallelism(1),
 ) : AutoCloseable {
-  private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default.limitedParallelism(1))
+  private val scope = CoroutineScope(SupervisorJob() + dispatcher)
   private val events = Channel<EngineEvent>(Channel.UNLIMITED)
   private val _snapshot = MutableStateFlow(initial)
   val snapshot: StateFlow<EngineSnapshot> = _snapshot.asStateFlow()
@@ -32,12 +36,21 @@ class GazeEngine(
       val transition = EngineReducer.reduce(_snapshot.value, event, clock())
       _snapshot.value = transition.snapshot
       for (effect in transition.effects) {
-        runCatching {
+        try {
           effectRunner.run(effect) { nextEvent -> events.trySend(nextEvent) }
-        }.onFailure { error ->
+        } catch (error: CancellationException) {
+          throw error
+        } catch (error: Exception) {
           when (effect) {
-            is EngineEffect.StartCapture -> events.trySend(EngineEvent.CaptureAborted(AbortReason.Error))
-            is EngineEffect.Extend -> events.trySend(EngineEvent.ExtendFinished(ExtendResult.Failed(error)))
+            is EngineEffect.StartCapture -> {
+              val token = (transition.snapshot.state as? EngineState.Capturing)?.deadline?.token
+              events.trySend(EngineEvent.CaptureAborted(AbortReason.Error, token))
+            }
+
+            is EngineEffect.Extend -> events.trySend(
+              EngineEvent.ExtendFinished(ExtendResult.Failed(error), effect.token),
+            )
+
             else -> Unit
           }
         }

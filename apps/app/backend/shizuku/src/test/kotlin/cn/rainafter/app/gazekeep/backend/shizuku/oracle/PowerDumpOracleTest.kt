@@ -36,7 +36,6 @@ class PowerDumpOracleTest {
         assertEquals(61_000L, deadline.screenOffAtUptime)
         assertEquals(if (dimMs == 18_000) 43_000L else null, deadline.screenDimAtUptime)
         assertEquals(if (dimMs == 18_000) 35_000L else 53_000L, deadline.captureWakeAtUptime(8_000L))
-        assertEquals(60_000L, oracle.millisUntilScreenOff())
       } finally {
         oracle.close()
         first.cancel()

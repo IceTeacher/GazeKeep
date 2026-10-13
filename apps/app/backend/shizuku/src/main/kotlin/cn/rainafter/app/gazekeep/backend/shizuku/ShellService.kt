@@ -66,16 +66,14 @@ class ShellService : IGazeKeepShell.Stub() {
       ShellCommandRunner.run("dumpsys", "power"),
     )
 
-    fun getScreenOffTimeout(): Int = runCommand("cmd", "settings", "get", "system", "screen_off_timeout")
+    fun getScreenOffTimeout(): Int = ShellCommandRunner.run("cmd", "settings", "get", "system", "screen_off_timeout")
       .trim()
       .toIntOrNull()
       ?: error("screen_off_timeout unavailable")
 
     fun setScreenOffTimeout(millis: Int) {
-      runCommand("cmd", "settings", "put", "system", "screen_off_timeout", millis.toString())
+      ShellCommandRunner.run("cmd", "settings", "put", "system", "screen_off_timeout", millis.toString())
     }
-
-    private fun runCommand(vararg command: String): String = ShellCommandRunner.run(*command)
 
     private companion object {
       const val USER_ACTIVITY_EVENT_OTHER = 2

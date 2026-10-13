@@ -2,43 +2,38 @@ package cn.rainafter.app.gazekeep.xposed.hook
 
 import java.lang.reflect.Method
 
-enum class HookCandidate { A_ATTENTION, B_SUMMARY, C_INACTIVITY }
+enum class HookCandidate { A_ATTENTION, C_INACTIVITY }
 
 data class HookResolution(val candidate: HookCandidate?, val method: Method?, val tried: List<String>)
 
 /** 只解析目标 ROM 的方法签名；真正的 Hook 适配器负责安装回调。 */
-class DeadlineResolver(private val classLoader: ClassLoader) {
-  fun resolve(): HookResolution {
-    val first = resolveAll().firstOrNull()
-    return HookResolution(first?.first, first?.second, triedCandidates())
-  }
+class DeadlineResolver internal constructor(private val resolveClass: (String) -> Class<*>) {
+  constructor(classLoader: ClassLoader) : this({ name -> Class.forName(name, false, classLoader) })
 
-  /** 同一 ROM 可能只在其中一个路径重算超时，因此把可用候选全部交给安装器。 */
-  fun resolveAll(): List<Pair<HookCandidate, Method>> {
-    val resolved = ArrayList<Pair<HookCandidate, Method>>(3)
-    find(
+  /** A 是主路径，仅 A 缺失时回退 C；未验证的 Summary 路径不参与安装。 */
+  fun resolve(): HookResolution {
+    val tried = listOf(
+      "A_ATTENTION:com.android.server.power.AttentionDetector#updateUserActivity",
+      "C_INACTIVITY:com.android.server.power.PowerManagerService#scheduleUserInactivityTimeout",
+    )
+    val attention = find(
       "com.android.server.power.AttentionDetector",
       "updateUserActivity",
       arrayOf(Long::class.javaPrimitiveType!!, Long::class.javaPrimitiveType!!),
       Long::class.javaPrimitiveType!!,
-    )?.let { resolved.add(HookCandidate.A_ATTENTION to it) }
-    find(
-      "com.android.server.power.PowerManagerService",
-      "updateUserActivitySummaryLocked",
-      arrayOf(Long::class.javaPrimitiveType!!, Int::class.javaPrimitiveType!!),
-      Void.TYPE,
-    )?.let { resolved.add(HookCandidate.B_SUMMARY to it) }
-    find(
+    )
+    if (attention != null) return HookResolution(HookCandidate.A_ATTENTION, attention, tried)
+    val inactivity = find(
       "com.android.server.power.PowerManagerService",
       "scheduleUserInactivityTimeout",
       arrayOf(Long::class.javaPrimitiveType!!),
       Void.TYPE,
-    )?.let { resolved.add(HookCandidate.C_INACTIVITY to it) }
-    return resolved
+    )
+    return HookResolution(inactivity?.let { HookCandidate.C_INACTIVITY }, inactivity, tried)
   }
 
   fun resolveBridge(): Method? = runCatching {
-    val clazz = Class.forName("android.os.IPowerManager\$Stub", false, classLoader)
+    val clazz = resolveClass("android.os.IPowerManager\$Stub")
     clazz.declaredMethods.firstOrNull { method ->
       matchesHookSignature(
         method,
@@ -54,19 +49,13 @@ class DeadlineResolver(private val classLoader: ClassLoader) {
     }
   }.getOrNull()
 
-  private fun triedCandidates(): List<String> = listOf(
-    "A_ATTENTION:com.android.server.power.AttentionDetector#updateUserActivity",
-    "B_SUMMARY:com.android.server.power.PowerManagerService#updateUserActivitySummaryLocked",
-    "C_INACTIVITY:com.android.server.power.PowerManagerService#scheduleUserInactivityTimeout",
-  )
-
   private fun find(
     className: String,
     methodName: String,
     parameterTypes: Array<Class<*>>,
     returnType: Class<*>,
   ): Method? = runCatching {
-    val clazz = Class.forName(className, false, classLoader)
+    val clazz = resolveClass(className)
     clazz.declaredMethods.firstOrNull { method ->
       matchesHookSignature(method, methodName, parameterTypes, returnType)
     }

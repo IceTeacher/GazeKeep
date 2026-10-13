@@ -3,7 +3,6 @@ package cn.rainafter.app.gazekeep.backend.shizuku.oracle
 import android.os.SystemClock
 import cn.rainafter.app.gazekeep.backend.shizuku.protocol.PowerSnapshot
 import cn.rainafter.app.gazekeep.core.backend.ExtendToken
-import cn.rainafter.app.gazekeep.core.backend.OracleSource
 import cn.rainafter.app.gazekeep.core.backend.TimeoutDeadline
 import cn.rainafter.app.gazekeep.core.backend.TimeoutOracle
 import cn.rainafter.app.gazekeep.core.backend.captureWakeAtUptime
@@ -34,7 +33,6 @@ class PowerDumpOracle(
   private var pollJob: Job? = null
   private var lastDeadline: TimeoutDeadline? = null
 
-  override val source: OracleSource = OracleSource.PowerDump
   override val deadlines: Flow<TimeoutDeadline> = _deadlines.asSharedFlow()
 
   fun start() {
@@ -53,10 +51,6 @@ class PowerDumpOracle(
     if (pollJob?.isActive != true) return
     pollJob?.cancel()
     start()
-  }
-
-  override fun millisUntilScreenOff(): Long? = lastDeadline?.let { deadline ->
-    (deadline.screenOffAtUptime - clock()).coerceAtLeast(0L)
   }
 
   override fun close() {

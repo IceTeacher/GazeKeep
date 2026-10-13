@@ -18,6 +18,8 @@ ScreenOff 清累计状态，直到 ScreenOn 不采帧。真实触摸先取消旧
 
 DefaultEngineEffectRunner 的门控、采集与 Extend 归会话所有，取消异常继续传播。Extend 和 Release 使用互斥锁，结果先回灌再触发 oracle 读取，避免新 deadline 抢先丢失保亮累计。会话销毁另有硬件清理。
 
+无障碍 oracle 分开记录系统超时起点与真实用户活动；自身 Extend 只推进前者，不能清除保亮累计和退避。运行定时使用带唤醒时刻的 ScheduledWakeFired，错误结果也携带当前轮次身份。
+
 ## 门控、来源与日志
 
 GatePolicy 保持纯 Kotlin；AndroidGateProbe 拥有传感器和相机可用性订阅。前台来源按后端选择：无障碍事件、Shizuku shell 查询、LSPosed Handler 查询。未知前台不通过白名单，不借用旧后端的缓存。传感器及相机边界见[采集架构](capture-classification.md)。

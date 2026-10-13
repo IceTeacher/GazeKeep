@@ -4,13 +4,12 @@ App 客户端位于 backend:lsposed，协议常量/AIDL 位于 bridge:protocol�
 
 ## 候选与锁边界
 
-DeadlineResolver 按真实返回值/参数签名解析候选；当前优先 A，A 不可用再考虑 C，B 不作为未核实的自动替代。候选签名如下，是否可用必须在目标 ROM 逐项解析：
+DeadlineResolver 按真实返回值/参数签名解析候选；当前优先 A，A 不可用再考虑 C，B 尚未核实，不参与解析和安装。候选签名如下，是否可用必须在目标 ROM 逐项解析：
 
-| 候选 | 签名                                                               |
-| ---- | ------------------------------------------------------------------ |
-| A    | AttentionDetector.updateUserActivity(long,long):long               |
-| B    | PowerManagerService.updateUserActivitySummaryLocked(long,int):void |
-| C    | scheduleUserInactivityTimeout(long):void                           |
+| 候选 | 签名                                                 |
+| ---- | ---------------------------------------------------- |
+| A    | AttentionDetector.updateUserActivity(long,long):long |
+| C    | scheduleUserInactivityTimeout(long):void             |
 
 只安装解析成功的计划；签名不符就 no-op，记录未适配。所有回调捕获 Throwable，连续异常熔断；PMS 锁内只计算/Handler 投递，禁止 Binder、其他锁或阻塞工作。
 
@@ -22,7 +21,7 @@ DeadlineResolver 按真实返回值/参数签名解析候选；当前优先 A，
 
 同一绝对 off deadline 去重，避免重复 Hook 回调推动 seq 使当前采集失效。修改系统侧协议/入口后必须重启使新代码生效，验证前核对设备授权。
 
-LegacyEntry 与 ModernEntry 共用 HookFacade 和 HookBootstrap，一次安装系统钩子。当前主流成熟框架（LSPosed 1.9.3）采用经典 LegacyEntry（IXposedHookLoadPackage）稳定注入 `system_server`；打包时通过 resources excludes 隔离 `java_init.list` 以兼容框架运行时环境；作用域同时声明 `system` 与 `android`。ActivityThread 存根及 Context 解析采用多级反射容错，最终 APK 不包含存根类定义。
+LegacyEntry 与 ModernEntry 共用 HookFacade 和 HookBootstrap，一次安装系统钩子。经典框架通过 LegacyEntry（IXposedHookLoadPackage）注入 `system_server`，具体框架与 ROM 兼容性以实机记录为准；现代入口代码为待完善路径，当前打包排除 `java_init.list`，不宣称 APK 提供现代入口支持；作用域同时声明 `system` 与 `android`。ActivityThread 存根及 Context 解析采用多级反射容错，最终 APK 不包含存根类定义。
 
 Handler 派发 deadline 时通过 ActivityTaskManager.getInstance().getTasks(1) 查询 topActivity 包名，异常或签名不匹配返回未知；查询不在 PMS 锁内。系统按配置 lead 提前派发，App reducer 依据有效退避 lead 再调度采集，不在采集中重注册客户端或改变 seq。
 

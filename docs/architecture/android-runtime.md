@@ -14,9 +14,9 @@ GazeService 适配生命周期，BackendSession 拥有 backend、oracle、engine
 
 ## 配置与迁移
 
-ConfigStore 通过 Context 的单例 DataStore 委托打开 `gazekeep_settings`，UI 与 Service 共享。持久化字段为 enabled、backend_lock、lead_millis、sensitivity、whitelist_enabled、packages、max_hold_minutes、debug_log_enabled、self_test_passed_at，另有迁移标记。
+ConfigStore 通过 Context 的单例 DataStore 委托打开 `gazekeep_settings`，UI 与 Service 共享。持久化字段为 enabled、backend_lock、lead_millis、sensitivity、whitelist_enabled、packages、max_hold_minutes、debug_log_enabled、hide_camera_indicator、self_test_passed_at，另有迁移标记。
 
-默认关闭、Auto、8000 ms、Standard、白名单开/空、30 分钟。lead 允许 0～60000 ms 且为整秒（预设 5/8 秒，可自定义 0～60 秒），上限允许 0（无限制）或 1～1440 分钟（预设 10/30/60 分钟，可自定义）；非法读取回默认，非法写入拒绝。GazeConfig 中模型选择、相机忙/暗光/低电/其他保护开关等字段尚未全部进入存储和设置 UI。
+默认关闭、Auto、8000 ms、Standard、白名单开/空、30 分钟，隐私指示器实验开关默认关闭。lead 允许 0～60000 ms 且为整秒，上限允许 0（无限制）或 1～1440 分钟；非法读取回默认，非法写入拒绝。模型固定为 bundled ML Kit，相机占用时跳过检测，让系统正常熄屏；重复暗光退避也是固定策略，不提供隐藏配置；低电量暂停尚未交付。
 
 LegacyMigration 只迁移旧 `gazekeep_config` SharedPreferences 的后端选择，强制 enabled=false、whitelist=true，不迁移历史启用资格；保留旧文件，不读取 XML 文件猜测实时状态。
 

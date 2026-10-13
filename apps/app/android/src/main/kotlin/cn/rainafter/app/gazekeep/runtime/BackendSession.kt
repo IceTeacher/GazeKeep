@@ -82,7 +82,6 @@ class BackendSession(
       ShizukuKeepAwakeBackend(context)
     }
     lsposedBackend = LsposedKeepAwakeBackend(
-      context = context,
       leadMillis = config.leadMillis,
       // 隐私指示器状态只在后端真正选中后同步，避免 attach 顺序覆盖非 LSPosed 后端的恢复状态。
       hideCameraIndicator = false,
@@ -130,7 +129,7 @@ class BackendSession(
             attention = cn.rainafter.app.gazekeep.core.model.Attention.Unknown,
             frames = emptyList(),
             outcome = cn.rainafter.app.gazekeep.engine.camera.CaptureOutcome.Aborted(
-              cn.rainafter.app.gazekeep.engine.camera.AbortReason.Cancelled,
+              cn.rainafter.app.gazekeep.core.engine.AbortReason.Cancelled,
             ),
             elapsedMs = 0L,
           )
@@ -138,11 +137,7 @@ class BackendSession(
           AttentionCaptureSession(
             checkNotNull(frameSource),
             checkNotNull(classifier),
-          ).capture(
-            sensitivity = plan.sensitivity,
-            maxFrames = plan.maxFrames,
-            timeoutMs = (plan.abortAtUptime - SystemClock.uptimeMillis()).coerceAtLeast(1L),
-          )
+          ).capture(plan)
         }
       },
       onExtended = {
