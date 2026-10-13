@@ -23,7 +23,7 @@ internal fun buildSystemInfo(
     else -> "$trimmedManufacturer $trimmedModel"
   }
   return SystemInfo(
-    appVersion = "v$versionName ($versionCode)",
+    appVersion = "v$versionName",
     androidVersion = "Android $release (API $sdkInt)",
     deviceModel = deviceModel,
     systemFingerprint = fingerprint.ifBlank { "-" },
@@ -34,7 +34,7 @@ internal fun readSystemInfo(context: Context): SystemInfo {
   val pkgInfo = runCatching {
     context.packageManager.getPackageInfo(context.packageName, 0)
   }.getOrNull()
-  val versionName = pkgInfo?.versionName ?: "1.0"
+  val versionName = pkgInfo?.versionName ?: "1.0.0"
   val versionCode = pkgInfo?.let { PackageInfoCompat.getLongVersionCode(it) } ?: 1L
   return buildSystemInfo(
     versionName = versionName,

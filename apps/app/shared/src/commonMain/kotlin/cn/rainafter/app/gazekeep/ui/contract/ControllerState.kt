@@ -34,7 +34,7 @@ data class SelfTestState(
 )
 data class AppEntry(val packageName: String, val label: String)
 data class SystemInfo(
-  val appVersion: String = "v1.0 (1)",
+  val appVersion: String = "v1.0.0",
   val androidVersion: String = "-",
   val deviceModel: String = "-",
   val systemFingerprint: String = "-",
