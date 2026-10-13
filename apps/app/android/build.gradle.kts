@@ -30,7 +30,6 @@ dependencies {
   implementation(libs.compose.foundation)
   implementation(libs.miuix.ui)
 
-  implementation(libs.compose.uiToolingPreview)
   debugImplementation(libs.compose.uiTooling)
   testImplementation(libs.kotlin.test)
   testImplementation(libs.junit)

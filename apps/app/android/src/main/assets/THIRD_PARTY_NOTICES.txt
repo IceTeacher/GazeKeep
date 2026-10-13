@@ -1,6 +1,6 @@
 GazeKeep 第三方依赖说明
-复核日期：2026-10-08
-依据当前 Release android-classes-jar artifact view 的 172 个外部组件及其 POM/源码许可。
+复核日期：2026-10-13
+依据当前 Release android-classes-jar artifact view 的 155 个外部组件及其 POM/源码许可。
 平台元数据与未打包的 compileOnly Xposed API、hidden-api 存根不属于下列运行依赖。
 Google SDK / ML Kit 适用其各自条款，项目 MIT 许可不替代第三方条款。
 JSR-330 来源：javax.inject:1 的 sources.jar / javax/inject/Inject.java，Copyright (C) 2009 The JSR-330 Expert Group。
@@ -78,12 +78,6 @@ androidx.compose.foundation:foundation-android:1.12.1
 androidx.compose.foundation:foundation-layout-android:1.12.1
   The Apache Software License, Version 2.0 — http://www.apache.org/licenses/LICENSE-2.0.txt
   项目：https://developer.android.com/jetpack/androidx/releases/compose-foundation#1.12.1
-androidx.compose.material:material-ripple-android:1.12.0-alpha03
-  The Apache Software License, Version 2.0 — http://www.apache.org/licenses/LICENSE-2.0.txt
-  项目：https://developer.android.com/jetpack/androidx/releases/compose-material#1.12.0-alpha03
-androidx.compose.material3:material3-android:1.5.0-alpha22
-  The Apache Software License, Version 2.0 — http://www.apache.org/licenses/LICENSE-2.0.txt
-  项目：https://developer.android.com/jetpack/androidx/releases/compose-material3#1.5.0-alpha22
 androidx.compose.material3:material3-window-size-class-android:1.5.0-alpha22
   The Apache Software License, Version 2.0 — http://www.apache.org/licenses/LICENSE-2.0.txt
   项目：https://developer.android.com/jetpack/androidx/releases/compose-material3#1.5.0-alpha22
@@ -109,15 +103,6 @@ androidx.compose.ui:ui-graphics-android:1.12.1
   The Apache Software License, Version 2.0 — http://www.apache.org/licenses/LICENSE-2.0.txt
   项目：https://developer.android.com/jetpack/androidx/releases/compose-ui#1.12.1
 androidx.compose.ui:ui-text-android:1.12.1
-  The Apache Software License, Version 2.0 — http://www.apache.org/licenses/LICENSE-2.0.txt
-  项目：https://developer.android.com/jetpack/androidx/releases/compose-ui#1.12.1
-androidx.compose.ui:ui-tooling-android:1.12.1
-  The Apache Software License, Version 2.0 — http://www.apache.org/licenses/LICENSE-2.0.txt
-  项目：https://developer.android.com/jetpack/androidx/releases/compose-ui#1.12.1
-androidx.compose.ui:ui-tooling-data-android:1.12.1
-  The Apache Software License, Version 2.0 — http://www.apache.org/licenses/LICENSE-2.0.txt
-  项目：https://developer.android.com/jetpack/androidx/releases/compose-ui#1.12.1
-androidx.compose.ui:ui-tooling-preview-android:1.12.1
   The Apache Software License, Version 2.0 — http://www.apache.org/licenses/LICENSE-2.0.txt
   项目：https://developer.android.com/jetpack/androidx/releases/compose-ui#1.12.1
 androidx.compose.ui:ui-unit-android:1.12.1
@@ -192,15 +177,9 @@ androidx.fragment:fragment:1.3.6
 androidx.graphics:graphics-path:1.0.1
   The Apache Software License, Version 2.0 — http://www.apache.org/licenses/LICENSE-2.0.txt
   项目：https://developer.android.com/jetpack/androidx/releases/graphics#1.0.1
-androidx.graphics:graphics-shapes-android:1.0.1
-  The Apache Software License, Version 2.0 — http://www.apache.org/licenses/LICENSE-2.0.txt
-  项目：https://developer.android.com/jetpack/androidx/releases/graphics#1.0.1
 androidx.interpolator:interpolator:1.0.0
   The Apache Software License, Version 2.0 — http://www.apache.org/licenses/LICENSE-2.0.txt
   项目：http://developer.android.com/tools/extras/support-library.html
-androidx.lifecycle:lifecycle-common-java8:2.11.0
-  The Apache Software License, Version 2.0 — http://www.apache.org/licenses/LICENSE-2.0.txt
-  项目：https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0
 androidx.lifecycle:lifecycle-common-jvm:2.11.0
   The Apache Software License, Version 2.0 — http://www.apache.org/licenses/LICENSE-2.0.txt
   项目：https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0
@@ -232,9 +211,6 @@ androidx.lifecycle:lifecycle-viewmodel:2.11.0
   The Apache Software License, Version 2.0 — http://www.apache.org/licenses/LICENSE-2.0.txt
   项目：https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0
 androidx.lifecycle:lifecycle-viewmodel-android:2.11.0
-  The Apache Software License, Version 2.0 — http://www.apache.org/licenses/LICENSE-2.0.txt
-  项目：https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0
-androidx.lifecycle:lifecycle-viewmodel-compose-android:2.11.0
   The Apache Software License, Version 2.0 — http://www.apache.org/licenses/LICENSE-2.0.txt
   项目：https://developer.android.com/jetpack/androidx/releases/lifecycle#2.11.0
 androidx.lifecycle:lifecycle-viewmodel-ktx:2.11.0
@@ -384,24 +360,6 @@ org.checkerframework:checker-qual:3.43.0
 org.jetbrains:annotations:23.0.0
   The Apache Software License, Version 2.0 — https://www.apache.org/licenses/LICENSE-2.0.txt
   项目：https://github.com/JetBrains/java-annotations
-org.jetbrains.androidx.lifecycle:lifecycle-common-jvm:2.11.0
-  The Apache Software License, Version 2.0 — https://www.apache.org/licenses/LICENSE-2.0.txt
-  项目：https://github.com/JetBrains/compose-multiplatform
-org.jetbrains.androidx.lifecycle:lifecycle-runtime-android:2.11.0
-  The Apache Software License, Version 2.0 — https://www.apache.org/licenses/LICENSE-2.0.txt
-  项目：https://github.com/JetBrains/compose-multiplatform
-org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose-android:2.11.0
-  The Apache Software License, Version 2.0 — https://www.apache.org/licenses/LICENSE-2.0.txt
-  项目：https://github.com/JetBrains/compose-multiplatform
-org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-android:2.11.0
-  The Apache Software License, Version 2.0 — https://www.apache.org/licenses/LICENSE-2.0.txt
-  项目：https://github.com/JetBrains/compose-multiplatform
-org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose-android:2.11.0
-  The Apache Software License, Version 2.0 — https://www.apache.org/licenses/LICENSE-2.0.txt
-  项目：https://github.com/JetBrains/compose-multiplatform
-org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-savedstate-android:2.11.0
-  The Apache Software License, Version 2.0 — https://www.apache.org/licenses/LICENSE-2.0.txt
-  项目：https://github.com/JetBrains/compose-multiplatform
 org.jetbrains.compose.animation:animation-android:1.12.1
   The Apache Software License, Version 2.0 — https://www.apache.org/licenses/LICENSE-2.0.txt
   项目：https://github.com/JetBrains/compose-multiplatform
@@ -436,15 +394,6 @@ org.jetbrains.compose.ui:ui-graphics-android:1.12.1
   The Apache Software License, Version 2.0 — https://www.apache.org/licenses/LICENSE-2.0.txt
   项目：https://github.com/JetBrains/compose-multiplatform
 org.jetbrains.compose.ui:ui-text-android:1.12.1
-  The Apache Software License, Version 2.0 — https://www.apache.org/licenses/LICENSE-2.0.txt
-  项目：https://github.com/JetBrains/compose-multiplatform
-org.jetbrains.compose.ui:ui-tooling-android:1.12.1
-  The Apache Software License, Version 2.0 — https://www.apache.org/licenses/LICENSE-2.0.txt
-  项目：https://github.com/JetBrains/compose-multiplatform
-org.jetbrains.compose.ui:ui-tooling-data-android:1.12.1
-  The Apache Software License, Version 2.0 — https://www.apache.org/licenses/LICENSE-2.0.txt
-  项目：https://github.com/JetBrains/compose-multiplatform
-org.jetbrains.compose.ui:ui-tooling-preview-android:1.12.1
   The Apache Software License, Version 2.0 — https://www.apache.org/licenses/LICENSE-2.0.txt
   项目：https://github.com/JetBrains/compose-multiplatform
 org.jetbrains.compose.ui:ui-unit-android:1.12.1

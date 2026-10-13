@@ -2,12 +2,12 @@
 
 本文只维护当前有效的工具链、开发命令与门禁。执行边界见[代理工作流](agent-workflow.md)。
 
-## 工作流
+## 开始开发
 
-1. 检查工作树、保留已有改动，按[文档索引](index.md)加载相关规范。
-2. 核对真实入口和调用方；行为变更先定义失败场景，再修改实现。
-3. 运行相关门禁，核对敏感信息、生成物和文档引用。
-4. 更新[任务清单](../tasks/todo.md)中的未完成项及本次验证结果。
+- IDE 打开 `apps/app`，这是完整 Gradle 工程；APK 输出在 `apps/app/android/build/outputs/apk/`。
+- 使用 JDK 21、Android SDK、Node >=22.12 和根 package.json 指定的 pnpm。安装依赖后按下面的初始化命令配置本地工具。
+- 日常运行 `pnpm build`、`pnpm lint`、`pnpm test`；完整主机门禁使用 `pnpm --filter @gazekeep/app verify`，shared 纯逻辑测试另运行 `:shared:testAndroidHostTest`。
+- 按[架构总览](architecture/overview.md#按要改的功能定位)定位代码，按[测试规范](testing.md)选择验证，按[文档索引](index.md)加载专题。
 
 ## 工具链
 
@@ -69,4 +69,4 @@ Prettier 配置在工具目录，Hook 使用显式路径，不向官网根级散
 
 按[测试规范](testing.md)选择模块验证；目录迁移使用完整主机门禁，普通文档/工具任务不无理由执行全部 Android 测试。Node 工具测试包含真实临时 Git 提交、部分暂存冲突恢复、XML 文本与隐私文案、安装校验和仓库检查；不在真实索引中制造测试提交。
 
-改 Android 依赖仍检查合并 Manifest 与 APK 权限，开发依赖不能进入 APK。Release R8 与资源压缩当前未启用；发布以[发布规范](release.md)为准，Debug 构建不代表 Release 或实机验收。
+改 Android 依赖仍检查合并 Manifest 与 APK 权限，开发依赖不能进入 APK。Release 已启用 R8 与资源压缩；发布以[发布规范](release.md)为准，Debug 构建不代表 Release 或实机验收。

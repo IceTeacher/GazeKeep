@@ -31,10 +31,6 @@ kotlin {
   }
 
   sourceSets {
-    androidMain.dependencies {
-      implementation(libs.compose.uiToolingPreview)
-      implementation(libs.compose.uiTooling)
-    }
     commonMain.dependencies {
       api(project(":core"))
       implementation(libs.kotlinx.coroutines.core)
@@ -45,16 +41,9 @@ kotlin {
       implementation(libs.miuix.icons)
       implementation(libs.compose.ui)
       implementation(libs.compose.components.resources)
-      implementation(libs.compose.uiToolingPreview)
-      implementation(libs.androidx.lifecycle.viewmodelCompose)
-      implementation(libs.androidx.lifecycle.runtimeCompose)
     }
     commonTest.dependencies {
       implementation(libs.kotlin.test)
     }
   }
-}
-
-dependencies {
-  androidRuntimeClasspath(libs.compose.uiTooling)
 }
