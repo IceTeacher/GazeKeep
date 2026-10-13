@@ -6,7 +6,7 @@
 
 APK 内 assets/THIRD_PARTY_NOTICES.txt 记录当前 Release 解析的外部运行依赖、版本、许可链接，以及 Apache、MIT、BSD 必要文本和声明。依据实际 android-classes-jar artifact view，排除未打包的编译存根与 Xposed API；依赖变化后重新核对。Google SDK 与 ML Kit 条款独立适用，不能将项目 MIT 许可推广至它们。
 
-最终 APK 必须检查权限、Xposed assets/META-INF、反射入口、Shizuku Provider、AIDL 和 Binder 字段顺序。现代 API 102 只支持相应框架，旧框架保留 LegacyEntry；实际入口与钩点按设备记录，不猜测兼容性。
+最终 APK 必须检查权限、Xposed assets/META-INF、反射入口、Shizuku Provider、AIDL 和 Binder 字段顺序。现代 API 102 入口代码保留，但当前 APK 未登记现代入口；经典框架使用 LegacyEntry；实际入口与钩点按设备记录，不猜测兼容性。
 
 ## Release 签名
 
