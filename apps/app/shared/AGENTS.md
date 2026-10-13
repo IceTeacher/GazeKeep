@@ -19,4 +19,4 @@ pnpm verify:architecture
 pnpm --filter @gazekeep/app exec ./gradlew :shared:testAndroidHostTest
 ```
 
-当前 host task 为 NO-SOURCE，没有 UI 行为测试。需运行真实页面场景，不能将此任务成功当验收；本轮不新建 UI 测试依赖。
+当前 host task 覆盖许可文本搜索的纯逻辑，没有 UI 行为测试。需运行真实页面场景，不能将此任务成功当验收；本轮不新建 UI 测试依赖。

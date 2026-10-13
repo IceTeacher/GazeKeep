@@ -28,7 +28,7 @@ pnpm --filter @gazekeep/app exec ./gradlew :shared:testAndroidHostTest
 pnpm verify:architecture
 ```
 
-shared 当前没有行为测试，上述 host task 为 NO-SOURCE；backend:lsposed 和 bridge:protocol 当前没有专属行为测试，以组装、协议测试和实机补证，不能写成有独立测试套件。
+shared host task 覆盖许可文本搜索的纯逻辑，没有 UI 行为测试；backend:lsposed 和 bridge:protocol 当前没有专属行为测试，以组装、协议测试和实机补证，不能写成有独立测试套件。
 
 ## 七条必守不变量
 

@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import cn.rainafter.app.gazekeep.core.model.Sensitivity
 import cn.rainafter.app.gazekeep.core.policy.canConfigureHideCameraIndicator
 import cn.rainafter.app.gazekeep.ui.components.AppScaffold
+import cn.rainafter.app.gazekeep.ui.components.ExperimentalSwitchPreference
 import cn.rainafter.app.gazekeep.ui.contract.ControllerState
 import cn.rainafter.app.gazekeep.ui.contract.GazeKeepController
 import cn.rainafter.app.gazekeep.ui.navigation.SettingsScreen
@@ -313,7 +314,7 @@ internal fun SettingsTabScreen(
             }
           },
         )
-        SwitchPreference(
+        ExperimentalSwitchPreference(
           title = stringResource(Res.string.settings_hide_camera_indicator),
           summary = stringResource(
             if (canHideCameraIndicator) {
@@ -341,12 +342,14 @@ internal fun SettingsTabScreen(
             scope.launch { controller.updateConfig { it.copy(whitelistEnabled = enabled) } }
           },
         )
-        ArrowPreference(
-          title = stringResource(Res.string.settings_apps),
-          summary = stringResource(Res.string.settings_app_count, state.config.packages.size),
-          startAction = { StartSettingIcon(MiuixIcons.GridView) },
-          onClick = { onNavigate(SettingsScreen.Apps) },
-        )
+        if (state.config.whitelistEnabled) {
+          ArrowPreference(
+            title = stringResource(Res.string.settings_apps),
+            summary = stringResource(Res.string.settings_app_count, state.config.packages.size),
+            startAction = { StartSettingIcon(MiuixIcons.GridView) },
+            onClick = { onNavigate(SettingsScreen.Apps) },
+          )
+        }
       }
 
       Card(modifier = Modifier.fillMaxWidth()) {

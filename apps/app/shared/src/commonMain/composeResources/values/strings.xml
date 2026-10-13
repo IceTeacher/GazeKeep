@@ -63,14 +63,14 @@
     <string name="settings_dark_pause">看不清时正常熄屏</string>
     <string name="settings_dark_pause_summary">检测结果不可信时不保亮；不会因失败保持常亮。</string>
     <string name="settings_hide_camera_indicator">隐藏相机隐私指示器</string>
+    <string name="settings_hide_camera_indicator_summary">仅 LSPosed 后端生效，采样时不显示状态栏绿点。</string>
+    <string name="settings_hide_camera_indicator_disabled_summary">需启用并选择 LSPosed 后端后可用。</string>
+    <string name="settings_badge_experimental">实验性</string>
+    <string name="settings_experimental_dialog_title">启用实验性功能</string>
     <string
-    name="settings_hide_camera_indicator_summary"
-  >实验性 · 仅 LSPosed 后端生效，采样时不显示状态栏绿点。</string>
-    <string name="settings_hide_camera_indicator_disabled_summary">实验性 · 需启用并选择 LSPosed 后端后可用。</string>
-    <string name="privacy_indicator_title">实验性隐私指示器豁免</string>
-    <string
-    name="privacy_indicator_summary"
-  >默认保留状态栏摄像头绿点；仅在 LSPosed 后端下可选隐藏自身采样绿点，不影响其他应用。</string>
+    name="settings_experimental_dialog_message"
+  >「%1$s」为实验性支持功能，可能会引起未知的结果，请考虑后再启用。</string>
+    <string name="settings_experimental_dialog_confirm">确认启用</string>
     <string name="privacy_title_1">按需短暂采样</string>
     <string name="privacy_title_2">画面仅在内存判断</string>
     <string name="privacy_title_3">旁人或看不清即熄屏</string>
@@ -149,7 +149,6 @@
     <string name="home_status_waiting">等待可用后端</string>
     <string name="home_status_stopped">未工作</string>
     <string name="home_status_version">版本：%1$s</string>
-    <string name="home_status_version_with_decision">版本：%1$s · 最近：%2$s</string>
     <string name="home_decision_looking">注视了屏幕</string>
     <string name="home_decision_not_looking">未注视屏幕</string>
     <string name="home_status_tap_to_start">点击开启注视保亮</string>
@@ -160,10 +159,6 @@
     <string name="home_info_android_version">Android 版本</string>
     <string name="home_info_device_model">设备型号</string>
     <string name="home_info_fingerprint">系统指纹</string>
-    <string name="home_info_camera_granted">相机已授权</string>
-    <string name="home_info_camera_missing">相机未授权</string>
-    <string name="home_info_selftest_passed">自检已通过</string>
-    <string name="home_info_selftest_pending">未完成自检</string>
     <string name="home_privacy_card_title">隐私承诺</string>
     <string
     name="home_privacy_card_summary"
@@ -174,6 +169,19 @@
     <string name="about_brand_name">GazeKeep</string>
     <string name="about_github">GitHub 项目</string>
     <string name="about_third_party_notices">第三方开源许可</string>
+    <string name="home_status_decision">最近检测：%1$s</string>
+    <string name="home_chip_ready">已就绪</string>
+    <string name="home_chip_not_ready">未就绪</string>
+    <string name="home_chip_camera">相机</string>
+    <string name="home_chip_selftest">自检</string>
+    <string name="home_chip_granted">已授权</string>
+    <string name="home_chip_missing">未授权</string>
+    <string name="home_chip_passed">已通过</string>
+    <string name="home_chip_pending">待完成</string>
+    <string name="notices_search_placeholder">搜索开源组件或依赖库</string>
+    <string name="notices_core_title">核心开源组件</string>
+    <string name="notices_all_title">全部运行依赖合规声明</string>
+    <string name="notices_empty_search">未找到匹配的开源依赖</string>
     <string name="about_dep_miuix">Miuix</string>
     <string name="about_dep_mlkit">ML Kit Face Detection</string>
     <string name="about_dep_camerax">AndroidX CameraX</string>

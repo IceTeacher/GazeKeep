@@ -22,6 +22,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import cn.rainafter.app.gazekeep.ui.components.AppScaffold
+import cn.rainafter.app.gazekeep.ui.components.SearchTextField
 import cn.rainafter.app.gazekeep.ui.components.SettingsGroupTitle
 import cn.rainafter.app.gazekeep.ui.contract.AppEntry
 import cn.rainafter.app.gazekeep.ui.contract.ControllerState
@@ -33,18 +34,11 @@ import gazekeep.shared.generated.resources.settings_apps_selected
 import gazekeep.shared.generated.resources.settings_loading
 import gazekeep.shared.generated.resources.settings_no_apps
 import gazekeep.shared.generated.resources.settings_search_apps
-import gazekeep.shared.generated.resources.settings_search_clear
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.basic.Close
-import top.yukonga.miuix.kmp.icon.basic.Search
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -103,37 +97,10 @@ internal fun AppsScreen(
         .padding(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding()),
     ) {
       Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-        TextField(
+        SearchTextField(
           value = search,
           onValueChange = { search = it },
-          label = stringResource(Res.string.settings_search_apps),
-          useLabelAsPlaceholder = true,
-          singleLine = true,
-          modifier = Modifier.fillMaxWidth(),
-          leadingIcon = {
-            Icon(
-              imageVector = MiuixIcons.Basic.Search,
-              contentDescription = null,
-              modifier = Modifier.padding(start = 12.dp, end = 4.dp),
-              tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            )
-          },
-          trailingIcon = if (search.isNotEmpty()) {
-            {
-              IconButton(
-                onClick = { search = "" },
-                modifier = Modifier.padding(end = 4.dp),
-              ) {
-                Icon(
-                  imageVector = MiuixIcons.Basic.Close,
-                  contentDescription = stringResource(Res.string.settings_search_clear),
-                  tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                )
-              }
-            }
-          } else {
-            null
-          },
+          placeholder = stringResource(Res.string.settings_search_apps),
         )
       }
 

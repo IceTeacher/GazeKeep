@@ -19,6 +19,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -26,13 +31,17 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cn.rainafter.app.gazekeep.ui.components.AppScaffold
+import cn.rainafter.app.gazekeep.ui.components.SearchTextField
+import cn.rainafter.app.gazekeep.ui.components.SettingsGroupTitle
 import cn.rainafter.app.gazekeep.ui.contract.ControllerState
 import cn.rainafter.app.gazekeep.ui.contract.PlatformActions
 import cn.rainafter.app.gazekeep.ui.navigation.SettingsScreen
+import cn.rainafter.app.gazekeep.ui.text.filterThirdPartyNotices
 import gazekeep.shared.generated.resources.Res
 import gazekeep.shared.generated.resources.about_brand_name
 import gazekeep.shared.generated.resources.about_dep_camerax
@@ -43,6 +52,10 @@ import gazekeep.shared.generated.resources.about_dep_shizuku
 import gazekeep.shared.generated.resources.about_github
 import gazekeep.shared.generated.resources.about_third_party_notices
 import gazekeep.shared.generated.resources.app_icon
+import gazekeep.shared.generated.resources.notices_all_title
+import gazekeep.shared.generated.resources.notices_core_title
+import gazekeep.shared.generated.resources.notices_empty_search
+import gazekeep.shared.generated.resources.notices_search_placeholder
 import gazekeep.shared.generated.resources.settings_back
 import gazekeep.shared.generated.resources.settings_privacy_commitments
 import org.jetbrains.compose.resources.painterResource
@@ -173,8 +186,51 @@ internal fun AboutScreen(
   }
 }
 
+private data class CoreDependency(val name: String, val license: String, val url: String)
+
 @Composable
-internal fun NoticesScreen(state: ControllerState, onBack: () -> Unit) {
+internal fun NoticesScreen(state: ControllerState, actions: PlatformActions? = null, onBack: () -> Unit) {
+  var searchQuery by rememberSaveable { mutableStateOf("") }
+
+  val coreDeps = listOf(
+    CoreDependency(
+      stringResource(Res.string.about_dep_miuix),
+      "Apache-2.0",
+      "https://github.com/compose-miuix-ui/miuix",
+    ),
+    CoreDependency(
+      stringResource(Res.string.about_dep_mlkit),
+      "Google APIs Terms",
+      "https://developers.google.com/ml-kit/vision/face-detection",
+    ),
+    CoreDependency(
+      stringResource(Res.string.about_dep_camerax),
+      "Apache-2.0",
+      "https://developer.android.com/media/camera/camerax",
+    ),
+    CoreDependency(
+      stringResource(Res.string.about_dep_shizuku),
+      "Apache-2.0",
+      "https://github.com/RikkaApps/Shizuku-API",
+    ),
+    CoreDependency(stringResource(Res.string.about_dep_libxposed), "Apache-2.0", "https://github.com/libxposed/api"),
+  )
+
+  val filteredCoreDeps = remember(searchQuery, coreDeps) {
+    if (searchQuery.isBlank()) {
+      coreDeps
+    } else {
+      coreDeps.filter {
+        it.name.contains(searchQuery.trim(), ignoreCase = true) ||
+          it.license.contains(searchQuery.trim(), ignoreCase = true)
+      }
+    }
+  }
+
+  val filteredNoticesText = remember(searchQuery, state.thirdPartyNotices) {
+    filterThirdPartyNotices(state.thirdPartyNotices, searchQuery)
+  }
+
   AppScaffold(
     title = stringResource(Res.string.about_third_party_notices),
     onBack = onBack,
@@ -182,20 +238,64 @@ internal fun NoticesScreen(state: ControllerState, onBack: () -> Unit) {
     Column(
       modifier = Modifier
         .fillMaxSize()
-        .nestedScroll(scrollBehavior.nestedScrollConnection)
-        .verticalScroll(rememberScrollState())
-        .padding(padding)
-        .padding(horizontal = 16.dp, vertical = 12.dp),
+        .padding(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding()),
     ) {
-      Card(modifier = Modifier.fillMaxWidth()) {
-        Text(
-          text = state.thirdPartyNotices,
-          style = MiuixTheme.textStyles.footnote1,
-          color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-          modifier = Modifier.padding(16.dp),
+      Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        SearchTextField(
+          value = searchQuery,
+          onValueChange = { searchQuery = it },
+          placeholder = stringResource(Res.string.notices_search_placeholder),
         )
       }
-      Spacer(Modifier.height(16.dp))
+
+      Column(
+        modifier = Modifier
+          .fillMaxSize()
+          .nestedScroll(scrollBehavior.nestedScrollConnection)
+          .verticalScroll(rememberScrollState())
+          .padding(horizontal = 16.dp, vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+      ) {
+        if (filteredCoreDeps.isNotEmpty()) {
+          SettingsGroupTitle(text = stringResource(Res.string.notices_core_title))
+          Card(modifier = Modifier.fillMaxWidth()) {
+            filteredCoreDeps.forEach { dep ->
+              ArrowPreference(
+                title = dep.name,
+                summary = dep.license,
+                onClick = { actions?.openUrl(dep.url) },
+              )
+            }
+          }
+        }
+
+        if (filteredNoticesText.isNotEmpty()) {
+          SettingsGroupTitle(text = stringResource(Res.string.notices_all_title))
+          Card(modifier = Modifier.fillMaxWidth()) {
+            Text(
+              text = filteredNoticesText,
+              fontFamily = FontFamily.Monospace,
+              fontSize = 12.sp,
+              lineHeight = 16.sp,
+              color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+              modifier = Modifier.padding(16.dp),
+            )
+          }
+        }
+
+        if (filteredCoreDeps.isEmpty() && filteredNoticesText.isEmpty()) {
+          Card(modifier = Modifier.fillMaxWidth()) {
+            Text(
+              text = stringResource(Res.string.notices_empty_search),
+              style = MiuixTheme.textStyles.body2,
+              color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+              modifier = Modifier.padding(24.dp),
+            )
+          }
+        }
+
+        Spacer(Modifier.height(16.dp))
+      }
     }
   }
 }

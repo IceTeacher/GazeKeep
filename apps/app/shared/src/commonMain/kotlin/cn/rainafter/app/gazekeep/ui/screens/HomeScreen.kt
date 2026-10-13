@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -30,6 +31,7 @@ import cn.rainafter.app.gazekeep.core.model.BackendId
 import cn.rainafter.app.gazekeep.core.model.Readiness
 import cn.rainafter.app.gazekeep.ui.components.AppScaffold
 import cn.rainafter.app.gazekeep.ui.components.NoticeCard
+import cn.rainafter.app.gazekeep.ui.components.StatusChip
 import cn.rainafter.app.gazekeep.ui.contract.ControllerState
 import cn.rainafter.app.gazekeep.ui.contract.GazeKeepController
 import cn.rainafter.app.gazekeep.ui.contract.UiNotice
@@ -38,30 +40,32 @@ import cn.rainafter.app.gazekeep.ui.text.backendLabel
 import cn.rainafter.app.gazekeep.ui.text.backendName
 import gazekeep.shared.generated.resources.Res
 import gazekeep.shared.generated.resources.app_title
+import gazekeep.shared.generated.resources.home_chip_camera
+import gazekeep.shared.generated.resources.home_chip_granted
+import gazekeep.shared.generated.resources.home_chip_missing
+import gazekeep.shared.generated.resources.home_chip_not_ready
+import gazekeep.shared.generated.resources.home_chip_passed
+import gazekeep.shared.generated.resources.home_chip_pending
+import gazekeep.shared.generated.resources.home_chip_ready
+import gazekeep.shared.generated.resources.home_chip_selftest
 import gazekeep.shared.generated.resources.home_decision_looking
 import gazekeep.shared.generated.resources.home_decision_not_looking
 import gazekeep.shared.generated.resources.home_info_android_version
 import gazekeep.shared.generated.resources.home_info_app_version
 import gazekeep.shared.generated.resources.home_info_backend_status
-import gazekeep.shared.generated.resources.home_info_camera_granted
-import gazekeep.shared.generated.resources.home_info_camera_missing
 import gazekeep.shared.generated.resources.home_info_camera_selftest
 import gazekeep.shared.generated.resources.home_info_device_model
 import gazekeep.shared.generated.resources.home_info_fingerprint
-import gazekeep.shared.generated.resources.home_info_selftest_passed
-import gazekeep.shared.generated.resources.home_info_selftest_pending
 import gazekeep.shared.generated.resources.home_privacy_card_summary
 import gazekeep.shared.generated.resources.home_privacy_card_title
+import gazekeep.shared.generated.resources.home_status_decision
 import gazekeep.shared.generated.resources.home_status_stopped
 import gazekeep.shared.generated.resources.home_status_tap_to_start
-import gazekeep.shared.generated.resources.home_status_version_with_decision
 import gazekeep.shared.generated.resources.home_status_waiting
 import gazekeep.shared.generated.resources.home_status_waiting_hint
 import gazekeep.shared.generated.resources.home_status_working
 import gazekeep.shared.generated.resources.settings_loading
-import gazekeep.shared.generated.resources.settings_not_ready
 import gazekeep.shared.generated.resources.settings_off
-import gazekeep.shared.generated.resources.settings_ready
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
@@ -198,11 +202,7 @@ private fun StatusBannerCard(state: ControllerState, onToggle: () -> Unit) {
       } else {
         stringResource(Res.string.home_decision_not_looking)
       }
-      stringResource(
-        Res.string.home_status_version_with_decision,
-        state.systemInfo.appVersion,
-        decisionLabel,
-      )
+      stringResource(Res.string.home_status_decision, decisionLabel)
     }
 
     HomeRunStatus.Waiting -> stringResource(Res.string.home_status_waiting_hint)
@@ -325,27 +325,6 @@ private fun StatusBannerCard(state: ControllerState, onToggle: () -> Unit) {
 
 @Composable
 private fun SystemInfoCard(state: ControllerState) {
-  val readyText = stringResource(Res.string.settings_ready)
-  val notReadyText = stringResource(Res.string.settings_not_ready)
-  val backendSummary = listOf(BackendId.Lsposed, BackendId.Shizuku, BackendId.Accessibility)
-    .map { id ->
-      val status = if (state.backends[id] == Readiness.Ready) readyText else notReadyText
-      "${backendName(id)}: $status"
-    }
-    .joinToString(" · ")
-  val cameraSelfTestSummary = listOf(
-    if (state.cameraGranted) {
-      stringResource(Res.string.home_info_camera_granted)
-    } else {
-      stringResource(Res.string.home_info_camera_missing)
-    },
-    if (state.selfTestPassed) {
-      stringResource(Res.string.home_info_selftest_passed)
-    } else {
-      stringResource(Res.string.home_info_selftest_pending)
-    },
-  ).joinToString(" · ")
-
   Card(modifier = Modifier.fillMaxWidth()) {
     BasicComponent(
       title = stringResource(Res.string.home_info_app_version),
@@ -353,11 +332,55 @@ private fun SystemInfoCard(state: ControllerState) {
     )
     BasicComponent(
       title = stringResource(Res.string.home_info_backend_status),
-      summary = backendSummary,
+      bottomAction = {
+        FlowRow(
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+          verticalArrangement = Arrangement.spacedBy(6.dp),
+          modifier = Modifier.fillMaxWidth(),
+        ) {
+          listOf(BackendId.Lsposed, BackendId.Shizuku, BackendId.Accessibility).forEach { id ->
+            val isReady = state.backends[id] == Readiness.Ready
+            StatusChip(
+              label = backendName(id),
+              statusText = if (isReady) {
+                stringResource(Res.string.home_chip_ready)
+              } else {
+                stringResource(Res.string.home_chip_not_ready)
+              },
+              isPositive = isReady,
+            )
+          }
+        }
+      },
     )
     BasicComponent(
       title = stringResource(Res.string.home_info_camera_selftest),
-      summary = cameraSelfTestSummary,
+      bottomAction = {
+        FlowRow(
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+          verticalArrangement = Arrangement.spacedBy(6.dp),
+          modifier = Modifier.fillMaxWidth(),
+        ) {
+          StatusChip(
+            label = stringResource(Res.string.home_chip_camera),
+            statusText = if (state.cameraGranted) {
+              stringResource(Res.string.home_chip_granted)
+            } else {
+              stringResource(Res.string.home_chip_missing)
+            },
+            isPositive = state.cameraGranted,
+          )
+          StatusChip(
+            label = stringResource(Res.string.home_chip_selftest),
+            statusText = if (state.selfTestPassed) {
+              stringResource(Res.string.home_chip_passed)
+            } else {
+              stringResource(Res.string.home_chip_pending)
+            },
+            isPositive = state.selfTestPassed,
+          )
+        }
+      },
     )
     BasicComponent(
       title = stringResource(Res.string.home_info_android_version),

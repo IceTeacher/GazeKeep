@@ -10,7 +10,7 @@
 | --------------------- | ---------- | ------------------------------------------- | -------- | ---------- |
 | `agent-workflow.md`   | Agent 流程 | 需要规划、执行边界或交付报告时              | 持续维护 | 2026-10-08 |
 | `development.md`      | 开发流程   | 修改工具链、格式、构建、Hook 或工作区目录时 | 持续维护 | 2026-10-08 |
-| `testing.md`          | 测试规范   | 选择主机、页面、实机门禁与验收矩阵时        | 持续维护 | 2026-10-08 |
+| `testing.md`          | 测试规范   | 选择主机、页面、实机门禁与验收矩阵时        | 持续维护 | 2026-10-13 |
 | `privacy-security.md` | 隐私与安全 | 修改帧、权限、日志、系统设置或隐私文案时    | 持续维护 | 2026-10-12 |
 
 ## 产品与使用
@@ -29,7 +29,7 @@
 | `architecture/engine.md`                            | 决策架构 | 修改 reducer、时序、前台来源、退避或保亮上限时    | 持续维护 | 2026-10-10 |
 | `architecture/capture-classification.md`            | 检测架构 | 修改 CameraX、传感器门控、ML Kit、阈值或投票时    | 持续维护 | 2026-10-12 |
 | `architecture/camera-privacy-indicator.md`          | 架构分析 | 评估前摄隐私指示器、状态栏绿点及无感保亮取舍时    | 持续维护 | 2026-10-12 |
-| `architecture/ui.md`                                | UI 架构  | 修改页面、导航、日志、自检、平台契约或应用列表时  | 持续维护 | 2026-10-12 |
+| `architecture/ui.md`                                | UI 架构  | 修改页面、导航、日志、自检、平台契约或应用列表时  | 持续维护 | 2026-10-13 |
 | `architecture/backends/a11y.md`                     | 后端架构 | 修改无障碍事件、Hold/Pulse 或空闲时钟时           | 持续维护 | 2026-10-09 |
 | `architecture/backends/shizuku.md`                  | 后端架构 | 修改 shell Binder、独立前台来源或同步超时恢复时   | 持续维护 | 2026-10-08 |
 | `architecture/backends/lsposed.md`                  | 后端架构 | 修改系统候选、现代入口、前台来源、seq 或打包时    | 持续维护 | 2026-10-12 |

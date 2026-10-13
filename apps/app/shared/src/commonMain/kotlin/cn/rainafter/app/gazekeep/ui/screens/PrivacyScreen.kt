@@ -16,8 +16,6 @@ import androidx.compose.ui.unit.dp
 import cn.rainafter.app.gazekeep.ui.components.AppScaffold
 import cn.rainafter.app.gazekeep.ui.components.SettingsGroupTitle
 import gazekeep.shared.generated.resources.Res
-import gazekeep.shared.generated.resources.privacy_indicator_summary
-import gazekeep.shared.generated.resources.privacy_indicator_title
 import gazekeep.shared.generated.resources.privacy_line_1
 import gazekeep.shared.generated.resources.privacy_line_2
 import gazekeep.shared.generated.resources.privacy_line_3
@@ -76,10 +74,6 @@ internal fun PrivacyScreen(onBack: () -> Unit) {
         BasicComponent(
           title = stringResource(Res.string.settings_dark_pause),
           summary = stringResource(Res.string.settings_dark_pause_summary),
-        )
-        BasicComponent(
-          title = stringResource(Res.string.privacy_indicator_title),
-          summary = stringResource(Res.string.privacy_indicator_summary),
         )
       }
 

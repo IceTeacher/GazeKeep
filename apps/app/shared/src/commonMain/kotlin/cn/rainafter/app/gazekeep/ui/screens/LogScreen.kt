@@ -35,6 +35,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cn.rainafter.app.gazekeep.ui.components.AppScaffold
+import cn.rainafter.app.gazekeep.ui.components.SearchTextField
 import cn.rainafter.app.gazekeep.ui.contract.ControllerState
 import cn.rainafter.app.gazekeep.ui.contract.GazeKeepController
 import cn.rainafter.app.gazekeep.ui.contract.LogEntry
@@ -60,7 +61,6 @@ import gazekeep.shared.generated.resources.logs_menu_scroll_bottom
 import gazekeep.shared.generated.resources.logs_menu_scroll_top
 import gazekeep.shared.generated.resources.logs_search_placeholder
 import gazekeep.shared.generated.resources.logs_title
-import gazekeep.shared.generated.resources.settings_search_clear
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
@@ -72,10 +72,7 @@ import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.ListPopupColumn
 import top.yukonga.miuix.kmp.basic.PopupPositionProvider
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.basic.Close
-import top.yukonga.miuix.kmp.icon.basic.Search
 import top.yukonga.miuix.kmp.icon.extended.Download
 import top.yukonga.miuix.kmp.icon.extended.MoreCircle
 import top.yukonga.miuix.kmp.icon.extended.Share
@@ -258,37 +255,10 @@ internal fun LogScreen(
         .padding(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding()),
     ) {
       Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-        TextField(
+        SearchTextField(
           value = search,
           onValueChange = { search = it },
-          label = stringResource(Res.string.logs_search_placeholder),
-          useLabelAsPlaceholder = true,
-          singleLine = true,
-          modifier = Modifier.fillMaxWidth(),
-          leadingIcon = {
-            Icon(
-              imageVector = MiuixIcons.Basic.Search,
-              contentDescription = null,
-              modifier = Modifier.padding(start = 12.dp, end = 4.dp),
-              tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            )
-          },
-          trailingIcon = if (search.isNotEmpty()) {
-            {
-              IconButton(
-                onClick = { search = "" },
-                modifier = Modifier.padding(end = 4.dp),
-              ) {
-                Icon(
-                  imageVector = MiuixIcons.Basic.Close,
-                  contentDescription = stringResource(Res.string.settings_search_clear),
-                  tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                )
-              }
-            }
-          } else {
-            null
-          },
+          placeholder = stringResource(Res.string.logs_search_placeholder),
         )
       }
 

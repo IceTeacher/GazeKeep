@@ -4,18 +4,25 @@
 
 ## 未完成事项
 
-- [ ] 完成新版 Miuix UI（双 Tab 底栏导航、图1三态卡片与系统信息首页、图2内联卡片设置页、图3渐变关于页）的真机/模拟器交互与旋转/明暗主题验收；当前 `:shared:testAndroidHostTest` 为 `NO-SOURCE`，主机编译与单测不替代真机页面验收。
+- [ ] 完成新版 Miuix UI 的多 ROM 与真机硬件验收：本轮已在 Android 15 / API 35 模拟器上完成双 Tab 底栏导航、系统信息首页、内联卡片设置页、开源许可页的交互、旋转、明暗主题与 130% 大字体布局验收；真机真实屏幕与多 ROM 厂商定制仍待补齐。
 - [ ] 复现并排查实际采集中按 Home 后的相机释放延迟：本轮独立模拟器一次未在 3 秒检查阈值内释放，随后无残留；返回与撤销权限分别约 2.05 秒、0.45 秒释放。不能将无前置相机实例的无客户端结果作为生命周期成功证据。
 - [ ] 完成当前 APK 的实机/UI 矩阵：长超时降亮前检测、连续注视、Unknown/多脸、真实触摸、相机抢占、口袋/朝下、后端切换/掉线与服务被杀。重点验证无障碍 Hold 上限释放后实际熄一次；分别记录 Android、ROM、系统超时、后端/框架版本和实际钩点。
 - [ ] 完成 Shizuku 原系统超时恢复的实机验收：临时延长、屏灭、进程被杀、Binder 重连及 Shizuku 重启。同步持久化失败、恢复读回失败和重试已由隔离测试覆盖，真实恢复仍未验证。设备/框架重启不在本次授权内。
 - [ ] 完成正式签名与可分发 APK 验收：提供正式签名配置后验证签名、安装升级与压缩包运行，补齐对应版本发布说明及第三方条款复核。MIT 与当前运行依赖声明已落地；未配置正式签名的 Release 为 unsigned，本次未发布。
 - [ ] 完成 LSPosed 实验性“隐藏相机隐私指示器”真机重启与多 ROM 验收：在已启用 LSPosed `system_server` 作用域的真机上验证开启/关闭实验开关、自检页与后台采样的状态栏绿点隐藏与恢复，以及系统相机等其他应用绿点不受影响；主机单元测试不替代真机框架注入验收。
 
-## 当前 APK 验证（2026-10-12）
+## 当前工作区验证（2026-10-13）
 
-- LSPosed 实验性“隐藏系统相机隐私指示器”需求对齐、文档/ADR 维护与代码实现：
-  1. 更新领域术语 [CONTEXT.md](../CONTEXT.md)、架构分析 [camera-privacy-indicator.md](../docs/architecture/camera-privacy-indicator.md)、后端文档 [lsposed.md](../docs/architecture/backends/lsposed.md)、隐私规范 [privacy-security.md](../docs/privacy-security.md)、UI 架构 [ui.md](../docs/architecture/ui.md)，新增架构决策记录 [ADR 0001](../docs/adr/0001-lsposed-hide-camera-privacy-indicator.md) 并登记至 [docs/index.md](../docs/index.md)。
-  2. 在 `xposed` 模块新增独立 `CameraIndicatorResolver`，解析 `AppOpsService` 的 `scheduleOpActiveChangedIfNeededLocked`、`notifyOpActiveChanged` 与 `isOperationActive` 候选，通过独立 `HookCallbackGuard` 与电源超时主链路隔离；仅在开关启用且目标为 GazeKeep 自身 `OP_CAMERA (26)` 时拦截 `active = true` 通知并覆盖活跃查询，保持 `startOp` 返回 `MODE_ALLOWED` 不变。
-  3. 扩展 `BridgeProtocol.TX_SET_HIDE_INDICATOR`、`LsposedKeepAwakeBackend.syncHideCameraIndicator`、`GazeConfig.hideCameraIndicator`、`ConfigStore` 及 `SettingsScreen` / `PrivacyScreen`，支持在 LSPosed 就绪且选中时免重启实时切换隐藏状态，切换至非 LSPosed 后端或关闭开关时自动恢复默认绿点。
-  4. 主机测试 `:core:allTests`、`:xposed:testDebugUnitTest`、`:engine:testDebugUnitTest`、`:android:testDebugUnitTest`、`:android:assembleDebug`、`:android:lintDebug` 通过；`:shared:testAndroidHostTest` 为 `NO-SOURCE`，真机 LSPosed 重启与状态栏绿点视觉验收待在授权设备上执行。
-- 门禁：`pnpm verify:docs`、`pnpm verify:agent-assets`、`pnpm verify:architecture`、`pnpm test:tools`、`pnpm format:check` 全部通过，`git diff --check` 无违规。
+- 本次代码修复：许可搜索按依赖条目筛选并保留完整前言及许可附录；实验性开关确认时复核可用状态，条件失效时关闭弹窗；Badge 联动置灰，移入开关组件，清理 7 条废弃资源；修复 130% 大字体下「实验性」Badge 挤压折行问题（标题分配权重自适应折行，Badge 强制单行）。
+- 搜索回归：新增 3 项 shared 主机测试，已确认旧空行分段算法在依赖过滤和完整许可保留两项断言上失败；修复后通过。覆盖大小写、空查询、无匹配、CRLF、查询首尾空格及前言必要版权说明。
+- 门禁与静态检查通过：`:shared:testAndroidHostTest`（3 项）、`:android:testDebugUnitTest`（13 项）、`:android:assembleDebug`、`:android:lintDebug`；`pnpm verify:docs`、`pnpm verify:agent-assets`、`pnpm verify:architecture`、`pnpm format:check` 与 `git diff --check` 全部通过。
+- 模拟器实机测试通过（emulator-5554，Google sdk_gphone64_x86_64, Android 15 / API 35 userdebug）：
+  - 实验性开关交互：点击开启触发二次确认弹窗，取消保持关闭；二次确认后开启；再次点击直接关闭无需确认。
+  - 后端状态联动：切换至 Shizuku 后端后，实验性开关禁用；明暗两套主题下「实验性」Badge 均联动置灰。
+  - 双 Activity 实例条件失效：实例 A 打开确认弹窗后，实例 B 切换后端为 Shizuku，切回实例 A 时确认弹窗自动关闭且开关保持关闭。
+  - 白名单设置与冷启动：开启白名单显示「应用列表」入口；应用列表搜索与勾选在冷启动后正常回读保留；关闭白名单后入口收起。
+  - 开源许可搜索与旋转：搜索 `miuix` 仅展示 6 项相关依赖并保留前言版权声明与 6 个完整许可；横屏（user_rotation=1）后搜索词与结果保持不变；特定许可过滤、无匹配提示、清空恢复均通过；`checker-qual` 许可正文与源码文件逐字一致。
+  - 大字体布局与修复：在 130% 字体缩放（`font_scale 1.3`）下排查并修复 Badge 折行缺陷，修复后实测 Badge 宽度 111px、高度 54px 保持单行，长标题自适应换行。
+  - 日志与隐私页：日志搜索过滤与清空恢复正常；安全与隐私页 6 项承诺展示完整。
+  - 环境清理与恢复：测试结束后已从备份恢复 DataStore 配置（保亮工作状态），并还原系统字体（1.0）、屏幕旋转（0 / 自动旋转开启）与主题设置（亮色）。
+- 未执行与剩余风险：本轮实机验证基于单台 Android 15 x86_64 模拟器，不替代多 ROM 厂商定制界面与真实硬件相机/传感器表现；真实状态栏绿点隐藏与系统相机对比需真机 LSPosed 框架环境验收。

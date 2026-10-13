@@ -284,6 +284,7 @@ internal fun SettingsNavigation(
 
       SettingsScreen.Notices -> NoticesScreen(
         state = state,
+        actions = actions,
         onBack = ::navigateBack,
       )
     }
