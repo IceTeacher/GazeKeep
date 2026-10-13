@@ -19,13 +19,17 @@ export const IGNORED = new Set([
   "dist",
   "coverage",
 ]);
-export function run(command, args, { cwd = process.cwd(), capture = false, env = process.env, check = true } = {}) {
+export function run(
+  command,
+  args,
+  { cwd = process.cwd(), capture = false, env = process.env, check = true, maxBuffer = 32 * 1024 * 1024 } = {},
+) {
   const result = spawnSync(command, args, {
     cwd,
     env,
     encoding: "utf8",
     stdio: capture ? "pipe" : "inherit",
-    maxBuffer: 32 * 1024 * 1024,
+    maxBuffer,
   });
   if (result.error) throw result.error;
   if (check && result.status !== 0)

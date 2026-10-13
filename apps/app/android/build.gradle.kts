@@ -43,13 +43,12 @@ android {
     applicationId = "cn.rainafter.app.gazekeep"
     minSdk = libs.versions.android.minSdk.get().toInt()
     targetSdk = libs.versions.android.targetSdk.get().toInt()
-    versionCode = 1
-    versionName = "1.0.0"
+    versionCode = 2
+    versionName = "1.1.0"
   }
   packaging {
     resources {
       excludes += "/META-INF/{AL2.0,LGPL2.1}"
-      excludes += "/META-INF/xposed/java_init.list"
     }
   }
   val signingValues = listOf(

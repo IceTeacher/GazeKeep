@@ -9,8 +9,8 @@ data class HookInstallResult(val resolution: HookResolution, val installed: Bool
 
 /** Hook 框架适配层的窄接口；签名解析失败时不安装任何候选。 */
 interface HookFacade {
-  fun hookBefore(method: java.lang.reflect.Method, callback: (HookBeforeParam) -> Unit)
-  fun hookAfter(method: java.lang.reflect.Method, callback: (Array<Any?>, Any?) -> Unit)
+  fun hookBefore(method: java.lang.reflect.Method, callback: (HookBeforeParam) -> Unit): HookRegistration
+  fun hookAfter(method: java.lang.reflect.Method, callback: (Array<Any?>, Any?) -> Unit): HookRegistration
 }
 
 class HookBeforeParam(val args: Array<Any?>, private val resultWriter: (Any?) -> Unit) {
@@ -71,8 +71,8 @@ object HookPlan {
       onFailure = { Log.w("GazeKeepXposed", "indicator hook failed", it) },
       onDisabled = core::disableIndicatorHook,
     )
-    runCatching {
-      facade.hookBefore(activeChanged.method) { param ->
+    val installed = installOptionalHooks(facade, core::disableIndicatorHook) { indicatorFacade ->
+      indicatorFacade.hookBefore(activeChanged.method) { param ->
         indicatorGuard.run {
           if (
             shouldSuppressCameraActiveNotification(
@@ -87,7 +87,7 @@ object HookPlan {
         }
       }
       indicatorPlan.operationActiveMethod?.let { opActiveMethod ->
-        facade.hookBefore(opActiveMethod) { param ->
+        indicatorFacade.hookBefore(opActiveMethod) { param ->
           indicatorGuard.run {
             if (
               shouldOverrideCameraOperationActive(
@@ -102,9 +102,11 @@ object HookPlan {
         }
       }
       core.markIndicatorHookInstalled()
+    }
+    if (installed) {
       Log.i("GazeKeepXposed", "indicator_hook_installed candidate=${activeChanged.candidate}")
-    }.onFailure { error ->
-      Log.w("GazeKeepXposed", "indicator_hook_install_failed", error)
+    } else {
+      Log.w("GazeKeepXposed", "indicator_hook_install_failed")
     }
   }
 }

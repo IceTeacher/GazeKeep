@@ -4,31 +4,28 @@ import android.content.Context
 import android.util.Log
 import cn.rainafter.app.gazekeep.xposed.hook.HookFacade
 import cn.rainafter.app.gazekeep.xposed.hook.HookPlan
+import cn.rainafter.app.gazekeep.xposed.hook.HookRegistrations
+import cn.rainafter.app.gazekeep.xposed.hook.TrackingHookFacade
 import cn.rainafter.app.gazekeep.xposed.power.PowerHookCore
 
-/** 隔离框架入口，保证一个 system_server 只安装一次钩子。 */
+/** 隔离框架入口，保证一个 system_server 只尝试一次系统钩子安装。 */
 object HookBootstrap {
-  @Volatile private var activeCore: PowerHookCore? = null
+  private val session = BootstrapSession<PowerHookCore>()
 
   @JvmStatic
   fun onSystemServerLoaded(systemContext: Context, classLoader: ClassLoader, facade: HookFacade): PowerHookCore? {
-    synchronized(this) {
-      activeCore?.let { return it }
-      val core = PowerHookCore(systemContext)
-      val install = runCatching { HookPlan.install(facade, classLoader, core) }
-      val result = install.getOrNull()
-      if (result?.installed != true) {
-        Log.w(
-          TAG,
-          "hook_install_failed candidate=${result?.resolution?.candidate ?: "none"}",
-        )
-        core.close()
-        return null
-      }
-      activeCore = core
-      Log.i(TAG, "hook_installed")
-      return core
-    }
+    val registrations = HookRegistrations()
+    val core = session.start(
+      create = { PowerHookCore(systemContext) },
+      install = { core ->
+        val result = HookPlan.install(TrackingHookFacade(facade, registrations), classLoader, core)
+        result.installed
+      },
+      close = PowerHookCore::close,
+      rollback = registrations::rollback,
+    )
+    runCatching { Log.i(TAG, "hook_startup=${if (core != null) "Installed" else "InstallationFailed"}") }
+    return core
   }
 
   private const val TAG = "GazeKeepXposed"

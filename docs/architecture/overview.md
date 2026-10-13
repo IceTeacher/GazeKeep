@@ -35,7 +35,7 @@ Android 九个运行模块与一个编译存根模块统一位于 apps/app，内
 
 包名根 cn.rainafter.app.gazekeep；applicationId、Shizuku authority 与 LSPosed scope 同一身份，不使用 debug 后缀。MainActivity、GazeService、GazeA11yService、ShellService、LegacyEntry 等外部入口类名保持稳定，普通类目录与包名一致。
 
-接口变化先改设计及真源再改调用方。AIDL、descriptor、transaction 编号、协议版本与字段顺序属于跨进程兼容边界。hidden-api 存根已提供最小编译签名且仅 compileOnly 引用。现代 libxposed 入口代码保留，但当前 APK 排除了登记文件，尚未交付或验收现代入口支持。
+接口变化先改设计及真源再改调用方。AIDL、descriptor、transaction 编号、协议版本与字段顺序属于跨进程兼容边界。hidden-api 存根已提供最小编译签名且仅 compileOnly 引用。现代 libxposed API 102 与 legacy 双入口同 APK 登记；现代最低/目标 API 均为 102，API 100 不在支持范围，现代加载失败不自动回退。框架与 ROM 实机验收状态见任务清单。
 
 各模块细节按[索引](../index.md)加载。
 

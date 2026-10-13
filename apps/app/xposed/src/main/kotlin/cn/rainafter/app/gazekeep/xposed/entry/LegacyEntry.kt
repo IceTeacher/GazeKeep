@@ -1,9 +1,9 @@
 package cn.rainafter.app.gazekeep.xposed.entry
 
-import android.content.Context
 import android.util.Log
 import cn.rainafter.app.gazekeep.xposed.hook.HookBeforeParam
 import cn.rainafter.app.gazekeep.xposed.hook.HookFacade
+import cn.rainafter.app.gazekeep.xposed.hook.HookRegistration
 import de.robv.android.xposed.IXposedHookLoadPackage
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedBridge
@@ -12,9 +12,9 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage
 /** 旧式 Xposed 入口；只处理 system_server，所有框架回调都隔离在 try/catch 内。 */
 class LegacyEntry : IXposedHookLoadPackage {
   override fun handleLoadPackage(param: XC_LoadPackage.LoadPackageParam) {
-    if (param.packageName != "android") return
-    Log.i(TAG, "legacy_system_server_starting")
+    if (param.packageName != "android" || param.processName != "android") return
     runCatching {
+      Log.i(TAG, "entry=legacy startup=Accepted")
       val context = SystemContextResolver.resolve(param.classLoader)
       val facade = XposedHookFacade()
       if (context != null) {
@@ -29,7 +29,7 @@ class LegacyEntry : IXposedHookLoadPackage {
         }
       }
     }.onFailure {
-      Log.e(TAG, "legacy_initialization_failed")
+      runCatching { Log.e(TAG, "entry=legacy startup=InstallationFailed") }
     }
   }
 
@@ -39,27 +39,31 @@ class LegacyEntry : IXposedHookLoadPackage {
 }
 
 private class XposedHookFacade : HookFacade {
-  override fun hookBefore(method: java.lang.reflect.Method, callback: (HookBeforeParam) -> Unit) {
-    XposedBridge.hookMethod(
+  override fun hookBefore(method: java.lang.reflect.Method, callback: (HookBeforeParam) -> Unit): HookRegistration {
+    val handle = XposedBridge.hookMethod(
       method,
       object : XC_MethodHook() {
         override fun beforeHookedMethod(param: MethodHookParam) {
           runCatching {
             callback(HookBeforeParam(param.args) { value -> param.setResult(value) })
-          }.onFailure { XposedBridge.log(it) }
+          }.onFailure { error -> runCatching { XposedBridge.log(error) } }
         }
       },
     )
+    return HookRegistration { handle.unhook() }
   }
 
-  override fun hookAfter(method: java.lang.reflect.Method, callback: (Array<Any?>, Any?) -> Unit) {
-    XposedBridge.hookMethod(
+  override fun hookAfter(method: java.lang.reflect.Method, callback: (Array<Any?>, Any?) -> Unit): HookRegistration {
+    val handle = XposedBridge.hookMethod(
       method,
       object : XC_MethodHook() {
         override fun afterHookedMethod(param: MethodHookParam) {
-          runCatching { callback(param.args, param.result) }.onFailure { XposedBridge.log(it) }
+          runCatching {
+            callback(param.args, param.result)
+          }.onFailure { error -> runCatching { XposedBridge.log(error) } }
         }
       },
     )
+    return HookRegistration { handle.unhook() }
   }
 }

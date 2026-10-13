@@ -21,7 +21,17 @@ DeadlineResolver 按真实返回值/参数签名解析候选；当前优先 A，
 
 同一绝对 off deadline 去重，避免重复 Hook 回调推动 seq 使当前采集失效。修改系统侧协议/入口后必须重启使新代码生效，验证前核对设备授权。
 
-LegacyEntry 与 ModernEntry 共用 HookFacade 和 HookBootstrap，一次安装系统钩子。经典框架通过 LegacyEntry（IXposedHookLoadPackage）注入 `system_server`，具体框架与 ROM 兼容性以实机记录为准；现代入口代码为待完善路径，当前打包排除 `java_init.list`，不宣称 APK 提供现代入口支持；作用域同时声明 `system` 与 `android`。ActivityThread 存根及 Context 解析采用多级反射容错，最终 APK 不包含存根类定义。
+## API 102 入口设计
+
+唯一 APK 保留 LegacyEntry 与 ModernEntry。现代登记为 `META-INF/xposed/java_init.list`，最低/目标版本均为 102，静态作用域仅 `system`，关闭热重载；旧登记 `assets/xposed_init` 保留，推荐作用域仅 `android`，最低版本沿用 93。API 100 框架不在支持范围：识别现代登记的框架可能优先加载现代入口，失败不会自动切回 legacy；legacy 只用于确实选择旧登记的框架。取舍见 [ADR 0002](../../adr/0002-modern-xposed-api102-compatibility.md)。
+
+ModernEntry 仅使用无参构造，在 onModuleLoaded 核对 API >=102、系统钩子能力与系统进程身份；onSystemServerStarting 使用提供的类加载器解析 Context，再调用共享 Bootstrap。本进程只尝试一次；现代 Context 缺失直接报告未就绪，不等待可能已执行过的 systemMain。legacy 保留已有 Context 解析回退。两个入口共享一次安装保护，现代路径不调用旧式 Xposed API。
+
+HookFacade 返回可解除句柄。主钩子部分安装失败先关闭 core，再逆序解除已注册钩子；清理异常隔离，残留回调放行系统。指示器钩子失败只清理该组句柄，不影响电源主链路。现代拦截器以 proceed(newArgs) 回传成功的参数替换，setResult 跳过原调用，模块回调异常使用原参数放行；原调用异常透传且不重试。
+
+更新模块后重启系统生效，不提供热重载。桥接协议仍为 v2，应用页面只显示实际桥接就绪状态；系统日志区分 modern_102/legacy 入口与初始化结果，框架 API/版本由验收记录核对。ActivityThread 存根仅编译，最终 APK 不包含定义。管理器识别、入口加载、钩子就绪和真实保亮分层验收。
+
+上述入口与打包已按设计实现；实际构建与框架验收状态见[任务清单](../../../tasks/todo.md)，不得用目标设计声称已通过实机验收。
 
 Handler 派发 deadline 时通过 ActivityTaskManager.getInstance().getTasks(1) 查询 topActivity 包名，异常或签名不匹配返回未知；查询不在 PMS 锁内。系统按配置 lead 提前派发，App reducer 依据有效退避 lead 再调度采集，不在采集中重注册客户端或改变 seq。
 

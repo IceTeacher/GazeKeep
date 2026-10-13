@@ -34,6 +34,7 @@
 | `architecture/backends/shizuku.md`                  | 后端架构 | 修改 shell Binder、独立前台来源或同步超时恢复时   | 持续维护 | 2026-10-08 |
 | `architecture/backends/lsposed.md`                  | 后端架构 | 修改系统候选、现代入口、前台来源、seq 或打包时    | 持续维护 | 2026-10-13 |
 | `adr/0001-lsposed-hide-camera-privacy-indicator.md` | 架构决策 | 复核 LSPosed 隐藏相机隐私指示器的技术路线与取舍时 | 持续维护 | 2026-10-12 |
+| `adr/0002-modern-xposed-api102-compatibility.md`    | 架构决策 | 复核双入口、API 102 兼容边界与更新生效方式时      | 持续维护 | 2026-10-13 |
 
 ## 发布
 

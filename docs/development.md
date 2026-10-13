@@ -38,6 +38,7 @@ pnpm verify
 pnpm verify:docs
 pnpm verify:agent-assets
 pnpm verify:architecture
+pnpm verify:apk --apk apps/app/android/build/outputs/apk/debug/android-debug.apk
 pnpm test:tools
 pnpm format:check
 ```
@@ -70,3 +71,9 @@ Prettier 配置在工具目录，Hook 使用显式路径，不向官网根级散
 按[测试规范](testing.md)选择模块验证；目录迁移使用完整主机门禁，普通文档/工具任务不无理由执行全部 Android 测试。Node 工具测试包含真实临时 Git 提交、部分暂存冲突恢复、XML 文本与隐私文案、安装校验和仓库检查；不在真实索引中制造测试提交。
 
 改 Android 依赖仍检查合并 Manifest 与 APK 权限，开发依赖不能进入 APK。Release 已启用 R8 与资源压缩；发布以[发布规范](release.md)为准，Debug 构建不代表 Release 或实机验收。
+
+## APK 静态门禁
+
+`pnpm verify:apk --apk <APK路径> [--root <仓库路径>]` 读取实际 APK，依赖 PATH 中 SDK `apkanalyzer` 与 ANDROID_HOME/ANDROID_SDK_ROOT 内稳定 build-tools 的 aapt2，不安装工具。检查最终双入口、最低/目标 API 102、各自作用域、关闭热重载、中文简介、版本、无参反射入口、禁止权限及 compileOnly 类未打包；图标引用与位图内容须匹配当前品牌资源，支持 R8 重命名资源路径以及 aapt2 的 RGB/RGBA 重编码、过滤和完全透明像素归零；可见颜色、透明度和尺寸仍严格比较。PNG 校验限定当前非交错 8 位 RGB/RGBA，其他格式或 CRC 损坏明确失败。门禁是产物检查，不代表框架或 ROM 已验收。
+
+模块入口功能更新为 1.1.0（versionCode=2）；后续交付保持 versionCode 递增，避免同版本覆盖安装复用管理器图标缓存。Debug 与压缩 Release 分别运行 APK 门禁，不以源码声明代替产物检查。

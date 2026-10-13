@@ -19,7 +19,8 @@
     "build": "turbo run build",
     "lint": "turbo run lint",
     "test": "turbo run test",
-    "verify": "turbo run verify"
+    "verify": "turbo run verify",
+    "verify:apk": "node scripts/repo-tools/scripts/check-apk.mjs"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.3",

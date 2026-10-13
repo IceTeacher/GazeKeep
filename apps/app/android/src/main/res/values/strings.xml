@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">GazeKeep</string>
-    <string name="xposed_description">GazeKeep system framework hooks</string>
+    <string name="xposed_description">注视屏幕时延后熄屏；看不清或离开时按系统超时熄屏。</string>
     <string name="alert_backend_unavailable">保亮后端不可用，请打开设置检查。</string>
     <string name="alert_camera_permission_lost">相机权限不可用，本轮不会保亮。</string>
     <string name="alert_camera_unavailable">相机暂时不可用，本轮不会保亮。</string>
