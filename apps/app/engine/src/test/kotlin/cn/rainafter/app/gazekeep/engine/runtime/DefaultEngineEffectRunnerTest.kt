@@ -2,12 +2,15 @@ package cn.rainafter.app.gazekeep.engine.runtime
 
 import cn.rainafter.app.gazekeep.core.backend.ExtendResult
 import cn.rainafter.app.gazekeep.core.backend.ExtendToken
+import cn.rainafter.app.gazekeep.core.backend.KeepAwakeBackend
 import cn.rainafter.app.gazekeep.core.backend.TimeoutDeadline
 import cn.rainafter.app.gazekeep.core.engine.CapturePlan
 import cn.rainafter.app.gazekeep.core.engine.EngineEffect
 import cn.rainafter.app.gazekeep.core.engine.EngineEvent
 import cn.rainafter.app.gazekeep.core.model.Attention
+import cn.rainafter.app.gazekeep.core.model.BackendId
 import cn.rainafter.app.gazekeep.core.model.GazeConfig
+import cn.rainafter.app.gazekeep.core.model.Readiness
 import cn.rainafter.app.gazekeep.core.model.Sensitivity
 import cn.rainafter.app.gazekeep.core.policy.GateContext
 import cn.rainafter.app.gazekeep.core.policy.GateInput
@@ -19,7 +22,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
+import kotlin.coroutines.Continuation
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -47,13 +54,14 @@ class DefaultEngineEffectRunnerTest {
       override suspend fun collect(): GateInput = error("unexpected gate")
     },
     onExtended: () -> Unit = { error("must not extend") },
+    backend: KeepAwakeBackend? = null,
   ) = DefaultEngineEffectRunner(
     parentScope = scope,
     config = GazeConfig(),
     gateProbe = gate,
     scheduler = scheduler,
     snapshot = { null },
-    backend = { null },
+    backend = { backend },
     capture = capture,
     onExtended = onExtended,
     onRecord = {},
@@ -105,6 +113,32 @@ class DefaultEngineEffectRunnerTest {
       assertTrue(events.isEmpty())
       assertEquals(null, scheduler.pending)
       assertTrue(parent.isActive)
+    } finally {
+      runner.close()
+      scope.cancel()
+    }
+  }
+
+  @Test fun cancelledExtendCannotPublishLateSuccessOrResetTheOracle() = runBlocking {
+    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+    lateinit var late: Continuation<ExtendResult>
+    var extensions = 0
+    val backend = object : KeepAwakeBackend {
+      override val id = BackendId.Accessibility
+      override val readiness = MutableStateFlow<Readiness>(Readiness.Ready)
+      override suspend fun extend(token: ExtendToken): ExtendResult = suspendCoroutine { late = it }
+      override suspend fun release() = Unit
+      override suspend fun attach() = Unit
+      override suspend fun detach() = Unit
+    }
+    val runner = runner(scope, backend = backend, onExtended = { extensions++ })
+    val events = mutableListOf<EngineEvent>()
+    try {
+      runner.run(EngineEffect.Extend(ExtendToken.None), events::add)
+      runner.run(EngineEffect.CancelCapture, events::add)
+      late.resume(ExtendResult.Done)
+      assertTrue(events.isEmpty())
+      assertEquals(0, extensions)
     } finally {
       runner.close()
       scope.cancel()

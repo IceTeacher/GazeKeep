@@ -20,6 +20,8 @@ import cn.rainafter.app.gazekeep.engine.gate.GateProbe
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
 
@@ -69,6 +71,7 @@ class DefaultEngineEffectRunner(
         gateJob = scope.launch {
           val snapshot = snapshot()
           val input = gateProbe.collect()
+          currentCoroutineContext().ensureActive()
           val decision = GatePolicy.decide(input, GateContext(snapshot?.context?.darkUnknownStreak ?: 0), config)
           if (config.debugLogEnabled) {
             Log.d(
@@ -93,6 +96,7 @@ class DefaultEngineEffectRunner(
           } catch (_: Exception) {
             null
           }
+          currentCoroutineContext().ensureActive()
           if (result == null) {
             emit(EngineEvent.CaptureAborted(AbortReason.Error, token))
           } else {
@@ -137,6 +141,7 @@ class DefaultEngineEffectRunner(
             }
               ?: ExtendResult.Failed(IllegalStateException("backend unavailable"))
           if (config.debugLogEnabled) Log.d(TAG, "extend result=${result::class.simpleName}")
+          currentCoroutineContext().ensureActive()
           emit(EngineEvent.ExtendFinished(result, effect.token))
           if (result === ExtendResult.Done) {
             onExtended()

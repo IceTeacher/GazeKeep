@@ -26,10 +26,12 @@ class MlKitFrameClassifier(private val thresholds: ClassifierThresholds = Classi
       .build(),
   )
 
-  override suspend fun classify(image: ImageProxy, sensitivity: Sensitivity): FrameVerdict {
-    val mediaImage = image.image ?: return FrameVerdict.NotLooking(FrameVerdict.Reason.ClassifierError)
-    if (LumaProbe.isTooDark(image)) return FrameVerdict.NotLooking(FrameVerdict.Reason.TooDark)
-    return try {
+  private val lifetime = ClassifierLifetime { detector.close() }
+
+  override suspend fun classify(image: ImageProxy, sensitivity: Sensitivity): FrameVerdict = lifetime.use {
+    val mediaImage = image.image ?: return@use FrameVerdict.NotLooking(FrameVerdict.Reason.ClassifierError)
+    if (LumaProbe.isTooDark(image)) return@use FrameVerdict.NotLooking(FrameVerdict.Reason.TooDark)
+    try {
       val faces = detector.process(
         InputImage.fromMediaImage(mediaImage, image.imageInfo.rotationDegrees),
       ).awaitClassification()
@@ -61,7 +63,7 @@ class MlKitFrameClassifier(private val thresholds: ClassifierThresholds = Classi
   }
 
   override fun close() {
-    detector.close()
+    lifetime.close()
   }
 }
 
