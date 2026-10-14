@@ -29,6 +29,8 @@ ModernEntry 仅使用无参构造，在 onModuleLoaded 核对 API >=102、系统
 
 HookFacade 返回可解除句柄。主钩子部分安装失败先关闭 core，再逆序解除已注册钩子；清理异常隔离，残留回调放行系统。指示器钩子失败只清理该组句柄，不影响电源主链路。现代拦截器以 proceed(newArgs) 回传成功的参数替换，setResult 跳过原调用，模块回调异常使用原参数放行；原调用异常透传且不重试。
 
+现代前后置回调使用 ModernHookFacade 内的具名 BeforeHooker/AfterHooker 实现 XposedInterface.Hooker，不以 SAM lambda 生成框架入口。框架从 APK 外部调用 intercept(Chain)，两个具名类与方法由应用现有 entry 包保留规则保护；APK 门禁分别核对类定义及完整回调签名，防止压缩版本只剩实现接口的空壳。主机 facade 测试覆盖调用语义，压缩 DEX 与重启后实际桥接另行验收，startup=Installed 不能代替回调运行成功。
+
 更新模块后重启系统生效，不提供热重载。桥接协议仍为 v2，应用页面只显示实际桥接就绪状态；系统日志区分 modern_102/legacy 入口与初始化结果，框架 API/版本由验收记录核对。ActivityThread 存根仅编译，最终 APK 不包含定义。管理器识别、入口加载、钩子就绪和真实保亮分层验收。
 
 上述入口与打包已按设计实现；实际构建与框架验收状态见[任务清单](../../../tasks/todo.md)，不得用目标设计声称已通过实机验收。

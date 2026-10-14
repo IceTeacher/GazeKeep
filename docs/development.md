@@ -74,6 +74,6 @@ Prettier 配置在工具目录，Hook 使用显式路径，不向官网根级散
 
 ## APK 静态门禁
 
-`pnpm verify:apk --apk <APK路径> [--root <仓库路径>]` 读取实际 APK，依赖 PATH 中 SDK `apkanalyzer` 与 ANDROID_HOME/ANDROID_SDK_ROOT 内稳定 build-tools 的 aapt2，不安装工具。检查最终双入口、最低/目标 API 102、各自作用域、关闭热重载、中文简介、版本、无参反射入口、禁止权限及 compileOnly 类未打包；图标引用与位图内容须匹配当前品牌资源，支持 R8 重命名资源路径以及 aapt2 的 RGB/RGBA 重编码、过滤和完全透明像素归零；可见颜色、透明度和尺寸仍严格比较。PNG 校验限定当前非交错 8 位 RGB/RGBA，其他格式或 CRC 损坏明确失败。门禁是产物检查，不代表框架或 ROM 已验收。
+`pnpm verify:apk --apk <APK路径> [--root <仓库路径>]` 读取实际 APK，依赖 PATH 中 SDK `apkanalyzer` 与 ANDROID_HOME/ANDROID_SDK_ROOT 内稳定 build-tools 的 aapt2，不安装工具。检查最终双入口、最低/目标 API 102、各自作用域、关闭热重载、中文简介、版本、无参反射入口、两个具名现代 Hooker 的完整 intercept 签名、禁止权限、ML Kit metadata 注册器的类/无参构造器及 compileOnly 类未打包；图标引用与位图内容须匹配当前品牌资源，支持 R8 重命名资源路径以及 aapt2 的 RGB/RGBA 重编码、过滤和完全透明像素归零；可见颜色、透明度和尺寸仍严格比较。PNG 校验限定当前非交错 8 位 RGB/RGBA，其他格式或 CRC 损坏明确失败。门禁是产物检查，不代表框架或 ROM 已验收。
 
-模块入口功能更新为 1.1.0（versionCode=2）；后续交付保持 versionCode 递增，避免同版本覆盖安装复用管理器图标缓存。Debug 与压缩 Release 分别运行 APK 门禁，不以源码声明代替产物检查。
+当前稳定性候选为 1.1.2（versionCode=4）；API 102 双入口于 1.1.0（versionCode=2）交付。后续交付保持 versionCode 递增，避免同版本覆盖安装复用管理器图标缓存。Debug 与压缩 Release 分别运行 APK 门禁，不以源码声明代替产物检查。
