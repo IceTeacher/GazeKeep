@@ -8,6 +8,7 @@ import cn.rainafter.app.gazekeep.core.model.GazeConfig
 import cn.rainafter.app.gazekeep.core.policy.EnableRequirement
 import cn.rainafter.app.gazekeep.core.policy.enableRequirement
 import cn.rainafter.app.gazekeep.core.policy.shouldSyncHideCameraIndicator
+import cn.rainafter.app.gazekeep.engine.camera.CaptureOwnershipCoordinator
 import cn.rainafter.app.gazekeep.engine.config.ConfigStore
 import cn.rainafter.app.gazekeep.notification.DecisionLogs
 import cn.rainafter.app.gazekeep.runtime.RuntimeStatusStore
@@ -32,8 +33,11 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import rikka.shizuku.Shizuku
 
-class AndroidGazeKeepController(context: Context, private val store: ConfigStore = ConfigStore(context)) :
-  GazeKeepController,
+class AndroidGazeKeepController(
+  context: Context,
+  private val store: ConfigStore,
+  ownership: CaptureOwnershipCoordinator,
+) : GazeKeepController,
   AutoCloseable {
   private val context = context.applicationContext
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -43,7 +47,7 @@ class AndroidGazeKeepController(context: Context, private val store: ConfigStore
   private val mutableState = MutableStateFlow(ControllerState(systemInfo = readSystemInfo(this.context)))
   override val state = mutableState.asStateFlow()
   private val readinessProbe = BackendReadinessProbe(context)
-  private val selfTestCoordinator = SelfTestCoordinator(context, scope, store)
+  private val selfTestCoordinator = SelfTestCoordinator(context, scope, store, ownership)
   override val selfTest = selfTestCoordinator.state
   private val decisionLogs = DecisionLogs.get(this.context)
   private val appsRepository = LaunchableAppsRepository(context, scope) { loadState, apps ->
@@ -208,6 +212,7 @@ class AndroidGazeKeepController(context: Context, private val store: ConfigStore
     selfTestCoordinator.capture(state.value.config.sensitivity)
   }
 
+  fun resumeSelfTest() = selfTestCoordinator.resume()
   fun pauseSelfTest() = selfTestCoordinator.pause()
   override fun cancelSelfTest() = selfTestCoordinator.cancel()
 

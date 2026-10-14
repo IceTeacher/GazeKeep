@@ -6,7 +6,6 @@ import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 
 class RuntimeStatusStoreTest {
   @Test fun sessionClosePreservesLastDecisionUntilExplicitlyCleared() {
@@ -23,14 +22,5 @@ class RuntimeStatusStoreTest {
     // 用户显式关闭总开关时才清空最近判定
     RuntimeStatusStore.clearLastDecision()
     assertNull(RuntimeStatusStore.status.value.lastDecision)
-  }
-
-  @Test fun selfTestActiveFlagTracksSelfTestLifecycle() {
-    RuntimeStatusStore.resetForTest()
-    assertFalse(RuntimeStatusStore.selfTestActive)
-    RuntimeStatusStore.selfTestActive = true
-    assertTrue(RuntimeStatusStore.selfTestActive)
-    RuntimeStatusStore.selfTestActive = false
-    assertFalse(RuntimeStatusStore.selfTestActive)
   }
 }

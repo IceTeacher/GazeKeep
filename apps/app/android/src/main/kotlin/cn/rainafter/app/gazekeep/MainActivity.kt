@@ -20,7 +20,10 @@ class MainActivity : ComponentActivity() {
   }
   override fun onResume() {
     super.onResume()
-    if (::controller.isInitialized) controller.refresh()
+    if (::controller.isInitialized) {
+      controller.resumeSelfTest()
+      controller.refresh()
+    }
   }
   override fun onPause() {
     if (::controller.isInitialized) controller.pauseSelfTest()

@@ -119,7 +119,6 @@ class AndroidPlatformActions(
     DisposableEffect(Unit) {
       onDispose {
         controller.setPreviewSurface(null)
-        controller.cancelSelfTest()
       }
     }
   }

@@ -16,7 +16,6 @@ data class RuntimeStatus(
 object RuntimeStatusStore {
   @Volatile var intentionalStop: Boolean = false
 
-  @Volatile var selfTestActive: Boolean = false
   private val mutableStatus = MutableStateFlow(RuntimeStatus())
   val status = mutableStatus.asStateFlow()
 
@@ -38,7 +37,6 @@ object RuntimeStatusStore {
 
   fun resetForTest() {
     intentionalStop = false
-    selfTestActive = false
     mutableStatus.value = RuntimeStatus()
   }
 }

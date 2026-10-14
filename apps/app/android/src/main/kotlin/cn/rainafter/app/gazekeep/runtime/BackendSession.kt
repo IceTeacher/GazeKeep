@@ -24,6 +24,7 @@ import cn.rainafter.app.gazekeep.core.model.BackendId
 import cn.rainafter.app.gazekeep.core.model.BackendLock
 import cn.rainafter.app.gazekeep.core.model.GazeConfig
 import cn.rainafter.app.gazekeep.engine.camera.CameraXFrameSource
+import cn.rainafter.app.gazekeep.engine.camera.CaptureOwnershipCoordinator
 import cn.rainafter.app.gazekeep.engine.capture.AttentionCaptureSession
 import cn.rainafter.app.gazekeep.engine.classify.MlKitFrameClassifier
 import cn.rainafter.app.gazekeep.engine.gate.AndroidGateProbe
@@ -50,6 +51,7 @@ class BackendSession(
   private val config: GazeConfig,
   private val notifier: GazeNotifier,
   private val recordDecision: (DecisionRecord) -> Unit = {},
+  private val ownership: CaptureOwnershipCoordinator,
 ) : AutoCloseable {
   private val jobs = kotlinx.coroutines.SupervisorJob(parentScope.coroutineContext[Job])
   private val scope = CoroutineScope(parentScope.coroutineContext + jobs)
@@ -124,21 +126,16 @@ class BackendSession(
       snapshot = { engine?.snapshot?.value },
       backend = { backend },
       capture = { plan ->
-        if (RuntimeStatusStore.selfTestActive) {
-          cn.rainafter.app.gazekeep.engine.capture.AttentionCaptureResult(
-            attention = cn.rainafter.app.gazekeep.core.model.Attention.Unknown,
-            frames = emptyList(),
-            outcome = cn.rainafter.app.gazekeep.engine.camera.CaptureOutcome.Aborted(
-              cn.rainafter.app.gazekeep.core.engine.AbortReason.Cancelled,
-            ),
-            elapsedMs = 0L,
-          )
-        } else {
-          AttentionCaptureSession(
-            checkNotNull(frameSource),
-            checkNotNull(classifier),
-          ).capture(plan)
-        }
+        ownership.capture {
+          AttentionCaptureSession(checkNotNull(frameSource), checkNotNull(classifier)).capture(plan)
+        } ?: cn.rainafter.app.gazekeep.engine.capture.AttentionCaptureResult(
+          attention = cn.rainafter.app.gazekeep.core.model.Attention.Unknown,
+          frames = emptyList(),
+          outcome = cn.rainafter.app.gazekeep.engine.camera.CaptureOutcome.Aborted(
+            cn.rainafter.app.gazekeep.core.engine.AbortReason.Cancelled,
+          ),
+          elapsedMs = 0L,
+        )
       },
       onExtended = {
         idleOracle?.markExtended()
