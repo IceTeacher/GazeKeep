@@ -92,9 +92,31 @@ export function validateApk(snapshot, expected) {
     if (properties.get(key) !== value) errors.push(`现代 ${key} 必须为 ${value}`);
   }
   const definedClasses = [...snapshot.dex.matchAll(/^C d \d+\s+\d+\s+\d+\s+(\S+)\s*$/gm)].map((m) => m[1]);
+  const definedMethods = new Set([...snapshot.dex.matchAll(/^M d \d+\s+\d+\s+\d+\s+(.+)$/gm)].map((m) => m[1].trim()));
   for (const name of ["ModernEntry", "LegacyEntry"]) {
     if (!definedClasses.includes(PREFIX + name)) errors.push(`DEX 缺少入口 ${name}`);
     if (!snapshot.dex.includes(`${PREFIX}${name} <init>()`)) errors.push(`${name} 缺少无参构造器`);
+  }
+  for (const hooker of ["BeforeHooker", "AfterHooker"]) {
+    const name = `${PREFIX}ModernHookFacade$${hooker}`;
+    if (!definedClasses.includes(name)) errors.push(`DEX 缺少现代拦截器类：${name}`);
+    if (!definedMethods.has(`${name} java.lang.Object intercept(io.github.libxposed.api.XposedInterface$Chain)`))
+      errors.push(`现代拦截器缺少完整 intercept 回调：${name}`);
+  }
+  const registrarPrefix = "com.google.firebase.components:";
+  const components = [app, ...list(app.service), ...list(app.provider)];
+  for (const component of components) {
+    for (const item of list(component["meta-data"])) {
+      const key = item["@_android:name"] ?? "";
+      if (
+        !key.startsWith(registrarPrefix) ||
+        item["@_android:value"] !== "com.google.firebase.components.ComponentRegistrar"
+      )
+        continue;
+      const name = key.slice(registrarPrefix.length);
+      if (!definedClasses.includes(name)) errors.push(`DEX 缺少组件注册器类：${name}`);
+      if (!snapshot.dex.includes(`${name} <init>()`)) errors.push(`组件注册器缺少无参构造器：${name}`);
+    }
   }
   for (const name of definedClasses) {
     if (name.startsWith("io.github.libxposed.") || name.startsWith("de.robv.android.xposed."))

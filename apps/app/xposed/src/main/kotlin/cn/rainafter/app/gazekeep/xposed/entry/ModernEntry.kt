@@ -47,7 +47,20 @@ class ModernEntry : XposedModule() {
 
 internal class ModernHookFacade(private val module: XposedModule) : HookFacade {
   override fun hookBefore(method: Method, callback: (HookBeforeParam) -> Unit): HookRegistration {
-    val handle = module.hook(method).setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE).intercept { chain ->
+    val handle = module.hook(method).setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
+      .intercept(BeforeHooker(callback))
+    return HookRegistration { handle.unhook() }
+  }
+
+  override fun hookAfter(method: Method, callback: (Array<Any?>, Any?) -> Unit): HookRegistration {
+    val handle = module.hook(method).setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
+      .intercept(AfterHooker(callback))
+    return HookRegistration { handle.unhook() }
+  }
+
+  // 框架从 APK 外调用；具名类受 entry 保留规则保护，避免 SAM 合成回调被 R8 裁剪。
+  private class BeforeHooker(private val callback: (HookBeforeParam) -> Unit) : XposedInterface.Hooker {
+    override fun intercept(chain: XposedInterface.Chain): Any? {
       var replaced = false
       var result: Any? = null
       var args: Array<Any?> = emptyArray()
@@ -60,21 +73,19 @@ internal class ModernHookFacade(private val module: XposedModule) : HookFacade {
           },
         )
       }.isSuccess
-      when {
+      return when {
         !succeeded -> chain.proceed()
         replaced -> result
         else -> chain.proceed(args)
       }
     }
-    return HookRegistration { handle.unhook() }
   }
 
-  override fun hookAfter(method: Method, callback: (Array<Any?>, Any?) -> Unit): HookRegistration {
-    val handle = module.hook(method).setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE).intercept { chain ->
+  private class AfterHooker(private val callback: (Array<Any?>, Any?) -> Unit) : XposedInterface.Hooker {
+    override fun intercept(chain: XposedInterface.Chain): Any? {
       val result = chain.proceed()
       runCatching { callback(chain.args.toTypedArray(), result) }
-      result
+      return result
     }
-    return HookRegistration { handle.unhook() }
   }
 }

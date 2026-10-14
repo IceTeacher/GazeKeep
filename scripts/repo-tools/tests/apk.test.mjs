@@ -20,10 +20,31 @@ function fixture() {
         '<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android"><foreground android:drawable="@ref/0x7f010002"/><background android:drawable="@ref/0x7f040001"/></adaptive-icon>',
     },
     brandedBitmaps: { "res/foreground.png": true },
-    dex: `C d 1 1 1 ${PREFIX}ModernEntry\nM d 1 1 1 ${PREFIX}ModernEntry <init>()\nC d 1 1 1 ${PREFIX}LegacyEntry\nM d 1 1 1 ${PREFIX}LegacyEntry <init>()\n`,
+    dex: `C d 1 1 1 ${PREFIX}ModernEntry\nM d 1 1 1 ${PREFIX}ModernEntry <init>()\nC d 1 1 1 ${PREFIX}LegacyEntry\nM d 1 1 1 ${PREFIX}LegacyEntry <init>()\n${["BeforeHooker", "AfterHooker"].map((name) => `C d 1 1 1 ${PREFIX}ModernHookFacade$${name}\nM d 1 1 1 ${PREFIX}ModernHookFacade$${name} java.lang.Object intercept(io.github.libxposed.api.XposedInterface$Chain)\n`).join("")}`,
   };
 }
 const expected = { versionName: "1.1.0", versionCode: "2", description };
+
+test("现代框架调用的前后置拦截器必须保留完整回调签名", () => {
+  for (const hooker of ["BeforeHooker", "AfterHooker"]) {
+    const name = `${PREFIX}ModernHookFacade$${hooker}`;
+    for (const replacement of [
+      "",
+      "java.lang.Object intercept(java.lang.Object)",
+      "void intercept(io.github.libxposed.api.XposedInterface$Chain)",
+    ]) {
+      const data = fixture();
+      data.dex = data.dex.replace(
+        `${name} java.lang.Object intercept(io.github.libxposed.api.XposedInterface$Chain)`,
+        `${name} ${replacement}`,
+      );
+      assert.match(validateApk(data, expected).join("\n"), /拦截器.*intercept/);
+    }
+    const data = fixture();
+    data.dex = data.dex.replace(`C d 1 1 1 ${name}\n`, "");
+    assert.match(validateApk(data, expected).join("\n"), /拦截器类/);
+  }
+});
 
 test("完整双入口、中文简介与品牌资源通过", () => {
   assert.deepEqual(validateApk(fixture(), expected), []);
@@ -124,4 +145,19 @@ test("DEX 对框架类型的正常引用不被误判为定义", () => {
   const data = fixture();
   data.dex += `M d 1 1 1 ${PREFIX}ModernEntry void callback(io.github.libxposed.api.XposedModule)\n`;
   assert.deepEqual(validateApk(data, expected), []);
+});
+
+test("Manifest 反射登记的 ML Kit 注册器必须保留无参构造器", () => {
+  const name = "com.google.mlkit.vision.face.internal.FaceRegistrar";
+  const data = fixture();
+  data.manifest = data.manifest.replace(
+    "</application>",
+    `<service android:name="com.google.mlkit.common.internal.MlKitComponentDiscoveryService"><meta-data android:name="com.google.firebase.components:${name}" android:value="com.google.firebase.components.ComponentRegistrar"/></service></application>`,
+  );
+  data.dex += `C d 1 1 1 ${name}\n`;
+  assert.match(validateApk(data, expected).join("\n"), /注册器.*无参构造/);
+  data.dex += `M d 1 1 1 ${name} <init>()\n`;
+  assert.deepEqual(validateApk(data, expected), []);
+  data.dex = data.dex.replace(`C d 1 1 1 ${name}\n`, "");
+  assert.match(validateApk(data, expected).join("\n"), /注册器.*类/);
 });
