@@ -1,3 +1,3 @@
 interface:
   display_name: "commit-message-groups"
-  short_description: "分析当前 Git 仓库的暂存区变更，按语义划分为尽可能少的提交组，并为每组生成符合仓库规范的中文提交信息。"
+  short_description: "为暂存区变更划分提交组并生成中文信息；用于拆分提交。"

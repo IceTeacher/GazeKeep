@@ -1,28 +1,22 @@
 ---
 name: testing-browser
-description: 定义或评审 GazeKeep 页面交互验收时加载；区分 Android miuix 页面与未来网站浏览器测试，覆盖导航、自检、权限和生命周期。
+description: 设计、执行或评审 GazeKeep 页面交互验收；覆盖导航、授权与生命周期。
 ---
 
-# 页面与浏览器测试
+# 页面交互验收
 
-## 何时加载
-
-涉及用户可见页面、导航、焦点、授权、配置交互或页面生命周期时加载。先识别目标是 apps/app 的 Android UI 还是 apps/web 的网站；纯规则读 [testing-unit](../testing-unit/SKILL.md)，真实相机/后端完整旅程读 [testing-e2e](../testing-e2e/SKILL.md)。
+先识别目标是 apps/app 的 Android UI 还是 apps/web 的网站。纯逻辑测试使用 testing-unit；连接真实相机、系统权限与后端的完整旅程使用 testing-e2e。
 
 ## Android 页面
 
-1. 读取 [UI 架构](../../../docs/architecture/ui.md) 和[测试规范](../../../docs/testing.md)。先定义可复现场景、预期状态、版本、设备与清理方式；有条件时先复现再修复。
-2. 使用可见文案与语义验证页面导航/返回、字体/明暗/旋转、授权与未就绪原因、白名单搜索/选择/滚动、保存/冷启动和快速开关。
-3. 自检必须 Looking→Away，Unknown 不推进；离页、后台、取消与 Activity 关闭释放相机。
-4. 当前 shared host task 覆盖许可文本搜索的纯逻辑，没有 UI 行为测试。允许按矩阵人工验收，缺设备记未执行，不伪造失败或通过。
-5. 不保存含人脸的自检截图，不用 controller fake 证明真实硬件能力。
+读取 [UI 架构](../../../docs/architecture/ui.md) 和[页面场景](../../../docs/testing.md#分类与页面场景)，选择受影响交互。先定义前提、操作、预期状态、版本、设备与清理方式；条件允许时先复现问题再修复。
+
+- 用可见文案和语义验证相关导航、授权、配置与生命周期行为；场景范围以测试规范为准。
+- 自检必须 Looking→Away，Unknown 不推进；离页、后台、取消与 Activity 关闭释放相机。不保存含人脸的自检截图。
+- shared host task 当前只覆盖许可文本搜索的纯逻辑，没有 UI 行为测试。可按场景人工验收；缺设备记未执行，controller fake 不能证明真实硬件能力。
 
 ## 网站浏览器
 
-apps/web 当前仅预留目录，没有网页、浏览器框架、测试 runner 或执行命令。网站建立后，依据实际框架选择真实浏览器入口，用可访问名称和用户可见状态验证 DOM、事件、焦点与生命周期，并清理监听器、计时器和存储。
+apps/web 当前仅预留目录，没有网页、浏览器框架、测试 runner 或执行命令。网站建立后按实际框架选择浏览器入口，以可访问名称和用户可见状态验证 DOM、事件、焦点与生命周期，清理监听器、计时器和存储。
 
-本 Skill 不授权为文档任务安装 Playwright、Vitest 或 Android UI 框架，也不把未来套件当作已有能力。
-
-## 与 E2E 的边界
-
-单页或组件测试验证交互；连接真实相机、系统权限和后端的旅程由 testing-e2e 负责。两层分别报告结果与未执行条件。
+页面验收需求不自动授权安装测试框架；文档任务无需引入 Playwright、Vitest 或 Android UI 依赖。按[测试规范](../../../docs/testing.md#记录与验收状态)报告实际结果与未执行条件。

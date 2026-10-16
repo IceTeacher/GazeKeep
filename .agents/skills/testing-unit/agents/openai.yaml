@@ -1,3 +1,3 @@
 interface:
   display_name: "testing-unit"
-  short_description: "编写或评审 GazeKeep Kotlin 与 Node 主机测试时加载；强调测试先行、行为风险、可重复性和默认熄屏。"
+  short_description: "编写、修复或评审 GazeKeep Kotlin 与 Node 主机测试。"

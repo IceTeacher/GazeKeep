@@ -6,7 +6,7 @@
 
 - IDE 打开 `apps/app`，这是完整 Gradle 工程；APK 输出在 `apps/app/android/build/outputs/apk/`。
 - 使用 JDK 21、Android SDK、Node >=22.12 和根 package.json 指定的 pnpm。安装依赖后按下面的初始化命令配置本地工具。
-- 日常运行 `pnpm build`、`pnpm lint`、`pnpm test`；完整主机门禁使用 `pnpm --filter @gazekeep/app verify`，shared 纯逻辑测试另运行 `:shared:testAndroidHostTest`。
+- 日常按受影响模块选择构建、lint 与测试；`pnpm build`、`pnpm lint`、`pnpm test` 为全工作区入口。完整主机门禁使用 `pnpm --filter @gazekeep/app verify`，shared 纯逻辑测试另运行 `:shared:testAndroidHostTest`。
 - 按[架构总览](architecture/overview.md#按要改的功能定位)定位代码，按[测试规范](testing.md)选择验证，按[文档索引](index.md)加载专题。
 
 ## 工具链
