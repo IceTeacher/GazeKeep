@@ -16,6 +16,7 @@ Release 启用 R8 与资源压缩。签名从 GAZEKEEP_STORE_FILE、GAZEKEEP_STO
 
 ## 发布验收
 
+- 每次交付保持 versionCode 递增，避免同版本覆盖安装复用管理器图标缓存。
 - 核对七条不变量、完整实机矩阵和最新 APK；按 Android、ROM 与三后端能力记录实测范围。
 - 对 Debug 与压缩 Release 执行 `pnpm verify:apk --apk <APK路径>`：检查双登记与作用域、版本与中文简介、图标引用和位图、无参入口保留、禁止权限与 compileOnly 类未打包；另核对运行依赖。
 - 记录代码/APK 标识、设备与 ROM、后端/框架版本、系统超时、实际命中候选和未执行项，不从主机测试推断硬件通过。

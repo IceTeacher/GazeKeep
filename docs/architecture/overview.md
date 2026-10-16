@@ -37,7 +37,19 @@ Android 九个运行模块与一个编译存根模块统一位于 apps/app，内
 
 接口变化先改设计及真源再改调用方。AIDL、descriptor、transaction 编号、协议版本与字段顺序属于跨进程兼容边界。hidden-api 存根已提供最小编译签名且仅 compileOnly 引用。现代 libxposed API 102 与 legacy 双入口同 APK 登记；现代最低/目标 API 均为 102，API 100 不在支持范围，现代加载失败不自动回退。框架与 ROM 实机验收状态见任务清单。
 
-各模块细节按[索引](../index.md)加载。
+## 架构专题
+
+| 专题                                    | 内容                                     |
+| --------------------------------------- | ---------------------------------------- |
+| [Android 运行](android-runtime.md)      | 服务生命周期、配置、通知与日志           |
+| [决策引擎](engine.md)                   | reducer、时序、退避与保亮上限            |
+| [采集与分类](capture-classification.md) | 相机所有权、传感器门控、阈值与投票       |
+| [页面与平台接口](ui.md)                 | 页面导航、自检、应用列表与平台契约       |
+| [无障碍后端](backends/a11y.md)          | 事件、Hold 与空闲时钟                    |
+| [Shizuku 后端](backends/shizuku.md)     | shell Binder、前台来源与系统超时恢复     |
+| [LSPosed 后端](backends/lsposed.md)     | 系统桥接、API 102 双入口与隐私指示器取舍 |
+
+各专题集中维护设计和长期取舍；实现缺口与设备验收结果见[任务清单](../../tasks/todo.md)。
 
 ## 按要改的功能定位
 

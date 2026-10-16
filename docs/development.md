@@ -1,13 +1,21 @@
-# 开发规范
+# 开发与贡献
 
-本文只维护当前有效的工具链、开发命令与门禁。执行边界见[代理工作流](agent-workflow.md)。
+本文面向贡献者，说明如何准备环境、修改代码并交付可验证的变更。
 
 ## 开始开发
 
 - IDE 打开 `apps/app`，这是完整 Gradle 工程；APK 输出在 `apps/app/android/build/outputs/apk/`。
 - 使用 JDK 21、Android SDK、Node >=22.12 和根 package.json 指定的 pnpm。安装依赖后按下面的初始化命令配置本地工具。
 - 日常按受影响模块选择构建、lint 与测试；`pnpm build`、`pnpm lint`、`pnpm test` 为全工作区入口。完整主机门禁使用 `pnpm --filter @gazekeep/app verify`，shared 纯逻辑测试另运行 `:shared:testAndroidHostTest`。
-- 按[架构总览](architecture/overview.md#按要改的功能定位)定位代码，按[测试规范](testing.md)选择验证，按[文档索引](index.md)加载专题。
+- 按[架构总览](architecture/overview.md#按要改的功能定位)定位代码，按[测试规范](testing.md)选择验证，按[文档导航](index.md)查阅专题。
+
+## 贡献流程
+
+1. 从[任务清单](../tasks/todo.md)了解当前缺口，确定改动范围；产品行为遵循[产品定义](product.md)与[隐私与安全](privacy-security.md)。
+2. 修改设计或接口时同步对应架构、调用方和测试；行为修复先建立可复现的失败场景，再实现并回归。
+3. 按[测试与验收](testing.md)选择检查，提交说明写清变更原因、验证结果和未执行项。提交前运行 `git diff --check`，避免混入无关文件或本地配置。
+
+文档正文供人阅读：公共说明放在 `docs/`，架构取舍合入对应专题，当前任务与计划放在 `tasks/`；Agent 指令放在 `AGENTS.md` 与 `.agents/`。增删、移动或实质修改文档时同步 `.agents/docs-index.md` 的登记；读者入口变化再更新本文档导航或架构总览，并运行 `pnpm verify:docs`、`pnpm verify:agent-assets` 和本次文件格式检查。
 
 ## 工具链
 
@@ -74,6 +82,6 @@ Prettier 配置在工具目录，Hook 使用显式路径，不向官网根级散
 
 ## APK 静态门禁
 
-`pnpm verify:apk --apk <APK路径> [--root <仓库路径>]` 读取实际 APK，依赖 PATH 中 SDK `apkanalyzer` 与 ANDROID_HOME/ANDROID_SDK_ROOT 内稳定 build-tools 的 aapt2，不安装工具。检查最终双入口、最低/目标 API 102、各自作用域、关闭热重载、中文简介、版本、无参反射入口、两个具名现代 Hooker 的完整 intercept 签名、禁止权限、ML Kit metadata 注册器的类/无参构造器及 compileOnly 类未打包；图标引用与位图内容须匹配当前品牌资源，支持 R8 重命名资源路径以及 aapt2 的 RGB/RGBA 重编码、过滤和完全透明像素归零；可见颜色、透明度和尺寸仍严格比较。PNG 校验限定当前非交错 8 位 RGB/RGBA，其他格式或 CRC 损坏明确失败。门禁是产物检查，不代表框架或 ROM 已验收。
+`pnpm verify:apk --apk <APK路径> [--root <仓库路径>]` 检查实际 APK 的入口、版本、权限、反射类和品牌资源。依赖 PATH 中的 SDK `apkanalyzer` 与 ANDROID_HOME/ANDROID_SDK_ROOT 内稳定 build-tools 的 `aapt2`，不会自动安装工具。
 
-当前稳定性候选为 1.1.2（versionCode=4）；API 102 双入口于 1.1.0（versionCode=2）交付。后续交付保持 versionCode 递增，避免同版本覆盖安装复用管理器图标缓存。Debug 与压缩 Release 分别运行 APK 门禁，不以源码声明代替产物检查。
+Debug 与压缩 Release 分别检查，不能用源码声明代替产物结果，也不能从静态检查推断框架或 ROM 验收通过。发布要求和当前候选版本见[发布门禁](release.md)，详细检查逻辑见 [check-apk.mjs](../scripts/repo-tools/scripts/check-apk.mjs)。

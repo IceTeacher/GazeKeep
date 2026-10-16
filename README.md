@@ -63,7 +63,7 @@
 pnpm --filter @gazekeep/app exec ./gradlew :android:assembleDebug
 ```
 
-- **文档**：完整构建与工具链要求见[开发规范](docs/development.md)，测试与验收矩阵见[测试规范](docs/testing.md)，全部文档导航见[文档索引](docs/index.md)。
+- **文档**：完整构建与工具链要求见[开发与贡献](docs/development.md)，测试与验收矩阵见[测试与验收](docs/testing.md)，全部文档导航见[文档导航](docs/index.md)。
 
 ## 开源协议
 

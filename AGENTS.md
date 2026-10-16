@@ -12,7 +12,7 @@
 
 1. 先检查工作树，确认目标、范围与完成条件；保留用户已有改动。实现任务搜索相关入口、接口和调用方，局部文档修订只核对相关事实与引用。
 2. 只修改任务范围内文件；设计变更先更新相关活动架构，再同步实现、调用方和测试。长期取舍记入对应架构，术语只维护在 [CONTEXT.md](CONTEXT.md)。
-3. 文档任务加载 [docs-maintenance](.agents/skills/docs-maintenance/SKILL.md)；其余任务按[文档索引](docs/index.md)的触发条件选读专题。已读且未变化的规则无需重复加载，不要求每次编辑先读全部规范。
+3. 文档任务加载 [docs-maintenance](.agents/skills/docs-maintenance/SKILL.md)；其余任务按[文档路由](.agents/docs-index.md)的触发条件选读专题。已读且未变化的规则无需重复加载，不要求每次编辑先读全部规范。
 4. 本地主机测试、隔离 fixture、静态检查和构建可以直接运行；修复本次改动导致的问题并重跑受影响检查，直到满足完成条件。已有无关失败记录原因，不扩展任务范围。
 
 ## 测试决策与渐进式加载
@@ -29,7 +29,7 @@
 - 不提交本地配置、签名文件、密钥、原始系统转储或含个人信息的数据；测试样本只保留验证所需字段并脱敏。
 - 新提交使用 `type(scope): emoji 中文描述`，type/scope 以 `scripts/repo-tools/config/commitlint.config.cjs` 为准。生成单条或分组提交信息分别加载 [commit-message](.agents/skills/commit-message/SKILL.md)、[commit-message-groups](.agents/skills/commit-message-groups/SKILL.md)。
 - 默认不改写 Git 历史；用户明确要求时，先保留恢复引用，限定范围并验证文件快照与作者信息不变。Lefthook 只处理暂存文件的格式和轻量检查，完整构建与测试按风险执行。
-- 调整协作规则、Skills 或需要交接时读取[代理工作流](docs/agent-workflow.md)。
+- 调整协作规则、Skills 或需要交接时读取[代理工作流](.agents/workflow.md)。
 
 ## 完成定义
 

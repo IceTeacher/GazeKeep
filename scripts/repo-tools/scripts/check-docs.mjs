@@ -92,11 +92,20 @@ function validDate(date) {
   const parsed = new Date(`${date}T00:00:00Z`);
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date;
 }
+const INDEX = ".agents/docs-index.md";
+function isManagedDocument(name) {
+  return (
+    name.endsWith(".md") &&
+    name !== INDEX &&
+    (name.startsWith("docs/") || name.startsWith("tasks/") || /^\.agents\/[^/]+\.md$/.test(name))
+  );
+}
 export function violations(root) {
-  const index = join(root, "docs/index.md");
+  const index = join(root, INDEX);
   const errors = [];
   const registrations = new Map();
-  if (!existsSync(index)) return ["缺少 docs/index.md"];
+  if (!existsSync(index)) return [`缺少 ${INDEX}`];
+  if (!existsSync(join(root, "docs/index.md"))) errors.push("缺少 docs/index.md 读者导航");
   for (const line of readFileSync(index, "utf8").split("\n")) {
     const cells = line
       .trim()
@@ -117,8 +126,8 @@ export function violations(root) {
   const active = markdownFiles(root);
   for (const page of active) {
     const name = relative(root, page).split(sep).join("/");
-    if (name.startsWith("docs/") && page !== index && !registrations.has(page)) errors.push(`活动文档未登记：${name}`);
-    if (!name.startsWith("docs/plans/")) continue;
+    if (isManagedDocument(name) && !registrations.has(page)) errors.push(`活动文档未登记：${name}`);
+    if (!name.startsWith("tasks/plans/")) continue;
     const match = /^(\d{8})-[a-z0-9-]+\.md$/.exec(name.split("/").at(-1));
     const dates = [...readFileSync(page, "utf8").matchAll(/^最后维护：(\d{4}-\d{2}-\d{2})\s*$/gm)].map((m) => m[1]);
     if (!match || dates.length !== 1) errors.push(`计划文件名或维护日期行非法：${name}`);
@@ -139,11 +148,7 @@ export function violations(root) {
       capture: true,
     });
     const names = new Set((changes.stdout + others.stdout).split("\0").filter(Boolean));
-    if (
-      [...names].some((n) => n.startsWith("docs/") && n.endsWith(".md") && n !== "docs/index.md") &&
-      !names.has("docs/index.md")
-    )
-      errors.push("活动文档变更未同步 docs/index.md");
+    if ([...names].some(isManagedDocument) && !names.has(INDEX)) errors.push(`活动文档变更未同步 ${INDEX}`);
   }
   return errors;
 }

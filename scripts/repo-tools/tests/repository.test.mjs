@@ -23,9 +23,10 @@ function fixture(t) {
   }
   function docs() {
     write(
-      "docs/index.md",
-      "# 索引\n\n| 文档 | 类型 | 加载时机 | 维护状态 | 最后复核 |\n| --- | --- | --- | --- | --- |\n| [development.md](development.md) | 规范 | 开发时 | 持续维护 | 2026-10-08 |\n",
+      ".agents/docs-index.md",
+      "# 索引\n\n| 文档 | 类型 | 加载时机 | 维护状态 | 最后复核 |\n| --- | --- | --- | --- | --- |\n| [development.md](../docs/development.md) | 规范 | 开发时 | 持续维护 | 2026-10-08 |\n| `../docs/index.md` | 导航 | 查阅时 | 持续维护 | 2026-10-08 |\n",
     );
+    write("docs/index.md", "# 文档\n\n[开发](development.md)\n");
     write("docs/development.md", "# 开发\n");
   }
   return { root, write, check, docs };
@@ -46,14 +47,15 @@ test("计划日期一致", (t) => {
   const f = fixture(t);
   f.docs();
   assert.equal(f.check("check-docs.mjs").status, 0);
-  f.write("docs/plans/20261008-sample.md", "# 计划\n\n最后维护：2026-10-07\n");
-  const index = join(f.root, "docs/index.md");
+  f.write("tasks/plans/20261008-sample.md", "# 计划\n\n最后维护：2026-10-07\n");
+  const index = join(f.root, ".agents/docs-index.md");
   writeFileSync(
     index,
-    readFileSync(index, "utf8") + "| [计划](plans/20261008-sample.md) | 计划 | 修改时 | 计划文档 | 2026-10-08 |\n",
+    readFileSync(index, "utf8") +
+      "| [计划](../tasks/plans/20261008-sample.md) | 计划 | 修改时 | 计划文档 | 2026-10-08 |\n",
   );
   assert.match(f.check("check-docs.mjs").stderr, /日期/);
-  f.write("docs/plans/20261008-sample.md", "# 计划\n\n最后维护：2026-10-08\n");
+  f.write("tasks/plans/20261008-sample.md", "# 计划\n\n最后维护：2026-10-08\n");
   assert.equal(f.check("check-docs.mjs").status, 0);
 });
 
@@ -76,7 +78,7 @@ test("代码块不检查链接，中文重复锚点、编码路径与越界引�
 test("复核日期必须是真实日历日期", (t) => {
   const f = fixture(t);
   f.docs();
-  const index = join(f.root, "docs/index.md");
+  const index = join(f.root, ".agents/docs-index.md");
   writeFileSync(index, readFileSync(index, "utf8").replace("2026-10-08", "2026-02-30"));
   const result = f.check("check-docs.mjs");
   assert.notEqual(result.status, 0);
@@ -136,15 +138,18 @@ test("架构检查阻断模块变动、非法依赖与源码目录错误", (t) =
 test("分类索引识别反引号路径并拒绝缺失、重复、越界和非法日期", (t) => {
   const f = fixture(t);
   f.docs();
-  const index = join(f.root, "docs/index.md");
-  const base = readFileSync(index, "utf8").replace("[development.md](development.md)", "`development.md`");
+  const index = join(f.root, ".agents/docs-index.md");
+  const base = readFileSync(index, "utf8").replace(
+    "[development.md](../docs/development.md)",
+    "`../docs/development.md`",
+  );
   writeFileSync(index, base.replace("# 索引", "# 索引\n\n## 顶层规范"));
   assert.equal(f.check("check-docs.mjs").status, 0);
   for (const [path, date, expected] of [
     ["missing.md", "2026-10-08", /不存在/],
-    ["development.md", "2026-10-08", /重复登记/],
+    ["../docs/development.md", "2026-10-08", /重复登记/],
     ["../../outside.md", "2026-10-08", /越出仓库/],
-    ["development.md", "2026-02-30", /日期非法/],
+    ["../docs/development.md", "2026-02-30", /日期非法/],
   ]) {
     writeFileSync(index, base + `| \`${path}\` | 规范 | 开发 | 持续维护 | ${date} |\n`);
     const result = f.check("check-docs.mjs");
@@ -157,4 +162,74 @@ test("分类索引识别反引号路径并拒绝缺失、重复、越界和非�
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /未登记/);
   assert.match(result.stderr, /不存在/);
+});
+
+test("公开导航、Agent 资料与任务计划均受登记和链接检查", (t) => {
+  const f = fixture(t);
+  f.docs();
+  const index = join(f.root, ".agents/docs-index.md");
+  const base = readFileSync(index, "utf8");
+  for (const name of [".agents/workflow.md", "tasks/todo.md", "tasks/plans/20261008-sample.md"]) {
+    const contents = name.includes("plans/") ? "# 计划\n\n最后维护：2026-10-08\n" : "# 资料\n";
+    f.write(name, contents);
+    assert.match(f.check("check-docs.mjs").stderr, /未登记/);
+    writeFileSync(index, readFileSync(index, "utf8") + `| \`../${name}\` | 资料 | 修改时 | 持续维护 | 2026-10-08 |\n`);
+    assert.equal(f.check("check-docs.mjs").status, 0);
+  }
+  f.write("docs/index.md", "# 文档\n[失效](missing.md)\n");
+  assert.match(f.check("check-docs.mjs").stderr, /不存在/);
+  f.write("docs/index.md", "# 文档\n");
+  writeFileSync(index, base.replace(/^.*`\.\.\/docs\/index.md`.*\n/m, ""));
+  assert.match(f.check("check-docs.mjs").stderr, /未登记：docs\/index.md/);
+  rmSync(index);
+  assert.match(f.check("check-docs.mjs").stderr, /缺少 \.agents\/docs-index.md/);
+});
+
+test("活动文档变更必须同步 Agent 登记，修改读者导航不能代替登记", (t) => {
+  const f = fixture(t);
+  f.docs();
+  const documents = ["docs/development.md", ".agents/workflow.md", "tasks/todo.md", "tasks/plans/20261008-sample.md"];
+  const index = join(f.root, ".agents/docs-index.md");
+  for (const name of documents.slice(1)) {
+    f.write(name, name.includes("plans/") ? "# 计划\n\n最后维护：2026-10-08\n" : "# 资料\n");
+    writeFileSync(index, readFileSync(index, "utf8") + `| \`../${name}\` | 资料 | 修改时 | 持续维护 | 2026-10-08 |\n`);
+  }
+  function git(...args) {
+    const result = spawnSync(
+      "git",
+      [
+        "-C",
+        f.root,
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "commit.gpgsign=false",
+        "-c",
+        "user.name=Fixture",
+        "-c",
+        "user.email=fixture@example.invalid",
+        ...args,
+      ],
+      { encoding: "utf8" },
+    );
+    assert.equal(result.status, 0, result.stderr);
+  }
+  git("init", "--quiet");
+  git("add", ".");
+  git("commit", "--quiet", "-m", "fixture");
+  assert.equal(f.check("check-docs.mjs").status, 0);
+  const registration = readFileSync(index, "utf8");
+  const navigation = readFileSync(join(f.root, "docs/index.md"), "utf8");
+  for (const name of documents) {
+    const original = readFileSync(join(f.root, name), "utf8");
+    f.write(name, original + "\n新增说明。\n");
+    assert.match(f.check("check-docs.mjs").stderr, /未同步 \.agents\/docs-index.md/);
+    f.write("docs/index.md", navigation + "\n导航说明。\n");
+    assert.match(f.check("check-docs.mjs").stderr, /未同步 \.agents\/docs-index.md/);
+    writeFileSync(index, registration.replace("开发时", "开发与贡献时"));
+    assert.equal(f.check("check-docs.mjs").status, 0);
+    f.write(name, original);
+    f.write("docs/index.md", navigation);
+    writeFileSync(index, registration);
+  }
 });
