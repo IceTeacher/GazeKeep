@@ -7,19 +7,19 @@
 - IDE 打开 `apps/app`，这是完整 Gradle 工程；APK 输出在 `apps/app/android/build/outputs/apk/`。
 - 使用 JDK 21、Android SDK、Node >=22.12 和根 package.json 指定的 pnpm。安装依赖后按下面的初始化命令配置本地工具。
 - 日常按受影响模块选择构建、lint 与测试；`pnpm build`、`pnpm lint`、`pnpm test` 为全工作区入口。完整主机门禁使用 `pnpm --filter @gazekeep/app verify`，shared 纯逻辑测试另运行 `:shared:testAndroidHostTest`。
-- 按[架构总览](architecture/overview.md#按要改的功能定位)定位代码，按[测试规范](testing.md)选择验证，按[文档导航](index.md)查阅专题。
+- 按[架构总览](../architecture/overview.md#按要改的功能定位)定位代码，按[测试规范](testing.md)选择验证，按[文档导航](../index.md)查阅专题。
 
 ## 贡献流程
 
-1. 从[任务清单](../tasks/todo.md)了解当前缺口，确定改动范围；产品行为遵循[产品定义](product.md)与[隐私与安全](privacy-security.md)。
+1. 从[任务清单](../plans/todo.md)了解当前缺口，确定改动范围；产品行为遵循[产品定义](../product/overview.md)与[隐私与安全](../product/privacy-security.md)。
 2. 修改设计或接口时同步对应架构、调用方和测试；行为修复先建立可复现的失败场景，再实现并回归。
 3. 按[测试与验收](testing.md)选择检查，提交说明写清变更原因、验证结果和未执行项。提交前运行 `git diff --check`，避免混入无关文件或本地配置。
 
-文档正文供人阅读：公共说明放在 `docs/`，架构取舍合入对应专题，当前任务与计划放在 `tasks/`；Agent 指令放在 `AGENTS.md` 与 `.agents/`。增删、移动或实质修改文档时同步 `.agents/docs-index.md` 的登记；读者入口变化再更新本文档导航或架构总览，并运行 `pnpm verify:docs`、`pnpm verify:agent-assets` 和本次文件格式检查。
+文档正文供人阅读：公共说明放在 `docs/`，架构取舍合入对应专题，任务与计划统一放在 `docs/plans/`，不按进行中或已完成拆分目录；Agent 指令放在 `AGENTS.md` 与 `.agents/`。增删、移动或实质修改文档时同步 `.agents/docs-index.md` 的登记；读者入口变化再更新本文档导航或架构总览，并运行 `pnpm verify:docs`、`pnpm verify:agent-assets` 和本次文件格式检查。
 
 ## 工具链
 
-仓库使用 pnpm workspace 与 Turborepo：Android 完整工程在 `apps/app`，官网预留在 `apps/web`，仓库工具在 `scripts/repo-tools`。官网当前没有 package、框架或构建任务。工程职责见[架构总览](architecture/overview.md)。
+仓库使用 pnpm workspace 与 Turborepo：Android 完整工程在 `apps/app`，官网预留在 `apps/web`，仓库工具在 `scripts/repo-tools`。官网当前没有 package、框架或构建任务。工程职责见[架构总览](../architecture/overview.md)。
 
 Android 使用 Gradle wrapper、JDK 21（编译目标 JVM 11）和 AGP 内置 Kotlin。当前 Gradle 9.5.1、AGP 9.1.1、Kotlin 2.4.20，compile/targetSdk 37、minSdk 26；wrapper 与 Android 版本目录是真源，不在模块脚本写版本。
 
@@ -84,4 +84,4 @@ Prettier 配置在工具目录，Hook 使用显式路径，不向官网根级散
 
 `pnpm verify:apk --apk <APK路径> [--root <仓库路径>]` 检查实际 APK 的入口、版本、权限、反射类和品牌资源。依赖 PATH 中的 SDK `apkanalyzer` 与 ANDROID_HOME/ANDROID_SDK_ROOT 内稳定 build-tools 的 `aapt2`，不会自动安装工具。
 
-Debug 与压缩 Release 分别检查，不能用源码声明代替产物结果，也不能从静态检查推断框架或 ROM 验收通过。发布要求和当前候选版本见[发布门禁](release.md)，详细检查逻辑见 [check-apk.mjs](../scripts/repo-tools/scripts/check-apk.mjs)。
+Debug 与压缩 Release 分别检查，不能用源码声明代替产物结果，也不能从静态检查推断框架或 ROM 验收通过。发布要求和当前候选版本见[发布门禁](release.md)，详细检查逻辑见 [check-apk.mjs](../../scripts/repo-tools/scripts/check-apk.mjs)。

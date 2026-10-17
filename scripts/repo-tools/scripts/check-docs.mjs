@@ -94,11 +94,7 @@ function validDate(date) {
 }
 const INDEX = ".agents/docs-index.md";
 function isManagedDocument(name) {
-  return (
-    name.endsWith(".md") &&
-    name !== INDEX &&
-    (name.startsWith("docs/") || name.startsWith("tasks/") || /^\.agents\/[^/]+\.md$/.test(name))
-  );
+  return name.endsWith(".md") && name !== INDEX && (name.startsWith("docs/") || /^\.agents\/[^/]+\.md$/.test(name));
 }
 export function violations(root) {
   const index = join(root, INDEX);
@@ -127,7 +123,7 @@ export function violations(root) {
   for (const page of active) {
     const name = relative(root, page).split(sep).join("/");
     if (isManagedDocument(name) && !registrations.has(page)) errors.push(`活动文档未登记：${name}`);
-    if (!name.startsWith("tasks/plans/")) continue;
+    if (!name.startsWith("docs/plans/") || name === "docs/plans/todo.md") continue;
     const match = /^(\d{8})-[a-z0-9-]+\.md$/.exec(name.split("/").at(-1));
     const dates = [...readFileSync(page, "utf8").matchAll(/^最后维护：(\d{4}-\d{2}-\d{2})\s*$/gm)].map((m) => m[1]);
     if (!match || dates.length !== 1) errors.push(`计划文件名或维护日期行非法：${name}`);

@@ -19,4 +19,4 @@ pnpm verify:architecture
 pnpm --filter @gazekeep/app exec ./gradlew :xposed:testDebugUnitTest
 ```
 
-主机测试不替代硬件与 UI。相机/阈值、后端、服务、系统设置或入口变更按[完整矩阵](../../../docs/testing.md)验收，并记录版本和未执行项。
+主机测试不替代硬件与 UI。相机/阈值、后端、服务、系统设置或入口变更按[完整矩阵](../../../docs/development/testing.md)验收，并记录版本和未执行项。

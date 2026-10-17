@@ -30,7 +30,7 @@ AttentionVoter 默认三帧取两票：两帧 Looking 才 Looking。NoFace、Fac
 
 ## 验证与变更
 
-改分类器、阈值或投票必须先改活动设计和最小失败用例，重跑[分类计数场景](../testing.md#分类与页面场景)。正常光正视 10 次至少 9 次 Looking、转头 90° 十次均非 Looking、闭眼不 Looking；另外覆盖眼镜、暗光、多脸、侧脸与相机抢占。
+改分类器、阈值或投票必须先改活动设计和最小失败用例，重跑[分类计数场景](../development/testing.md#分类与页面场景)。正常光正视 10 次至少 9 次 Looking、转头 90° 十次均非 Looking、闭眼不 Looking；另外覆盖眼镜、暗光、多脸、侧脸与相机抢占。
 
 每次验收附代码/APK 版本与设备条件，结果不推广到其他 ROM。MediaPipe、Camera2 备用实现尚未交付，当前版本的实机性能仍待验证。
 

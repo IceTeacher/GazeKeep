@@ -18,4 +18,4 @@ PowerDumpOracle 使用实际有效超时，兼容 HyperOS 的 excludingAttention
 
 ## 验证
 
-TimeoutRestoreCoordinatorTest 覆盖持久化失败、重开恢复、读回失败、清理失败与溢出；前台解析及 power oracle 有隔离主机测试。当前版本的 Binder 断开、重连、息屏与服务恢复仍按[实机矩阵](../../testing.md)补证，不能从主机测试推断 ROM 行为。
+TimeoutRestoreCoordinatorTest 覆盖持久化失败、重开恢复、读回失败、清理失败与溢出；前台解析及 power oracle 有隔离主机测试。当前版本的 Binder 断开、重连、息屏与服务恢复仍按[实机矩阵](../../development/testing.md)补证，不能从主机测试推断 ROM 行为。

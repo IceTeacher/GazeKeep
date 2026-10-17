@@ -39,6 +39,6 @@ PlatformActions 负责授权、系统设置、外部链接、日志分享/SAF �
 
 ## 文案与验收
 
-字符串使用 composeResources，结果为「注视了屏幕 / 未注视屏幕 / 这次没看清」。隐私三句逐字引用[真源](../privacy-security.md)。
+字符串使用 composeResources，结果为「注视了屏幕 / 未注视屏幕 / 这次没看清」。隐私三句逐字引用[真源](../product/privacy-security.md)。
 
-shared 主机测试覆盖许可搜索等纯逻辑，不代表页面通过。按[测试规范](../testing.md)验证导航、返回、字体、明暗、旋转、配置回读、快速开关、自检释放和列表状态；当前版本实机未执行项见[待办](../../tasks/todo.md)。
+shared 主机测试覆盖许可搜索等纯逻辑，不代表页面通过。按[测试规范](../development/testing.md)验证导航、返回、字体、明暗、旋转、配置回读、快速开关、自检释放和列表状态；当前版本实机未执行项见[待办](../plans/todo.md)。

@@ -6,7 +6,7 @@
 
 - 仓库使用 pnpm workspace 与 Turborepo，维护应用、仓库工具，以及根级文档、任务和 Skills。
 - 应用工程见 [apps/app/AGENTS.md](apps/app/AGENTS.md)，官网预留目录见 [apps/web/AGENTS.md](apps/web/AGENTS.md)，仓库工具见 [scripts/repo-tools/AGENTS.md](scripts/repo-tools/AGENTS.md)。各工程的技术约束与验证入口由其目录规则维护。
-- 产品描述以[产品定义](docs/product.md)和[隐私与安全](docs/privacy-security.md)为依据，产品事实与安全承诺约束所有交付物；不能把目标设计写成已实现或已验证能力。当前缺口见[任务清单](tasks/todo.md)。
+- 产品描述以[产品定义](docs/product/overview.md)和[隐私与安全](docs/product/privacy-security.md)为依据，产品事实与安全承诺约束所有交付物；不能把目标设计写成已实现或已验证能力。当前缺口见[任务清单](docs/plans/todo.md)。
 
 ## 任务规则
 
@@ -35,5 +35,5 @@
 
 - 目标行为已实现，相关接口、配置、测试和文档保持一致；正常、边界、预期失败、权限、安全及恢复路径按风险验证。
 - 相关工程或模块门禁、文档/资产检查和 `git diff --check` 通过，或如实记录缺失条件、替代检查与剩余风险；不把未执行或跳过写成通过。
-- Diff 中没有敏感信息、临时产物或无关修改；[tasks/todo.md](tasks/todo.md) 只保留未完成事项与本次验证、未运行项和风险，不累积历史流水。
+- Diff 中没有敏感信息、临时产物或无关修改；[docs/plans/todo.md](docs/plans/todo.md) 只保留未完成事项与本次验证、未运行项和风险，不累积历史流水。
 - 发布说明记录对应版本的验证环境、依赖版本与实际验收结果，不能从构建或隔离测试推断兼容性。

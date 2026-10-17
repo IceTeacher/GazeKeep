@@ -33,7 +33,7 @@ HookFacade 返回可解除句柄。主钩子部分安装失败先关闭 core，�
 
 更新模块后重启系统生效，不提供热重载：现有系统 core、Handler 和客户端生命周期不具备代际交接能力，旧资源或钩子可能继续影响系统。未来若支持 API 100 或热重载，须重新评估交付方式与恢复责任。桥接协议仍为 v2，应用页面只显示实际桥接就绪状态；系统日志区分 modern_102/legacy 入口与初始化结果，框架 API/版本由验收记录核对。ActivityThread 存根仅编译，最终 APK 不包含定义。管理器识别、入口加载、钩子就绪和真实保亮分层验收。
 
-上述入口与打包已按设计实现；实际构建与框架验收状态见[任务清单](../../../tasks/todo.md)，不得用目标设计声称已通过实机验收。
+上述入口与打包已按设计实现；实际构建与框架验收状态见[任务清单](../../plans/todo.md)，不得用目标设计声称已通过实机验收。
 
 Handler 派发 deadline 时通过 ActivityTaskManager.getInstance().getTasks(1) 查询 topActivity 包名，异常或签名不匹配返回未知；查询不在 PMS 锁内。系统按配置 lead 提前派发，App reducer 依据有效退避 lead 再调度采集，不在采集中重注册客户端或改变 seq。
 
@@ -44,7 +44,7 @@ Handler 派发 deadline 时通过 ActivityTaskManager.getInstance().getTasks(1) 
 - `CameraIndicatorResolver` 独立解析 `AppOpsService` 的 `scheduleOpActiveChangedIfNeededLocked` / `notifyOpActiveChanged`，并在候选可用时安装 `isOperationActive` 查询钩子。
 - 仅在实验开关启用、操作为 `OP_CAMERA`（26）且 UID/包名属于 GazeKeep 时拦截 `active == true` 通知，活跃查询返回 `false`；`active == false` 正常放行。不修改 `startOp`、`startOperation` 或 `checkOperation` 的权限返回值，不影响其他应用。
 - 指示器使用独立 `HookCallbackGuard`；候选未命中、安装失败或异常熔断只降级指示器过滤，不影响电源主链路的 `HOOK_READY`。
-- `hideCameraIndicator` 默认为 `false`，由 ConfigStore 持久化，经 `TX_SET_HIDE_INDICATOR` / `TX_REGISTER` 同步至 PowerHookCore，`TX_PING` 返回钩子状态。后台采样与自检使用同一过滤条件；关闭开关或切换非 LSPosed 后端时同步关闭过滤，无需重启。实际通知恢复效果按[实机矩阵](../../testing.md#实机完整矩阵)验收。
+- `hideCameraIndicator` 默认为 `false`，由 ConfigStore 持久化，经 `TX_SET_HIDE_INDICATOR` / `TX_REGISTER` 同步至 PowerHookCore，`TX_PING` 返回钩子状态。后台采样与自检使用同一过滤条件；关闭开关或切换非 LSPosed 后端时同步关闭过滤，无需重启。实际通知恢复效果按[实机矩阵](../../development/testing.md#实机完整矩阵)验收。
 
 选择在 `system_server` 内过滤，可复用现有内存状态与 Binder 桥接，保持现代 `system`、legacy `android` 的作用域。不注入 `com.android.systemui`，以避免扩大作用域和引入 ROM 状态栏适配风险；不通过 Shizuku 修改全局 `device_config`，也不将相机 AppOps 设为 `ignore`，以免破坏隐私提醒或相机出帧。无障碍与 Shizuku 后端保留系统默认指示器。
 
@@ -52,4 +52,4 @@ Handler 派发 deadline 时通过 ActivityTaskManager.getInstance().getTasks(1) 
 
 ## 验证
 
-验证入口为 xposed 的候选/调度/令牌/回调保护/指示器过滤测试，以及[实机矩阵](../../testing.md#实机完整矩阵)。故意错误钩点仍能开机、禁用作用域正常熄屏、完整长超时与触摸矩阵尚需补证。
+验证入口为 xposed 的候选/调度/令牌/回调保护/指示器过滤测试，以及[实机矩阵](../../development/testing.md#实机完整矩阵)。故意错误钩点仍能开机、禁用作用域正常熄屏、完整长超时与触摸矩阵尚需补证。

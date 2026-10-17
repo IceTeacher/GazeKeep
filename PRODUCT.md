@@ -10,7 +10,7 @@ product
 
 ## Product Purpose
 
-只有可信注视才延后一次超时，默认放行系统熄屏。产品范围以 [产品定义](docs/product.md) 为准，安全承诺以 [Android 工程规则](apps/app/AGENTS.md#产品安全承诺) 为准；实现缺口见[任务清单](tasks/todo.md)。
+只有可信注视才延后一次超时，默认放行系统熄屏。产品范围以 [产品定义](docs/product/overview.md) 为准，安全承诺以 [Android 工程规则](apps/app/AGENTS.md#产品安全承诺) 为准；实现缺口见[任务清单](docs/plans/todo.md)。
 
 ## Brand Personality
 
@@ -22,7 +22,7 @@ product
 
 ## Design Principles
 
-页面、自检和平台边界见 [UI 架构](docs/architecture/ui.md)。设置必须对应实际能力，未实现或不可用能力明确说明；隐私文案引用[唯一真源](docs/privacy-security.md)。
+页面、自检和平台边界见 [UI 架构](docs/architecture/ui.md)。设置必须对应实际能力，未实现或不可用能力明确说明；隐私文案引用[唯一真源](docs/product/privacy-security.md)。
 
 ## Accessibility & Inclusion
 

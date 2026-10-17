@@ -49,7 +49,7 @@ Android 九个运行模块与一个编译存根模块统一位于 apps/app，内
 | [Shizuku 后端](backends/shizuku.md)     | shell Binder、前台来源与系统超时恢复     |
 | [LSPosed 后端](backends/lsposed.md)     | 系统桥接、API 102 双入口与隐私指示器取舍 |
 
-各专题集中维护设计和长期取舍；实现缺口与设备验收结果见[任务清单](../../tasks/todo.md)。
+各专题集中维护设计和长期取舍；实现缺口与设备验收结果见[任务清单](../plans/todo.md)。
 
 ## 按要改的功能定位
 
@@ -106,4 +106,4 @@ GazeService → BackendSession
 
 纯决策、App 推理与最小系统协议分离，增加少量装配成本以隔离 system_server 风险。系统侧不引入模型、相机、协程或文件 I/O。pnpm/Turbo 仅负责工程级工具编排，Gradle 管理十模块依赖与缓存，Node 工具不进入 APK。
 
-模块变动运行 `pnpm verify:architecture` 与 Android 综合门禁；接口、资源生命周期及设备行为按[测试规范](../testing.md)验证。当前能力差距集中在[任务清单](../../tasks/todo.md)。
+模块变动运行 `pnpm verify:architecture` 与 Android 综合门禁；接口、资源生命周期及设备行为按[测试规范](../development/testing.md)验证。当前能力差距集中在[任务清单](../plans/todo.md)。

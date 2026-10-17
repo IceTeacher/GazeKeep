@@ -223,7 +223,7 @@ test("XML 文本空白和隐私三句话逐字保持", (t) => {
   f.git("add", "--", "values/strings.xml");
   committed(f);
   assert.deepEqual(xml.parse(readFileSync(page, "utf8")), xml.parse(original));
-  const docs = readFileSync(join(ROOT, "docs/privacy-security.md"), "utf8");
+  const docs = readFileSync(join(ROOT, "docs/product/privacy-security.md"), "utf8");
   assert.ok(sentences.every((s) => docs.includes(s)));
 });
 

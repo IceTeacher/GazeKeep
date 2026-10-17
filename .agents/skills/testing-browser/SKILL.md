@@ -9,7 +9,7 @@ description: 设计、执行或评审 GazeKeep 页面交互验收；覆盖导航
 
 ## Android 页面
 
-读取 [UI 架构](../../../docs/architecture/ui.md) 和[页面场景](../../../docs/testing.md#分类与页面场景)，选择受影响交互。先定义前提、操作、预期状态、版本、设备与清理方式；条件允许时先复现问题再修复。
+读取 [UI 架构](../../../docs/architecture/ui.md) 和[页面场景](../../../docs/development/testing.md#分类与页面场景)，选择受影响交互。先定义前提、操作、预期状态、版本、设备与清理方式；条件允许时先复现问题再修复。
 
 - 用可见文案和语义验证相关导航、授权、配置与生命周期行为；场景范围以测试规范为准。
 - 自检必须 Looking→Away，Unknown 不推进；离页、后台、取消与 Activity 关闭释放相机。不保存含人脸的自检截图。
@@ -19,4 +19,4 @@ description: 设计、执行或评审 GazeKeep 页面交互验收；覆盖导航
 
 apps/web 当前仅预留目录，没有网页、浏览器框架、测试 runner 或执行命令。网站建立后按实际框架选择浏览器入口，以可访问名称和用户可见状态验证 DOM、事件、焦点与生命周期，清理监听器、计时器和存储。
 
-页面验收需求不自动授权安装测试框架；文档任务无需引入 Playwright、Vitest 或 Android UI 依赖。按[测试规范](../../../docs/testing.md#记录与验收状态)报告实际结果与未执行条件。
+页面验收需求不自动授权安装测试框架；文档任务无需引入 Playwright、Vitest 或 Android UI 依赖。按[测试规范](../../../docs/development/testing.md#记录与验收状态)报告实际结果与未执行条件。

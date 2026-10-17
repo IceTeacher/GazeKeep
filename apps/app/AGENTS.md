@@ -6,7 +6,7 @@
 
 - Android 九个运行模块与一个编译存根模块统一位于本目录，应用模块为 `android`。模块名、包名、协议及外部入口保持稳定；目录迁移不改变产品安全承诺。
 - 产品为缺少系统级注视保亮能力的 Android 手机提供端上短时检测与延后超时。兼容性按 Android、ROM 和后端能力实测，不指定优先机型。
-- 主要模块已实现，完整实机回归、异常矩阵与发布门禁仍待补齐；当前实现见[架构总览](../../docs/architecture/overview.md)，缺口见[任务清单](../../tasks/todo.md)。
+- 主要模块已实现，完整实机回归、异常矩阵与发布门禁仍待补齐；当前实现见[架构总览](../../docs/architecture/overview.md)，缺口见[任务清单](../../docs/plans/todo.md)。
 
 ## 不可变工程约束
 
@@ -15,7 +15,7 @@
 - Kotlin 官方风格；新规则优先进入纯函数。复杂并发、恢复与安全代码用简短中文注释说明为什么。
 - Android 依赖、SDK 与 ktlint 版本仅在 `gradle/libs.versions.toml` 维护。新增依赖先确认必要性、最新稳定版本、体积与隐私影响；ML Kit 选型要求见 [engine 规则](engine/AGENTS.md)。Node workspace 只提供任务入口，不进入 APK 依赖。
 - Android application/library 使用 AGP 内置 Kotlin，不应用 `org.jetbrains.kotlin.android`；不使用 `applicationIdSuffix`。
-- UI、结果语言与资源要求见 [shared 规则](shared/AGENTS.md)；隐私三句话以[隐私与安全](../../docs/privacy-security.md)为真源，与资源逐字一致。
+- UI、结果语言与资源要求见 [shared 规则](shared/AGENTS.md)；隐私三句话以[隐私与安全](../../docs/product/privacy-security.md)为真源，与资源逐字一致。
 - 隐藏 API、ROM 行为等未经验证时保留 TODO；验证后标注机型与 ROM，不把推断写成事实。
 
 ## 产品安全承诺
@@ -38,7 +38,7 @@
 - 主机测试验证纯规则、reducer、解析、协议、配置和隔离适配；页面验收验证导航、自检、权限和生命周期；完整旅程验证真实相机、ROM、三后端与系统超时恢复。
 - 按任务加载 [testing-unit](../../.agents/skills/testing-unit/SKILL.md)、[testing-browser](../../.agents/skills/testing-browser/SKILL.md) 或 [testing-e2e](../../.agents/skills/testing-e2e/SKILL.md)。`testing-browser` 中的 Android 页面验收要求适用于本工程。
 - 禁止弱化默认熄屏断言。fake、主机通过和“不 Extend”不能证明硬件兼容、Hold 锁释放或实际熄屏；`NO-SOURCE`、缺设备与旧版本结果都不能写成当前验收通过，移动目录不能视为实机验收。
-- 在本目录执行 `./gradlew`，或从仓库根执行 `pnpm build`、`pnpm lint`、`pnpm test`。完整主机门禁使用 `pnpm --filter @gazekeep/app verify`；相关验证以[测试规范](../../docs/testing.md)为准。Turbo 不缓存 Android 任务，Gradle 保留自身缓存。
+- 在本目录执行 `./gradlew`，或从仓库根执行 `pnpm build`、`pnpm lint`、`pnpm test`。完整主机门禁使用 `pnpm --filter @gazekeep/app verify`；相关验证以[测试规范](../../docs/development/testing.md)为准。Turbo 不缓存 Android 任务，Gradle 保留自身缓存。
 - 发布说明记录该版本的实测系统、后端/框架版本与实际命中候选，不能从构建或主机测试推断设备兼容性。
 
 ## 安全与执行边界

@@ -33,7 +33,7 @@
 2. 画面只在内存里判断是否注视了屏幕，不保存、不上传。
 3. 看不清、没看清、旁边有别人，都会让屏幕正常熄灭。
 
-本应用不申请网络（`INTERNET`）、存储/相册、读取应用列表（`QUERY_ALL_PACKAGES`）或悬浮窗权限，不接入任何统计、广告或崩溃上报 SDK，无障碍服务不读取任何窗口文本内容。相机预览仅出现在用户主动进入的自检向导页，离开页面即刻释放。完整边界见[隐私与安全](docs/privacy-security.md)。
+本应用不申请网络（`INTERNET`）、存储/相册、读取应用列表（`QUERY_ALL_PACKAGES`）或悬浮窗权限，不接入任何统计、广告或崩溃上报 SDK，无障碍服务不读取任何窗口文本内容。相机预览仅出现在用户主动进入的自检向导页，离开页面即刻释放。完整边界见[隐私与安全](docs/product/privacy-security.md)。
 
 ## 工作模式与启用
 
@@ -52,18 +52,18 @@
 | Shizuku | 免 Root（ADB）   | 启动 Shizuku 并授权 GazeKeep；重启手机后按 Shizuku 条件重新激活 |
 | 无障碍  | 免 Root 零门槛   | 在系统无障碍设置中开启 GazeKeep 服务，无需额外申请悬浮窗权限    |
 
-后端默认采用 **Auto（自动）** 模式，按 `LSPosed → Shizuku → 无障碍` 顺序选择已就绪后端；手动锁定某一后端时，若该后端失效不会静默切换到其他后端。应用白名单的前台识别按后端分别使用无障碍事件、Shizuku shell 查询或 LSPosed 系统查询，详细使用与排查见[使用说明](docs/usage.md)。
+后端默认采用 **Auto（自动）** 模式，按 `LSPosed → Shizuku → 无障碍` 顺序选择已就绪后端；手动锁定某一后端时，若该后端失效不会静默切换到其他后端。应用白名单的前台识别按后端分别使用无障碍事件、Shizuku shell 查询或 LSPosed 系统查询，详细使用与排查见[使用说明](docs/product/usage.md)。
 
 ## 当前状态与开发入口
 
-- **兼容范围与进度**：端上检测、三种后端、UI 界面、参数配置与两步自检均已实现。Android 8.0（API 26）为安装下限，实际表现取决于系统版本、ROM 电源管理与所选后端能力，需按目标设备实测。传感器门控已接入，当前版本的完整实机回归与正式签名发布仍待完成，详见[产品定义](docs/product.md)与[任务清单](tasks/todo.md)。
+- **兼容范围与进度**：端上检测、三种后端、UI 界面、参数配置与两步自检均已实现。Android 8.0（API 26）为安装下限，实际表现取决于系统版本、ROM 电源管理与所选后端能力，需按目标设备实测。传感器门控已接入，当前版本的完整实机回归与正式签名发布仍待完成，详见[产品定义](docs/product/overview.md)与[任务清单](docs/plans/todo.md)。
 - **源码构建**：当前可从源码构建 Debug APK（产物位于 `apps/app/android/build/outputs/apk/debug/`）：
 
 ```bash
 pnpm --filter @gazekeep/app exec ./gradlew :android:assembleDebug
 ```
 
-- **文档**：完整构建与工具链要求见[开发与贡献](docs/development.md)，测试与验收矩阵见[测试与验收](docs/testing.md)，全部文档导航见[文档导航](docs/index.md)。
+- **文档**：完整构建与工具链要求见[开发与贡献](docs/development/contributing.md)，测试与验收矩阵见[测试与验收](docs/development/testing.md)，全部文档导航见[文档导航](docs/index.md)。
 
 ## 开源协议
 

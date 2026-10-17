@@ -47,15 +47,15 @@ test("计划日期一致", (t) => {
   const f = fixture(t);
   f.docs();
   assert.equal(f.check("check-docs.mjs").status, 0);
-  f.write("tasks/plans/20261008-sample.md", "# 计划\n\n最后维护：2026-10-07\n");
+  f.write("docs/plans/20261008-sample.md", "# 计划\n\n最后维护：2026-10-07\n");
   const index = join(f.root, ".agents/docs-index.md");
   writeFileSync(
     index,
     readFileSync(index, "utf8") +
-      "| [计划](../tasks/plans/20261008-sample.md) | 计划 | 修改时 | 计划文档 | 2026-10-08 |\n",
+      "| [计划](../docs/plans/20261008-sample.md) | 计划 | 修改时 | 计划文档 | 2026-10-08 |\n",
   );
   assert.match(f.check("check-docs.mjs").stderr, /日期/);
-  f.write("tasks/plans/20261008-sample.md", "# 计划\n\n最后维护：2026-10-08\n");
+  f.write("docs/plans/20261008-sample.md", "# 计划\n\n最后维护：2026-10-08\n");
   assert.equal(f.check("check-docs.mjs").status, 0);
 });
 
@@ -169,8 +169,8 @@ test("公开导航、Agent 资料与任务计划均受登记和链接检查", (t
   f.docs();
   const index = join(f.root, ".agents/docs-index.md");
   const base = readFileSync(index, "utf8");
-  for (const name of [".agents/workflow.md", "tasks/todo.md", "tasks/plans/20261008-sample.md"]) {
-    const contents = name.includes("plans/") ? "# 计划\n\n最后维护：2026-10-08\n" : "# 资料\n";
+  for (const name of [".agents/workflow.md", "docs/plans/todo.md", "docs/plans/20261008-sample.md"]) {
+    const contents = name.endsWith("-sample.md") ? "# 计划\n\n最后维护：2026-10-08\n" : "# 资料\n";
     f.write(name, contents);
     assert.match(f.check("check-docs.mjs").stderr, /未登记/);
     writeFileSync(index, readFileSync(index, "utf8") + `| \`../${name}\` | 资料 | 修改时 | 持续维护 | 2026-10-08 |\n`);
@@ -188,10 +188,15 @@ test("公开导航、Agent 资料与任务计划均受登记和链接检查", (t
 test("活动文档变更必须同步 Agent 登记，修改读者导航不能代替登记", (t) => {
   const f = fixture(t);
   f.docs();
-  const documents = ["docs/development.md", ".agents/workflow.md", "tasks/todo.md", "tasks/plans/20261008-sample.md"];
+  const documents = [
+    "docs/development.md",
+    ".agents/workflow.md",
+    "docs/plans/todo.md",
+    "docs/plans/20261008-sample.md",
+  ];
   const index = join(f.root, ".agents/docs-index.md");
   for (const name of documents.slice(1)) {
-    f.write(name, name.includes("plans/") ? "# 计划\n\n最后维护：2026-10-08\n" : "# 资料\n");
+    f.write(name, name.endsWith("-sample.md") ? "# 计划\n\n最后维护：2026-10-08\n" : "# 资料\n");
     writeFileSync(index, readFileSync(index, "utf8") + `| \`../${name}\` | 资料 | 修改时 | 持续维护 | 2026-10-08 |\n`);
   }
   function git(...args) {
