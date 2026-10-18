@@ -8,7 +8,13 @@
 2. 画面只在内存里判断是否注视了屏幕，不保存、不上传。
 3. 看不清、没看清、旁边有别人，都会让屏幕正常熄灭。
 
-资源 `apps/app/shared/src/commonMain/composeResources/values/strings.xml` 中 `privacy_line_1`～`privacy_line_3` 必须与本页逐字一致。改文案同时维护本页和资源，保持唯一真源。
+英文文案：
+
+1. The front camera opens only near screen timeout and closes immediately after checking.
+2. Frames are processed in memory to check whether you are looking at the screen. Nothing is saved or uploaded.
+3. Unclear results, failed detection or another person in view let the screen sleep normally.
+
+资源 `apps/app/shared/src/commonMain/composeResources/values/strings.xml` 与 `values-en/strings.xml` 中的 `privacy_line_1`～`privacy_line_3` 必须分别与本页中英文逐字一致。改文案同时维护本页和资源，保持唯一真源。
 
 ## 数据与权限边界
 

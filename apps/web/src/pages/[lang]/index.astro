@@ -1,0 +1,14 @@
+---
+import Website from "../../components/Website.astro";
+import { zh } from "../../data/zh";
+import { en } from "../../data/en";
+export function getStaticPaths() {
+  return [
+    { params: { lang: "zh" }, props: { content: zh } },
+    { params: { lang: "en" }, props: { content: en } },
+  ];
+}
+const { content } = Astro.props;
+---
+
+<Website content={content} />

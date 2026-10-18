@@ -17,6 +17,6 @@ description: 设计、执行或评审 GazeKeep 页面交互验收；覆盖导航
 
 ## 网站浏览器
 
-apps/web 当前仅预留目录，没有网页、浏览器框架、测试 runner 或执行命令。网站建立后按实际框架选择浏览器入口，以可访问名称和用户可见状态验证 DOM、事件、焦点与生命周期，清理监听器、计时器和存储。
+apps/web 使用 Astro 静态双语页面与 KMP Web 实时内屏；先运行 `pnpm --filter web build`，再使用 `pnpm --filter web dev` 启动本地预览。按实际可用的浏览器入口，以可访问名称和用户可见状态验证 DOM、事件、焦点与生命周期，清理监听器、计时器和存储。
 
 页面验收需求不自动授权安装测试框架；文档任务无需引入 Playwright、Vitest 或 Android UI 依赖。按[测试规范](../../../docs/development/testing.md#记录与验收状态)报告实际结果与未执行条件。

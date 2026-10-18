@@ -3,7 +3,7 @@
   "private": true,
   "packageManager": "pnpm@11.7.0",
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=22.22.0"
   },
   "scripts": {
     "tools:setup": "node scripts/repo-tools/scripts/setup-dev-tools.mjs",

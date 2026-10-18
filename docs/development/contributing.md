@@ -5,7 +5,7 @@
 ## 开始开发
 
 - IDE 打开 `apps/app`，这是完整 Gradle 工程；APK 输出在 `apps/app/android/build/outputs/apk/`。
-- 使用 JDK 21、Android SDK、Node >=22.12 和根 package.json 指定的 pnpm。安装依赖后按下面的初始化命令配置本地工具。
+- 使用 JDK 21、Android SDK、Node >=22.22 和根 package.json 指定的 pnpm。安装依赖后按下面的初始化命令配置本地工具。
 - 日常按受影响模块选择构建、lint 与测试；`pnpm build`、`pnpm lint`、`pnpm test` 为全工作区入口。完整主机门禁使用 `pnpm --filter @gazekeep/app verify`，shared 纯逻辑测试另运行 `:shared:testAndroidHostTest`。
 - 按[架构总览](../architecture/overview.md#按要改的功能定位)定位代码，按[测试规范](testing.md)选择验证，按[文档导航](../index.md)查阅专题。
 
@@ -19,11 +19,11 @@
 
 ## 工具链
 
-仓库使用 pnpm workspace 与 Turborepo：Android 完整工程在 `apps/app`，官网预留在 `apps/web`，仓库工具在 `scripts/repo-tools`。官网当前没有 package、框架或构建任务。工程职责见[架构总览](../architecture/overview.md)。
+仓库使用 pnpm workspace 与 Turborepo：Android 完整工程在 `apps/app`，官网在 `apps/web`，仓库工具在 `scripts/repo-tools`。官网使用 Astro 静态构建，构建与验证入口见[官网 README](../../apps/web/README.md)。工程职责见[架构总览](../architecture/overview.md)。
 
 Android 使用 Gradle wrapper、JDK 21（编译目标 JVM 11）和 AGP 内置 Kotlin。当前 Gradle 9.5.1、AGP 9.1.1、Kotlin 2.4.20，compile/targetSdk 37、minSdk 26；wrapper 与 Android 版本目录是真源，不在模块脚本写版本。
 
-开发工具独立于 APK：Node >=22.12、pnpm 11.7.0；版本由根 package.json 与 pnpm-lock.yaml 锁定。脚本使用 JavaScript ESM，测试使用 Node 内置 node:test，不需要 Python、venv、Ruff 或 TS 编译器。ktlint 版本仍在 Android 版本目录。当前本地安装和 Hook 面向 Linux/POSIX，不宣称其他平台已验证。
+开发工具独立于 APK：Node >=22.22、pnpm 11.7.0；版本由根 package.json 与 pnpm-lock.yaml 锁定。脚本使用 JavaScript ESM，测试使用 Node 内置 node:test，不需要 Python、venv、Ruff 或 TS 编译器。ktlint 版本仍在 Android 版本目录。当前本地安装和 Hook 面向 Linux/POSIX，不宣称其他平台已验证。
 
 ```bash
 pnpm install --frozen-lockfile
