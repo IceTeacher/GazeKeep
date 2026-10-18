@@ -1,0 +1,213 @@
+<resources>
+    <string name="app_title">GazeKeep</string>
+    <string name="m0_capturing">Checking…</string>
+    <string name="m0_result_looking">Looking at the screen</string>
+    <string name="m0_result_away">Not looking at the screen</string>
+    <string name="m0_result_unknown">Could not tell this time</string>
+    <string name="m2_shizuku_needs_start">Start Shizuku first</string>
+    <string name="m2_shizuku_needs_permission">Shizuku permission required</string>
+    <string name="m2_shizuku_request_permission">Authorize GazeKeep</string>
+    <string name="m2_shizuku_refresh">Check again</string>
+    <string name="m2_backend_auto_status">Automatically select an available backend</string>
+    <string name="m2_accessibility_unavailable">Accessibility service is disabled</string>
+    <string name="m2_accessibility_open_settings">Open accessibility settings</string>
+    <string name="m3_lsposed_install_framework">Enable the system framework scope in LSPosed and restart</string>
+    <string name="m3_lsposed_reboot">System hook unavailable. Check the scope and restart</string>
+    <string name="m3_lsposed_unavailable">LSPosed is unavailable</string>
+    <string name="settings_backend">Backend</string>
+    <string name="settings_privacy">Privacy</string>
+    <string name="settings_self_test">Camera self-test</string>
+    <string name="settings_back">Back</string>
+    <string name="settings_loading">Loading settings…</string>
+    <string name="settings_off">Off</string>
+    <string name="settings_auto">Automatic</string>
+    <string name="settings_lsposed">LSPosed</string>
+    <string name="settings_shizuku">Shizuku</string>
+    <string name="settings_accessibility">Accessibility</string>
+    <string
+    name="settings_backend_order"
+  >Automatic mode uses the first ready backend: LSPosed, Shizuku, then Accessibility.</string>
+    <string name="settings_lead">Detection lead time</string>
+    <string
+    name="settings_lead_summary"
+  >Allow time to detect before dimming, or before screen timeout if the dimming time is unknown.</string>
+    <string name="settings_lead_5">5 seconds</string>
+    <string name="settings_lead_8">8 seconds</string>
+    <string name="settings_custom">Custom</string>
+    <string name="settings_lead_custom_value">Custom (%1$d seconds)</string>
+    <string name="settings_lead_custom_hint">Enter an integer from 0 to 60 seconds</string>
+    <string name="settings_sensitivity">Sensitivity</string>
+    <string name="settings_standard">Standard: facing forward, eyes open</string>
+    <string name="settings_loose">Relaxed: facing forward</string>
+    <string name="settings_failure_policy">Let the screen sleep when uncertain</string>
+    <string
+    name="settings_failure_summary"
+  >No face, side view, multiple faces, low light or camera failure will let the screen sleep.</string>
+    <string name="settings_whitelist">Selected apps only</string>
+    <string
+    name="settings_whitelist_summary"
+  >Keep awake only when the foreground app is confirmed to be in the list.</string>
+    <string name="settings_apps">App list</string>
+    <string name="settings_app_count">%1$d apps selected</string>
+    <string name="settings_search_apps">Search apps or packages</string>
+    <string name="settings_apps_load_failed">Could not load the app list. Try again.</string>
+    <string name="settings_retry">Retry</string>
+    <string name="settings_no_apps">No matching launcher apps</string>
+    <string name="settings_max_hold">Maximum keep-awake time</string>
+    <string
+    name="settings_max_hold_summary"
+  >After this limit, allow the screen to sleep once using the system timeout.</string>
+    <string name="settings_hold_10">10 minutes</string>
+    <string name="settings_hold_30">30 minutes</string>
+    <string name="settings_hold_60">60 minutes</string>
+    <string name="settings_hold_custom_value">Custom (%1$d minutes)</string>
+    <string name="settings_hold_custom_hint">Enter an integer from 1 to 1440 minutes</string>
+    <string name="settings_hold_unlimited">Unlimited</string>
+    <string name="settings_dialog_cancel">Cancel</string>
+    <string name="settings_dialog_confirm">Confirm</string>
+    <string name="settings_camera_pause">Pause when the camera is busy</string>
+    <string
+    name="settings_camera_pause_summary"
+  >Let the screen sleep when the camera is unavailable. Other apps take priority.</string>
+    <string name="settings_dark_pause">Sleep when detection is uncertain</string>
+    <string name="settings_dark_pause_summary">Uncertain results let the screen sleep.</string>
+    <string name="settings_hide_camera_indicator">Hide camera privacy indicator</string>
+    <string
+    name="settings_hide_camera_indicator_summary"
+  >LSPosed only. Hide the status bar green dot while sampling.</string>
+    <string
+    name="settings_hide_camera_indicator_disabled_summary"
+  >Available when LSPosed is enabled and selected.</string>
+    <string name="settings_badge_experimental">Experimental</string>
+    <string name="settings_experimental_dialog_title">Enable experimental feature</string>
+    <string
+    name="settings_experimental_dialog_message"
+  >%1$s is experimental and may behave unexpectedly. Consider this before enabling.</string>
+    <string name="settings_experimental_dialog_confirm">Enable</string>
+    <string name="privacy_title_1">Brief sampling when needed</string>
+    <string name="privacy_title_2">Frames stay in memory</string>
+    <string name="privacy_title_3">Sleep when uncertain or others appear</string>
+    <string
+    name="privacy_line_1"
+  >The front camera opens only near screen timeout and closes immediately after checking.</string>
+    <string
+    name="privacy_line_2"
+  >Frames are processed in memory to check whether you are looking at the screen. Nothing is saved or uploaded.</string>
+    <string
+    name="privacy_line_3"
+  >Unclear results, failed detection or another person in view let the screen sleep normally.</string>
+    <string name="settings_need_camera">Grant camera permission and complete the self-test.</string>
+    <string name="settings_need_self_test">Complete the looking and looking-away self-test before enabling.</string>
+    <string name="settings_empty_scope">No apps selected. Choose apps to keep awake.</string>
+    <string name="settings_save_failed">Could not save settings. Detection has stopped. Try again.</string>
+    <string name="self_test_looking">Step 1: Look at the phone</string>
+    <string
+    name="self_test_looking_expect"
+  >Expected: Face the screen naturally with your eyes open. The result should be “Looking at the screen”.</string>
+    <string name="self_test_away">Step 2: Turn or look away</string>
+    <string
+    name="self_test_away_expect"
+  >Expected: Turn your head or look away from the screen. The result should be “Not looking at the screen”.</string>
+    <string name="self_test_complete">Self-test passed</string>
+    <string
+    name="self_test_complete_summary"
+  >Both looking and looking-away checks matched the expected results.</string>
+    <string name="self_test_status_done">Passed</string>
+    <string name="self_test_status_current">Current step</string>
+    <string name="self_test_status_pending">Pending</string>
+    <string name="self_test_last_result">Check result: %1$s</string>
+    <string
+    name="self_test_retry_looking_hint"
+  >Step 1 did not detect “Looking at the screen”. Improve the lighting, face the camera and keep your eyes open, then retry.</string>
+    <string
+    name="self_test_retry_away_hint"
+  >Step 2 did not detect “Not looking at the screen”. Turn your head to the side or look away, then retry.</string>
+    <string
+    name="self_test_description"
+  >Complete both the looking and looking-away checks to verify the front camera and gaze detection.</string>
+    <string name="self_test_capture_step_1">Check step 1</string>
+    <string name="self_test_capture_step_2">Check step 2</string>
+    <string name="self_test_enable">Finish and enable</string>
+    <string name="self_test_finish">Finish</string>
+    <string name="self_test_camera_permission">Allow camera</string>
+    <string name="self_test_notification_permission">Allow failure notifications</string>
+    <string name="self_test_preview_hint">A brief preview appears only when you start a check.</string>
+    <string name="settings_open_shizuku">Open Shizuku</string>
+    <string name="settings_ready">Ready</string>
+    <string name="settings_not_ready">Not ready. Check permissions and service status</string>
+    <string name="settings_group_security">Security and privacy</string>
+    <string name="settings_apps_selected">%1$d apps selected</string>
+    <string name="settings_search_clear">Clear</string>
+    <string name="settings_notice_title">Action needed</string>
+    <string name="settings_auto_current">Automatic (current: %1$s)</string>
+    <string name="settings_privacy_commitments">Privacy commitments</string>
+    <string name="settings_debug_log">Detailed logs</string>
+    <string
+    name="settings_debug_log_summary"
+  >Off by default. When enabled, retain the last 24 hours. Turning off clears recorded logs.</string>
+    <string name="settings_view_logs">View logs</string>
+    <string name="settings_view_logs_summary">View, filter, share or export recorded logs</string>
+    <string name="logs_title">Logs</string>
+    <string name="logs_search_placeholder">Search</string>
+    <string name="logs_empty">No logs yet</string>
+    <string name="logs_level_all">ALL</string>
+    <string name="logs_level_verbose">VERBOSE</string>
+    <string name="logs_level_debug">DEBUG</string>
+    <string name="logs_level_info">INFO</string>
+    <string name="logs_level_warning">WARNING</string>
+    <string name="logs_level_error">ERROR</string>
+    <string name="logs_level_fatal">FATAL</string>
+    <string name="logs_menu_raw_view">Raw view</string>
+    <string name="logs_menu_card_view">Card view</string>
+    <string name="logs_menu_scroll_top">Scroll to top</string>
+    <string name="logs_menu_scroll_bottom">Scroll to bottom</string>
+    <string name="logs_menu_clear">Clear logs now</string>
+    <string name="logs_action_filter">Filter log levels</string>
+    <string name="logs_action_share">Share logs</string>
+    <string name="logs_action_export">Export logs</string>
+    <string name="logs_action_more">More options</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_settings">Settings</string>
+    <string name="home_status_working">Running</string>
+    <string name="home_status_waiting">Waiting for a backend</string>
+    <string name="home_status_stopped">Stopped</string>
+    <string name="home_decision_looking">Looking at the screen</string>
+    <string name="home_decision_not_looking">Not looking at the screen</string>
+    <string name="home_decision_pending">No recent check</string>
+    <string name="home_status_tap_to_start">Enable GazeKeep</string>
+    <string name="home_status_waiting_hint">Check backend permissions and service status</string>
+    <string name="home_info_app_version">App version</string>
+    <string name="home_info_backend_status">Backend readiness</string>
+    <string name="home_info_camera_selftest">Camera and self-test</string>
+    <string name="home_info_android_version">Android version</string>
+    <string name="home_info_device_model">Device model</string>
+    <string name="home_info_fingerprint">System fingerprint</string>
+    <string name="home_privacy_card_title">Privacy commitments</string>
+    <string
+    name="home_privacy_card_summary"
+  >Brief sampling near timeout. Frames stay in memory. Uncertain results let the screen sleep.</string>
+    <string name="settings_title">Settings</string>
+    <string name="settings_about">About</string>
+    <string name="settings_about_summary">Version, credits and third-party licenses</string>
+    <string name="about_brand_name">GazeKeep</string>
+    <string name="about_github">GitHub project</string>
+    <string name="about_third_party_notices">Third-party open-source licenses</string>
+    <string name="home_status_decision">Last check: %1$s</string>
+    <string name="home_chip_ready">Ready</string>
+    <string name="home_chip_not_ready">Not ready</string>
+    <string name="home_chip_camera">Camera</string>
+    <string name="home_chip_selftest">Self-test</string>
+    <string name="home_chip_granted">Granted</string>
+    <string name="home_chip_missing">Not granted</string>
+    <string name="home_chip_passed">Passed</string>
+    <string name="home_chip_pending">Pending</string>
+    <string name="notices_search_placeholder">Search open-source components or dependencies</string>
+    <string name="notices_core_title">Core open-source components</string>
+    <string name="notices_all_title">Notices for all runtime dependencies</string>
+    <string name="notices_empty_search">No matching open-source dependencies</string>
+    <string name="about_dep_miuix">Miuix</string>
+    <string name="about_dep_mlkit">ML Kit Face Detection</string>
+    <string name="about_dep_camerax">AndroidX CameraX</string>
+    <string name="about_dep_shizuku">Shizuku API</string>
+    <string name="about_dep_libxposed">libxposed API</string>
+</resources>

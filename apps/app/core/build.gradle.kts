@@ -1,3 +1,5 @@
+@file:OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -6,6 +8,13 @@ plugins {
 }
 
 kotlin {
+  wasmJs {
+    browser()
+  }
+  js {
+    browser()
+  }
+
   android {
     namespace = "cn.rainafter.app.gazekeep.core"
     compileSdk = libs.versions.android.compileSdk.get().toInt()

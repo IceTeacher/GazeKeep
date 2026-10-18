@@ -1,3 +1,5 @@
+@file:OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -8,6 +10,14 @@ plugins {
 }
 
 kotlin {
+  wasmJs {
+    browser()
+    binaries.executable()
+  }
+  js {
+    browser()
+    binaries.executable()
+  }
 
   android {
     namespace = "cn.rainafter.app.gazekeep.shared"
@@ -27,6 +37,15 @@ kotlin {
       sourceSetTreeName = "test"
     }.configure {
       instrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+  }
+
+  applyDefaultHierarchyTemplate {
+    common {
+      group("showcase") {
+        withJs()
+        withWasmJs()
+      }
     }
   }
 

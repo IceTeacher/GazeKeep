@@ -50,6 +50,7 @@ import gazekeep.shared.generated.resources.home_chip_ready
 import gazekeep.shared.generated.resources.home_chip_selftest
 import gazekeep.shared.generated.resources.home_decision_looking
 import gazekeep.shared.generated.resources.home_decision_not_looking
+import gazekeep.shared.generated.resources.home_decision_pending
 import gazekeep.shared.generated.resources.home_info_android_version
 import gazekeep.shared.generated.resources.home_info_app_version
 import gazekeep.shared.generated.resources.home_info_backend_status
@@ -64,6 +65,7 @@ import gazekeep.shared.generated.resources.home_status_tap_to_start
 import gazekeep.shared.generated.resources.home_status_waiting
 import gazekeep.shared.generated.resources.home_status_waiting_hint
 import gazekeep.shared.generated.resources.home_status_working
+import gazekeep.shared.generated.resources.m0_result_unknown
 import gazekeep.shared.generated.resources.settings_loading
 import gazekeep.shared.generated.resources.settings_off
 import kotlinx.coroutines.CoroutineScope
@@ -88,6 +90,7 @@ internal fun HomeScreen(
   controller: GazeKeepController,
   onNavigate: (SettingsScreen) -> Unit,
   bottomBar: @Composable () -> Unit = {},
+  statusSubtitleOverride: String? = null,
 ) {
   AppScaffold(
     title = stringResource(Res.string.app_title),
@@ -127,6 +130,7 @@ internal fun HomeScreen(
 
         StatusBannerCard(
           state = state,
+          statusSubtitleOverride = statusSubtitleOverride,
           onToggle = {
             scope.launch {
               val target = !state.config.enabled
@@ -165,7 +169,7 @@ internal fun HomeScreen(
 }
 
 @Composable
-private fun StatusBannerCard(state: ControllerState, onToggle: () -> Unit) {
+private fun StatusBannerCard(state: ControllerState, statusSubtitleOverride: String?, onToggle: () -> Unit) {
   val status = when {
     !state.config.enabled -> HomeRunStatus.Stopped
     state.serviceRunning -> HomeRunStatus.Working
@@ -197,12 +201,13 @@ private fun StatusBannerCard(state: ControllerState, onToggle: () -> Unit) {
   }
   val statusSubtitle = when (status) {
     HomeRunStatus.Working -> {
-      val decisionLabel = if (state.lastDecision == Attention.Looking) {
-        stringResource(Res.string.home_decision_looking)
-      } else {
-        stringResource(Res.string.home_decision_not_looking)
+      val decisionLabel = when (state.lastDecision) {
+        Attention.Looking -> stringResource(Res.string.home_decision_looking)
+        Attention.Away -> stringResource(Res.string.home_decision_not_looking)
+        Attention.Unknown -> stringResource(Res.string.m0_result_unknown)
+        null -> stringResource(Res.string.home_decision_pending)
       }
-      stringResource(Res.string.home_status_decision, decisionLabel)
+      statusSubtitleOverride ?: stringResource(Res.string.home_status_decision, decisionLabel)
     }
 
     HomeRunStatus.Waiting -> stringResource(Res.string.home_status_waiting_hint)
