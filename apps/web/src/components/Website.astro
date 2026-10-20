@@ -232,7 +232,6 @@ const sections = ["workflow", "backends", "privacy", "faq"];
                   <div class="story-copy">
                     <h3>{step.title}</h3>
                     <p>{step.text}</p>
-                    <div class="step-line"></div>
                   </div>
                 </article>
               ))}
@@ -374,7 +373,7 @@ const sections = ["workflow", "backends", "privacy", "faq"];
         <div class="start-grid">
           {c.start.steps.map((step, i) => (
             <article>
-              <span class="start-number">{i + 1}</span>
+              <span class="start-number">0{i + 1}</span>
               <h3>{step.title}</h3>
               <p>{step.text}</p>
             </article>

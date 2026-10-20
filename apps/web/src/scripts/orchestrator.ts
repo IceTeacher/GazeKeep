@@ -200,9 +200,12 @@ export function initWebsite() {
     }
   }) as EventListener);
   let hitRaf = 0;
+  const heroSection = document.getElementById("hero")!;
   const updateChrome = () => {
     cancelAnimationFrame(hitRaf);
     nav.dataset.scrolled = String(scrollY > 20);
+    // 首屏完全离开导航后才切换为正文区导航底，着色区与底部渐变区都使用渐隐层。
+    nav.dataset.zone = heroSection.getBoundingClientRect().bottom > nav.offsetHeight ? "hero" : "content";
     const button = document.querySelector<HTMLElement>("#retry-showcase")!;
     const box = button.getBoundingClientRect();
     retryHit.hidden =
