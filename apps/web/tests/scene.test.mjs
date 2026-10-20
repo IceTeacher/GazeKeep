@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { sceneState, readingOpacity, mobileReadingLayout } from "../src/scripts/story-motion.mjs";
+import {
+  sceneState,
+  readingOpacity,
+  mobileReadingLayout,
+  mobileFeaturePhoneHeight,
+} from "../src/scripts/story-motion.mjs";
 import { createRenderGate } from "../src/scripts/showcase-state.mjs";
 test("隐私先换页，手部后淡出；后端只在全黑期间切换", () => {
   assert.equal(sceneState(1.4).route, "privacy");
@@ -43,4 +48,22 @@ test("移动端设备与最长正文分区，短屏与大字号改为自然阅�
   }
   assert.equal(mobileReadingLayout(390, 220).compact, true);
   assert.equal(mobileReadingLayout(740, 500).compact, true);
+});
+
+test("移动端常规高度下手机占据更多上半屏，正文下移但不越过底部留白", () => {
+  const layout = mobileReadingLayout(875, 220);
+  assert.equal(layout.compact, false);
+  assert.ok(layout.phoneHeight >= 420, `phoneHeight=${layout.phoneHeight}`);
+  assert.ok(layout.copyTop + 220 < 875 - 60);
+  assert.ok(mobileReadingLayout(2000, 220).phoneHeight <= 460);
+});
+
+test("移动端后端与范围设备槽不受正文挤压，比三幕手机更大且有上限", () => {
+  for (const height of [740, 875, 932]) {
+    const feature = mobileFeaturePhoneHeight(height);
+    assert.ok(feature > mobileReadingLayout(height, 220).phoneHeight);
+    assert.ok(feature <= (height - 60) * 0.7 + 1e-9);
+  }
+  assert.equal(mobileFeaturePhoneHeight(2000), 560);
+  assert.equal(mobileFeaturePhoneHeight(300), 210);
 });

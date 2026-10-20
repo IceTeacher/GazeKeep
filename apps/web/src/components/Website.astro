@@ -37,6 +37,11 @@ const sections = ["workflow", "backends", "privacy", "faq"];
       } catch {
         document.documentElement.dataset.theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
       }
+      // 设备首帧（实体机身与首屏姿态）绘制前隐藏，避免闪出未投影或正面降级的中间态；脚本未能运行时限时显示。
+      document.documentElement.dataset.phone = "pending";
+      setTimeout(() => {
+        if (document.documentElement.dataset.phone === "pending") document.documentElement.dataset.phone = "ready";
+      }, 4000);
     </script>
   </head>
   <body>

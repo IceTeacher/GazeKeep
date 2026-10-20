@@ -36,10 +36,15 @@ export function initPhoneDisplay() {
     bodyProjection: Three.Matrix4 | undefined,
     combined: Three.Matrix4 | undefined;
   let disposed = false,
+    posed = false,
     visible = true,
     raf = 0,
     failed = false;
   const cleanups: (() => void)[] = [];
+  /** 机身已按叙事姿态绘制或已确认降级后，才显示首屏设备。 */
+  const reveal = () => {
+    if (document.documentElement.dataset.phone === "pending") document.documentElement.dataset.phone = "ready";
+  };
   const occlusionVertices = new Map<Three.Mesh, Float32Array>();
   // 宿主尺寸与扣除设备平移后的左边界在尺寸变化时缓存，滚动帧不读取布局。
   let hostWidth = 0,
@@ -133,6 +138,7 @@ export function initPhoneDisplay() {
         const size = renderer.getSize(new T.Vector2());
         if (size.x !== width || size.y !== height) renderer.setSize(width, height, false);
         renderer.render(scene!, camera);
+        if (posed) reveal();
       }
     } else {
       const w = PHONE.screenWidth * fit.scale,
@@ -149,6 +155,7 @@ export function initPhoneDisplay() {
     const matrix = projectPlane(PHONE.screenWidth, PHONE.screenHeight, points);
     screen.style.transform = `matrix3d(${matrix.join(",")})`;
     host.dataset.projection = JSON.stringify(points);
+    if (failed) reveal();
   }
   function schedule() {
     if (!disposed && !raf) raf = requestAnimationFrame(render);
@@ -268,6 +275,7 @@ export function initPhoneDisplay() {
     /** 在滚动帧内同步绘制，避免设备姿态落后 CSS 平移一帧。 */
     update(next: PhonePose) {
       pose = next;
+      posed = true;
       appliedShift = next.shift ?? 0;
       cancelAnimationFrame(raf);
       render();

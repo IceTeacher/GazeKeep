@@ -135,12 +135,17 @@ export function sceneState(progress, mobile = false, width = 1280) {
 /** 为系统导航、设备和最长正文保留互不相交的阅读区域。 */
 export function mobileReadingLayout(height, copyHeight) {
   const available = height - 60;
-  const phoneHeight = Math.min(available * 0.45, 340, available - copyHeight - 100);
+  const phoneHeight = Math.min(available * 0.58, 460, available - copyHeight - 100);
   return {
     phoneHeight: Math.max(210, phoneHeight),
     copyTop: Math.max(210, phoneHeight) + 64,
     compact: height < 600 || phoneHeight < 210,
   };
+}
+
+/** 移动端后端与范围的设备槽位于文档流，不与正文共享一屏，可比三幕手机更大。 @param {number} height */
+export function mobileFeaturePhoneHeight(height) {
+  return Math.max(210, Math.min((height - 60) * 0.7, 560));
 }
 
 /**

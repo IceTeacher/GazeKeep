@@ -5,6 +5,7 @@ import {
   selectSection,
   readingOpacity,
   mobileReadingLayout,
+  mobileFeaturePhoneHeight,
   screenDim,
   mobileStoryFollow,
   featurePose,
@@ -93,6 +94,7 @@ export function initStoryScroll(
     compact = reduced.matches || innerHeight < 600 || (mobile && layout.compact);
     root.dataset.compact = String(compact);
     root.style.setProperty("--mobile-phone-h", `${Math.max(210, phoneHeight)}px`);
+    root.style.setProperty("--mobile-feature-phone-h", `${mobileFeaturePhoneHeight(innerHeight)}px`);
     const bottom = (e: HTMLElement) => e.getBoundingClientRect().bottom + scrollY;
     geometry = {
       header: parseFloat(getComputedStyle(root).getPropertyValue("--header-h")) || 60,
@@ -191,10 +193,13 @@ export function initStoryScroll(
     lastRoute = route;
     const desktop = !mobile && !compact;
     const initial = heroPose((scrollY - L.heroHeight * 0.2) / (L.heroHeight * 0.8), mobile);
+    // 移动端后端与范围设备槽不与正文同屏，使用更大的槽位高度；切换发生在槽位进入视口前的透明阶段。
     const phoneHeight =
-      mobile || compact
-        ? parseFloat(root.style.getPropertyValue("--mobile-phone-h"))
-        : Math.min(innerHeight * 0.69, 625);
+      mobile && !compact && (inBackend || inWhitelist)
+        ? parseFloat(root.style.getPropertyValue("--mobile-feature-phone-h"))
+        : mobile || compact
+          ? parseFloat(root.style.getPropertyValue("--mobile-phone-h"))
+          : Math.min(innerHeight * 0.69, 625);
     // 只写入与滚动无关的坐标：桌面交给 CSS sticky，移动端固定段用视口坐标，其余锚定文档。
     let mode: "sticky" | "fixed" | "absolute" = "absolute",
       y = 0,

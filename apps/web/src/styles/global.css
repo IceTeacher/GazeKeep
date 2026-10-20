@@ -359,6 +359,19 @@ h1 span {
   transform-origin: 0 0;
   will-change: transform;
 }
+/* 首帧就绪前隐藏设备，只改可见性不改布局；就绪后短暂淡入，减少动态时直接显示。 */
+:root[data-phone="pending"] :is(.device-rig, .live-status, .phone-halo) {
+  visibility: hidden;
+  opacity: 0;
+}
+:root[data-phone="ready"] :is(.device-rig, .live-status, .phone-halo) {
+  animation: phone-in 0.2s ease-out;
+}
+@keyframes phone-in {
+  from {
+    opacity: 0;
+  }
+}
 #phone-visual[data-renderer="fallback"] #phone-chassis,
 #phone-visual[data-renderer="loading"] #phone-chassis {
   box-shadow:
@@ -1765,7 +1778,7 @@ html {
     transform: none;
   }
   #phone-stage {
-    height: calc(var(--mobile-phone-h) + 40px);
+    height: calc(var(--phone-h, var(--mobile-phone-h)) + 40px);
     margin-top: 0;
     left: 0;
     clip-path: none !important;
@@ -1792,7 +1805,7 @@ html {
     position: relative;
     inset: auto;
     width: 100%;
-    height: calc(var(--mobile-phone-h) + 64px);
+    height: calc(var(--mobile-feature-phone-h, var(--mobile-phone-h)) + 64px);
     margin-top: 40px;
   }
   .backend-list,
