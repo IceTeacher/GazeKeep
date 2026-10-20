@@ -919,7 +919,8 @@ html,
 }
 .privacy-section {
   position: relative;
-  overflow: hidden;
+  /* clip 不建立滚动容器，内部标题才能作为页面吸附点。 */
+  overflow: clip;
   padding-block: 150px 100px;
   border-top: 1px solid var(--line);
   background: var(--bg);
@@ -1425,10 +1426,7 @@ html {
 .feature-panel h2 {
   font-size: clamp(34px, 3.4vw, 50px);
 }
-/* 专注范围：手机由右侧移到左侧，内容靠右；区间留白不小于手机高度，横移时两侧文字都已离开设备所在高度。 */
-.whitelist {
-  padding-top: calc(min(69svh, 625px) + 40px);
-}
+/* 专注范围：手机由右侧移到左侧，内容靠右；停靠间距与三幕相近，横移时范围文案由脚本随进度淡入。 */
 .whitelist .section-heading,
 .whitelist .focus-list,
 .whitelist .limit-card {
@@ -1887,4 +1885,38 @@ html {
 :root[data-compact="true"] .hero-device-slot {
   display: block;
   height: calc(var(--mobile-phone-h) + 64px);
+}
+
+/*
+ * 桌面功能展示一次一屏：原生 Scroll Snap 只决定滚动停靠位置，姿态与内屏仍由实际滚动位置驱动。
+ * 吸附目标高于视口时浏览器在目标内部放开自由滚动，因此功能区以文案整体为目标，矮视口仍能读完；全屏区段以负外边距抵消导航留白，
+ * 叙事文案居中对齐使场景进度落在整数幕。隐私及之后为一整块吸附区域，外边距向下覆盖页脚，区域内任意位置都是合法停靠，
+ * 因此正常连续滚动，也不会被强制吸附拉回展示区。
+ */
+@media (min-width: 761px) {
+  :root:not([data-compact="true"]) {
+    --snap-pad: 100px;
+    scroll-padding-top: var(--snap-pad);
+    scroll-snap-type: y mandatory;
+  }
+  :root:not([data-compact="true"]) .hero,
+  :root:not([data-compact="true"]) .story-heading {
+    scroll-snap-align: start;
+    scroll-margin-top: calc(-1 * var(--snap-pad));
+  }
+  :root:not([data-compact="true"]) .story-copy {
+    scroll-snap-align: center;
+    scroll-margin-top: calc(-1 * var(--snap-pad));
+  }
+  :root:not([data-compact="true"]) .feature-copy {
+    scroll-snap-align: start;
+  }
+  :root:not([data-compact="true"]) .free-flow {
+    scroll-snap-align: start;
+    scroll-margin-top: calc(-1 * var(--snap-pad));
+    scroll-margin-bottom: 100svh;
+  }
+  :root:not([data-compact="true"]) :is(.hero, .story-heading, .story-copy, .feature-copy) {
+    scroll-snap-stop: always;
+  }
 }

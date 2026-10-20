@@ -8,6 +8,8 @@ import {
   screenDim,
   mobileStoryFollow,
   featurePose,
+  featureSpan,
+  featureReveal,
   followPose,
 } from "./story-motion.mjs";
 import type { DemoState, KmpRoute } from "../data/schema";
@@ -34,7 +36,8 @@ export function initStoryScroll(
   const heroSlot = document.querySelector<HTMLElement>(".hero-device-slot")!,
     whitelistSlot = whitelist.querySelector<HTMLElement>(".device-slot")!,
     backendList = backend.querySelector<HTMLElement>(".backend-list")!,
-    whitelistHeading = whitelist.querySelector<HTMLElement>(".section-heading")!;
+    whitelistHeading = whitelist.querySelector<HTMLElement>(".section-heading")!,
+    whitelistCopy = whitelist.querySelector<HTMLElement>(".feature-copy")!;
   const reduced = matchMedia("(prefers-reduced-motion: reduce)");
   let compact = false,
     disposed = false,
@@ -64,6 +67,7 @@ export function initStoryScroll(
     backendListBottom: 0,
     whitelistHeadingTop: 0,
     stageTop: 0,
+    snapTop: 0,
   };
   const written = new Map<string, string>();
   /** 只在值变化时写入，避免无变化的样式失效。 */
@@ -110,6 +114,8 @@ export function initStoryScroll(
       backendListBottom: bottom(backendList),
       whitelistHeadingTop: top(whitelistHeading),
       stageTop: parseFloat(getComputedStyle(stage).top) || 0,
+      // 吸附停靠时文案距视口顶部的距离；未启用吸附时为 0。
+      snapTop: parseFloat(getComputedStyle(root).scrollPaddingTop) || 0,
     };
     active = "";
     written.clear();
@@ -194,14 +200,17 @@ export function initStoryScroll(
       y = 0,
       opacity = 1;
     const fade = (v: number) => clamp(v / 120);
-    // 桌面运行方式到专注范围：运行方式内容离开设备所在高度后起步，范围标题进入前到达左侧。
+    // 桌面运行方式到专注范围：运行方式内容离开设备所在高度后起步，范围文案停靠时到达左侧。
     if (desktop && inBackend) {
-      const tolerance = phoneHeight * 0.12,
-        start = L.backendListBottom - (L.stageTop + tolerance),
-        end = L.whitelistHeadingTop - (L.stageTop + phoneHeight - tolerance);
-      const span = Math.max(end - start, innerHeight * 0.25),
-        middle = (start + end) / 2;
-      pose = { ...pose, ...featurePose((scrollY - (middle - span / 2)) / span, innerWidth) };
+      const span = featureSpan({
+        listBottom: L.backendListBottom,
+        headingTop: L.whitelistHeadingTop,
+        stageTop: L.stageTop,
+        phoneHeight,
+        snapTop: L.snapTop,
+        viewport: innerHeight,
+      });
+      pose = { ...pose, ...featurePose((scrollY - span.start) / (span.end - span.start), innerWidth) };
     }
     if (desktop) mode = "sticky";
     else if (inBackend || inWhitelist) {
@@ -250,6 +259,9 @@ export function initStoryScroll(
     shown = followPose(shown, target, lastTime ? Math.min(now - lastTime, 32) : 16);
     lastTime = now;
     const shift = desktop ? (shown.x * Math.min(innerWidth, 1200)) / 2 : 0;
+    // 范围文案跟随手机实际位置淡入，桌面专注范围之外保持样式表默认。
+    const reveal = desktop && inBackend ? featureReveal(shown.x, innerWidth).toFixed(3) : "";
+    write("whitelist-reveal", reveal, () => (whitelistCopy.style.opacity = reveal));
     write("shift", shift.toFixed(2), () => stage.style.setProperty("--device-shift", `${shift.toFixed(2)}px`));
     const gripOpacity = flat || inBackend || inWhitelist ? 0 : pose.grip;
     renderPhone({

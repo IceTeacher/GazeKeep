@@ -1,6 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { storyPose, selectSection, featurePose, followPose } from "../src/scripts/story-motion.mjs";
+import {
+  storyPose,
+  selectSection,
+  featurePose,
+  featureSpan,
+  featureReveal,
+  followPose,
+} from "../src/scripts/story-motion.mjs";
 
 test("三幕位置在边界连续，侧面仍保留正面投影", () => {
   assert.equal(storyPose(-1).turn, 0);
@@ -119,6 +126,24 @@ test("专注范围区手机移到左侧，过渡中倾斜并在两端回正", ()
     const unit = Math.min(width, 1200) / 2;
     assert.ok(width / 2 + featurePose(1, width).x * unit < width / 2);
   }
+});
+
+test("专注范围横移在吸附减速段完成：终点为范围停靠点，起点在运行方式列表离开设备之后", () => {
+  const base = { listBottom: 5700, headingTop: 6547, stageTop: 100, phoneHeight: 621, snapTop: 100, viewport: 900 };
+  const span = featureSpan(base);
+  // 与第二幕到第三幕一致：吸附停靠时横移刚好结束，而不是在吸附中途一闪而过。
+  assert.equal(span.end, base.headingTop - base.snapTop);
+  assert.equal(span.start, base.listBottom - (base.stageTop + base.phoneHeight * 0.12));
+  // 范围文案随横移后半程淡入，手机掠过时不压住清晰文字，停靠时完全显示。
+  const reveal = (p) => featureReveal(featurePose(p, 1280).x, 1280);
+  assert.equal(reveal(0), 0);
+  assert.equal(reveal(0.5), 0);
+  assert.ok(reveal(0.75) > 0 && reveal(0.75) < 1);
+  assert.equal(reveal(1), 1);
+  // 区间过短时向前延伸，保证横移可见。
+  const tight = featureSpan({ ...base, listBottom: 6400 });
+  assert.equal(tight.end - tight.start, base.viewport * 0.25);
+  assert.equal(tight.end, base.headingTop - base.snapTop);
 });
 
 test("阻尼跟随收敛到位置决定的姿态，长间隔直接对齐", () => {

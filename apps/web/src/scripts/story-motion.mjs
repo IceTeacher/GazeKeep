@@ -46,11 +46,30 @@ export function storyPose(progress, mobile = false, viewportWidth = 1280) {
     dim: smooth((progress - 2.05) / 0.45) * (1 - smooth((progress - 3.55) / 0.45)),
   };
 }
-/** 桌面运行方式到专注范围：手机由右侧镜像到左侧。 @param {number} progress 0 位于运行方式，1 位于专注范围 */
+/**
+ * 桌面运行方式到专注范围：镜像第二幕到第三幕的横移，手机由右向左时朝左侧转、侧倾。
+ * @param {number} progress 0 位于运行方式，1 位于专注范围
+ */
 export function featurePose(progress, viewportWidth = 1280) {
   const right = storyPose(4, false, viewportWidth).x,
     travel = -bump(progress) || 0;
   return { x: right - 2 * right * glide(progress), travel, rotateX: 0, ...tilt(travel) };
+}
+/**
+ * 范围文案按手机实际横向位置淡入：越过中线后才开始显示，对应三幕文案的交叉淡入，手机掠过时不压住清晰文字。
+ * @param {number} x 阻尼跟随后的横向位置
+ */
+export function featureReveal(x, viewportWidth = 1280) {
+  return smooth(-x / storyPose(4, false, viewportWidth).x);
+}
+/**
+ * 专注范围横移的滚动区间：运行方式列表离开设备所在高度后起步，在范围文案停靠点结束，
+ * 使横移落在吸附动画的减速段，与第二幕到第三幕一致。
+ * @param {{ listBottom: number, headingTop: number, stageTop: number, phoneHeight: number, snapTop: number, viewport: number }} layout 文档坐标
+ */
+export function featureSpan({ listBottom, headingTop, stageTop, phoneHeight, snapTop, viewport }) {
+  const end = headingTop - snapTop;
+  return { start: Math.min(listBottom - (stageTop + phoneHeight * 0.12), end - viewport * 0.25), end };
 }
 const FOLLOW_KEYS = ["x", "turn", "rotateX", "rotateZ", "scale"];
 /**
