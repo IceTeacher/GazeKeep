@@ -8,6 +8,8 @@ export interface PhonePose {
   scale?: number;
   offsetY?: number;
   gripProgress?: number;
+  /** 设备容器当前的水平平移（CSS 像素），用于推算宿主视口位置而不读取布局。 */
+  shift?: number;
 }
 
 /** 实体机身与真实 DOM 屏幕共用相机投影；只在变化时绘制。 */
@@ -16,6 +18,8 @@ export function initPhoneDisplay() {
   const rig = document.querySelector<HTMLElement>(".device-rig")!;
   const screen = document.querySelector<HTMLElement>("#phone-chassis")!;
   const canvas = document.querySelector<HTMLCanvasElement>("#phone-body")!;
+  const gripLayers = [...host.querySelectorAll<SVGSVGElement>("svg.grip-layer")],
+    gripPathElements = [...host.querySelectorAll<SVGPathElement>("[data-grip-path]")];
   rig.parentElement!.style.setProperty("--phone-ratio", String(PHONE.width / PHONE.height));
   host.style.setProperty("--screen-radius", `${PHONE.screenRadius}px`);
   host.style.setProperty("--screen-width", `${PHONE.screenWidth}px`);
@@ -27,13 +31,30 @@ export function initPhoneDisplay() {
     renderer: Three.WebGLRenderer | undefined,
     scene: Three.Scene | undefined,
     camera: Three.PerspectiveCamera | undefined,
-    body: Three.Group | undefined;
+    body: Three.Group | undefined,
+    projection: Three.Matrix4 | undefined,
+    bodyProjection: Three.Matrix4 | undefined,
+    combined: Three.Matrix4 | undefined;
   let disposed = false,
     visible = true,
     raf = 0,
     failed = false;
   const cleanups: (() => void)[] = [];
-  const occlusionVertices = new Map<Three.Mesh, Three.Vector3[]>();
+  const occlusionVertices = new Map<Three.Mesh, Float32Array>();
+  // 宿主尺寸与扣除设备平移后的左边界在尺寸变化时缓存，滚动帧不读取布局。
+  let hostWidth = 0,
+    hostHeight = 0,
+    hostLeft = 0,
+    rigHeight = 0,
+    appliedShift = 0;
+  function measure() {
+    const box = host.getBoundingClientRect();
+    hostWidth = box.width;
+    hostHeight = box.height;
+    const transform = getComputedStyle(rig).transform;
+    hostLeft = box.left - (transform === "none" ? 0 : new DOMMatrix(transform).m41);
+    rigHeight = rig.clientHeight;
+  }
   const corners = [
     [-PHONE.screenWidth / 2, PHONE.screenHeight / 2],
     [PHONE.screenWidth / 2, PHONE.screenHeight / 2],
@@ -43,12 +64,13 @@ export function initPhoneDisplay() {
   function render() {
     raf = 0;
     if (disposed) return;
-    const { width, height } = host.getBoundingClientRect(),
-      fit = fitPhone(rig.clientHeight);
+    const width = hostWidth,
+      height = hostHeight,
+      fit = fitPhone(rigHeight);
     const displayScale = fit.scale * (pose.scale ?? 1);
     if (!width || !height) return;
     let points: number[][];
-    if (library && camera && body && !failed) {
+    if (library && camera && body && projection && bodyProjection && combined && !failed) {
       const T = library;
       camera.aspect = width / height;
       camera.fov = T.MathUtils.radToDeg(2 * Math.atan(height / (2 * displayScale * 1800)));
@@ -63,50 +85,48 @@ export function initPhoneDisplay() {
       const center = new T.Vector3(0, 0, PHONE.depth / 2 + 2).applyMatrix4(body.matrixWorld);
       body.position.x = -center.x * (pose.gripProgress ?? 0);
       body.updateMatrixWorld(true);
-      const project = (x: number, y: number, z: number) => {
-        const p = new T.Vector3(x - PHONE.screenWidth / 2, PHONE.screenHeight / 2 - y, z)
-          .applyMatrix4(body!.matrixWorld)
-          .project(camera!);
-        return [((p.x + 1) * width) / 2, ((1 - p.y) * height) / 2];
+      const viewProjection = projection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+      // 合并矩阵后逐点投影，不为每个顶点分配对象。
+      const toScreen = (m: number[], x: number, y: number, z: number) => {
+        const w = m[3] * x + m[7] * y + m[11] * z + m[15];
+        return [
+          (((m[0] * x + m[4] * y + m[8] * z + m[12]) / w + 1) * width) / 2,
+          ((1 - (m[1] * x + m[5] * y + m[9] * z + m[13]) / w) * height) / 2,
+        ];
       };
+      const bodyMatrix = bodyProjection.multiplyMatrices(viewProjection, body.matrixWorld).elements;
+      const project = (x: number, y: number, z: number) =>
+        toScreen(bodyMatrix, x - PHONE.screenWidth / 2, PHONE.screenHeight / 2 - y, z);
       if (visible && !document.hidden && (pose.gripProgress ?? 0) > 0) {
         // 每个凸实体取实际几何顶点的投影外轮廓，包含倒角、玻璃和侧键。
-        const occluders: string[] = [];
+        const occluders: string[] = [],
+          meshProjection = combined;
         body.traverse((object) => {
           if (!(object instanceof T.Mesh)) return;
           let vertices = occlusionVertices.get(object);
           if (!vertices) {
             const positions = object.geometry.getAttribute("position");
-            const unique = new Map<string, Three.Vector3>();
+            const unique = new Map<string, number[]>();
             for (let i = 0; i < positions.count; i++) {
-              const v = new T.Vector3().fromBufferAttribute(positions, i);
-              unique.set(v.toArray().join(","), v);
+              const v = [positions.getX(i), positions.getY(i), positions.getZ(i)];
+              unique.set(v.join(","), v);
             }
-            vertices = [...unique.values()];
+            vertices = new Float32Array([...unique.values()].flat());
             occlusionVertices.set(object, vertices);
           }
+          const m = meshProjection.multiplyMatrices(viewProjection, object.matrixWorld).elements;
           const projected: number[][] = [];
-          for (const vertex of vertices) {
-            const v = vertex.clone().applyMatrix4(object.matrixWorld).project(camera!);
-            projected.push([((v.x + 1) * width) / 2, ((1 - v.y) * height) / 2]);
-          }
+          for (let i = 0; i < vertices.length; i += 3)
+            projected.push(toScreen(m, vertices[i], vertices[i + 1], vertices[i + 2]));
           occluders.push(polygonPath(projectedHull(projected)));
         });
-        const { joints: _joints, ...grip } = gripPaths(
-          project,
-          host.getBoundingClientRect().left,
-          pose.gripProgress ?? 0,
-        );
+        const { joints: _joints, ...grip } = gripPaths(project, hostLeft + appliedShift, pose.gripProgress ?? 0);
         const paths = { ...grip, occluder: occluders.join(" ") };
-        for (const svg of host.querySelectorAll("svg.grip-layer"))
-          svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-        for (const el of host.querySelectorAll<SVGPathElement>("[data-grip-path]"))
-          el.setAttribute("d", paths[el.dataset.gripPath as keyof typeof paths]);
+        const viewBox = `0 0 ${width} ${height}`;
+        for (const svg of gripLayers) if (svg.getAttribute("viewBox") !== viewBox) svg.setAttribute("viewBox", viewBox);
+        for (const el of gripPathElements) el.setAttribute("d", paths[el.dataset.gripPath as keyof typeof paths]);
       }
-      points = corners.map(([x, y]) => {
-        const p = new T.Vector3(x, y, PHONE.depth / 2 + 2).applyMatrix4(body!.matrixWorld).project(camera!);
-        return [((p.x + 1) * width) / 2, ((1 - p.y) * height) / 2];
-      });
+      points = corners.map(([x, y]) => toScreen(bodyMatrix, x, y, PHONE.depth / 2 + 2));
       if (renderer && visible && !document.hidden) {
         const dpr = Math.min(devicePixelRatio, innerWidth <= 760 ? 1.5 : 2);
         if (renderer.getPixelRatio() !== dpr) renderer.setPixelRatio(dpr);
@@ -141,7 +161,15 @@ export function initPhoneDisplay() {
     canvas.hidden = true;
     schedule();
   }
-  const observer = new ResizeObserver(schedule);
+  const observer = new ResizeObserver(() => {
+    measure();
+    schedule();
+  });
+  const resize = () => {
+    measure();
+    schedule();
+  };
+  window.addEventListener("resize", resize);
   observer.observe(host);
   observer.observe(rig);
   const visibility = new IntersectionObserver(([entry]) => {
@@ -156,6 +184,9 @@ export function initPhoneDisplay() {
       const T = await import("three");
       if (disposed) return;
       library = T;
+      projection = new T.Matrix4();
+      bodyProjection = new T.Matrix4();
+      combined = new T.Matrix4();
       scene = new T.Scene();
       camera = new T.PerspectiveCamera(30, 1, 1, 5000);
       camera.position.z = 1800;
@@ -230,17 +261,22 @@ export function initPhoneDisplay() {
     }
   }
   host.dataset.renderer = "loading";
+  measure();
   schedule();
   void initialize();
   return {
+    /** 在滚动帧内同步绘制，避免设备姿态落后 CSS 平移一帧。 */
     update(next: PhonePose) {
       pose = next;
-      schedule();
+      appliedShift = next.shift ?? 0;
+      cancelAnimationFrame(raf);
+      render();
     },
     dispose() {
       disposed = true;
       cancelAnimationFrame(raf);
       observer.disconnect();
+      window.removeEventListener("resize", resize);
       visibility.disconnect();
       document.removeEventListener("visibilitychange", schedule);
       canvas.removeEventListener("webglcontextlost", fallback);

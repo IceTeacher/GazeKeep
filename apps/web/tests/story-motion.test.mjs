@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { storyPose, selectSection } from "../src/scripts/story-motion.mjs";
+import { storyPose, selectSection, featurePose, followPose } from "../src/scripts/story-motion.mjs";
 
 test("三幕位置在边界连续，侧面仍保留正面投影", () => {
   assert.equal(storyPose(-1).turn, 0);
@@ -77,4 +77,57 @@ test("黑屏连续进入并在后端区域前恢复", () => {
   assert.ok(storyPose(2.25).dim > 0 && storyPose(2.25).dim < 1);
   assert.equal(storyPose(2.5).dim, 1);
   assert.equal(storyPose(4).dim, 0);
+});
+
+test("横移以倾斜包络过渡，静止段回正且方向随运动", () => {
+  for (const p of [-1, 0, 1, 1.8, 2, 2.25, 3, 4]) assert.equal(storyPose(p).travel, 0, String(p));
+  assert.equal(storyPose(0.5).travel, -1);
+  assert.equal(storyPose(2.625).travel, 1);
+  assert.ok(storyPose(0.5).turn < -28 * 0.5 && storyPose(0.5).rotateZ < 0);
+  assert.ok(storyPose(2.625).turn > 0 && storyPose(2.625).rotateZ > 0);
+  assert.ok(storyPose(2.625).scale < 1);
+  assert.equal(storyPose(0.5, true).travel, 0);
+  // 缓动两端速度为零：起步与收尾都比线性慢。
+  const start = storyPose(0).x,
+    end = storyPose(1).x;
+  assert.ok(Math.abs(storyPose(0.05).x - start) < Math.abs(end - start) * 0.05);
+  assert.ok(Math.abs(storyPose(0.95).x - end) < Math.abs(end - start) * 0.05);
+  let last = start;
+  for (let p = 0; p <= 1; p += 0.05) {
+    const x = storyPose(p).x;
+    assert.ok(x <= last + 1e-12);
+    last = x;
+  }
+});
+
+test("专注范围区手机移到左侧，过渡中倾斜并在两端回正", () => {
+  const right = featurePose(0, 1280),
+    left = featurePose(1, 1280);
+  assert.equal(right.x, storyPose(4).x);
+  assert.equal(left.x, -right.x);
+  for (const pose of [right, left]) {
+    assert.equal(pose.turn, 0);
+    assert.equal(pose.rotateZ, 0);
+    assert.equal(pose.scale, 1);
+  }
+  const mid = featurePose(0.5, 1280);
+  assert.equal(mid.travel, -1);
+  assert.ok(mid.turn < 0 && mid.rotateZ < 0 && mid.scale < 1);
+  assert.deepEqual(featurePose(-1, 1280), right);
+  assert.deepEqual(featurePose(2, 1280), left);
+  for (const width of [800, 1280, 1920]) {
+    const unit = Math.min(width, 1200) / 2;
+    assert.ok(width / 2 + featurePose(1, width).x * unit < width / 2);
+  }
+});
+
+test("阻尼跟随收敛到位置决定的姿态，长间隔直接对齐", () => {
+  const target = { x: 1, turn: -20, rotateX: 0, rotateZ: 4, scale: 0.9 };
+  let pose = { x: 0, turn: 0, rotateX: 0, rotateZ: 0, scale: 1 };
+  const first = followPose(pose, target, 16);
+  assert.ok(first.x > 0 && first.x < 1);
+  for (let i = 0; i < 120; i++) pose = followPose(pose, target, 16);
+  assert.deepEqual(pose, target);
+  assert.deepEqual(followPose({ ...target, x: -5 }, target, 500), target);
+  assert.deepEqual(followPose(undefined, target, 16), target);
 });

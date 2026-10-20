@@ -5,26 +5,67 @@ const smooth = (value) => {
   const t = clamp(value);
   return t * t * (3 - 2 * t);
 };
+/** 横移缓动：两端速度与加速度为零。 @param {number} value */
+const glide = (value) => {
+  const t = clamp(value);
+  return t * t * t * (t * (t * 6 - 15) + 10);
+};
+/** 横移倾斜包络：两端为零且无折点，中段为 1。 @param {number} value */
+const bump = (value) => {
+  const t = clamp(value);
+  return (4 * t * (1 - t)) ** 2;
+};
+/** 横移时朝运动方向侧转与侧倾，中段轻微后退。 */
+export const TILT = Object.freeze({ turn: 18, roll: 4, scale: 0.04 });
+/** @param {number} travel -1 向左、1 向右 */
+const tilt = (travel) => ({
+  turn: TILT.turn * travel,
+  rotateZ: TILT.roll * travel,
+  scale: 1 - TILT.scale * Math.abs(travel),
+});
 /** 位置是唯一输入，正反滚动和恢复页面共享同一姿态。 @param {number} progress @param {boolean} mobile */
 export function storyPose(progress, mobile = false, viewportWidth = 1280) {
   const enter = smooth(progress);
   const leave = smooth((progress - 2.25) / 0.75);
   const grip = enter * (1 - smooth((progress - 1.45) / 0.35));
   const held = enter * (1 - smooth((progress - 1.8) / 0.2));
+  const start = mobile ? 0.12 : 0.52,
+    left = mobile ? -0.06 : (-0.38 * viewportWidth) / Math.min(viewportWidth, 1200);
+  // 移动端不做横移，只有桌面横移叠加倾斜。
+  const travel = mobile ? 0 : bump((progress - 2.25) / 0.75) - bump(progress) || 0;
+  const lean = tilt(travel);
   return {
-    x:
-      (mobile ? 0.12 : 0.52) +
-      ((mobile ? -0.06 : (-0.38 * viewportWidth) / Math.min(viewportWidth, 1200)) - (mobile ? 0.12 : 0.52)) *
-        enter *
-        (1 - leave),
-    turn: -(mobile ? 20 : 28) * held || 0,
+    x: start + (left - start) * glide(progress) * (1 - glide((progress - 2.25) / 0.75)),
+    turn: -(mobile ? 20 : 28) * held + lean.turn || 0,
     grip,
     rotateX: (mobile ? 2 : 3) * held || 0,
-    rotateZ: -(mobile ? 4 : 6) * held || 0,
-    scale: 1 - (mobile ? 0.22 : 0.18) * held,
+    rotateZ: -(mobile ? 4 : 6) * held + lean.rotateZ || 0,
+    scale: (1 - (mobile ? 0.22 : 0.18) * held) * lean.scale,
     scene: enter,
+    travel,
     dim: smooth((progress - 2.05) / 0.45) * (1 - smooth((progress - 3.55) / 0.45)),
   };
+}
+/** 桌面运行方式到专注范围：手机由右侧镜像到左侧。 @param {number} progress 0 位于运行方式，1 位于专注范围 */
+export function featurePose(progress, viewportWidth = 1280) {
+  const right = storyPose(4, false, viewportWidth).x,
+    travel = -bump(progress) || 0;
+  return { x: right - 2 * right * glide(progress), travel, rotateX: 0, ...tilt(travel) };
+}
+const FOLLOW_KEYS = ["x", "turn", "rotateX", "rotateZ", "scale"];
+/**
+ * 横移与旋转的短阻尼跟随，只平滑滚轮台阶；停止后收敛到同一位置姿态。
+ * @param {Record<string, number> | undefined} current @param {Record<string, number>} target @param {number} dt 毫秒
+ */
+export function followPose(current, target, dt, tau = 120) {
+  if (!current || dt > 100) return { ...target };
+  const k = 1 - Math.exp(-Math.max(0, dt) / tau);
+  const next = { ...target };
+  for (const key of FOLLOW_KEYS) {
+    const value = current[key] + (target[key] - current[key]) * k;
+    next[key] = Math.abs(target[key] - value) < 1e-3 ? target[key] : value;
+  }
+  return next;
 }
 /** @param {number[]} starts @param {number} position */
 export function selectSection(starts, position) {

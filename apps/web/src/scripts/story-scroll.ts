@@ -7,11 +7,14 @@ import {
   mobileReadingLayout,
   screenDim,
   mobileStoryFollow,
+  featurePose,
+  followPose,
 } from "./story-motion.mjs";
 import type { DemoState, KmpRoute } from "../data/schema";
 import type { PhonePose } from "./phone-display";
 
-/** 同一进度控制路由、姿态、遮罩与阅读停留；绘制回执只延迟揭示，不改变滚动位置。 */
+/** 同一进度控制路由、姿态、遮罩与阅读停留；绘制回执只延迟揭示，不改变滚动位置。
+ * 文档坐标在尺寸变化时缓存，滚动帧只读 scrollY 并在值变化时写入。 */
 export function initStoryScroll(
   sync: (route: KmpRoute, status: DemoState, effect?: string) => void,
   renderPhone: (pose: PhonePose) => void,
@@ -28,13 +31,47 @@ export function initStoryScroll(
     backend = document.querySelector<HTMLElement>("#backends")!,
     whitelist = document.querySelector<HTMLElement>("#whitelist")!;
   const showcase = document.querySelector<HTMLElement>("#showcase-story")!;
+  const heroSlot = document.querySelector<HTMLElement>(".hero-device-slot")!,
+    whitelistSlot = whitelist.querySelector<HTMLElement>(".device-slot")!,
+    backendList = backend.querySelector<HTMLElement>(".backend-list")!,
+    whitelistHeading = whitelist.querySelector<HTMLElement>(".section-heading")!;
   const reduced = matchMedia("(prefers-reduced-motion: reduce)");
   let compact = false,
     disposed = false,
     raf = 0,
     active = "",
     lastRoute = "home",
-    lastDim = 0;
+    lastDim = 0,
+    lastTime = 0,
+    shown: Record<string, number> | undefined;
+  let geometry = {
+    header: 60,
+    heroTop: 0,
+    heroHeight: 1,
+    storyTop: 0,
+    storyHeight: 0,
+    surfaceHeight: 0,
+    showcaseTop: 0,
+    backendTop: 0,
+    whitelistTop: 0,
+    stepTops: [] as number[],
+    stepCenters: [] as number[],
+    heroSlotTop: 0,
+    backendSlotTop: 0,
+    backendSlotHeight: 0,
+    whitelistSlotTop: 0,
+    whitelistSlotHeight: 0,
+    backendListBottom: 0,
+    whitelistHeadingTop: 0,
+    stageTop: 0,
+  };
+  const written = new Map<string, string>();
+  /** 只在值变化时写入，避免无变化的样式失效。 */
+  const write = (key: string, value: string, apply: () => void) => {
+    if (written.get(key) === value) return;
+    written.set(key, value);
+    apply();
+  };
   const top = (e: HTMLElement) => e.getBoundingClientRect().top + scrollY;
   const clamp = (v: number) => Math.max(0, Math.min(1, v));
   function measure() {
@@ -52,27 +89,52 @@ export function initStoryScroll(
     compact = reduced.matches || innerHeight < 600 || (mobile && layout.compact);
     root.dataset.compact = String(compact);
     root.style.setProperty("--mobile-phone-h", `${Math.max(210, phoneHeight)}px`);
+    const bottom = (e: HTMLElement) => e.getBoundingClientRect().bottom + scrollY;
+    geometry = {
+      header: parseFloat(getComputedStyle(root).getPropertyValue("--header-h")) || 60,
+      heroTop: top(hero),
+      heroHeight: hero.offsetHeight,
+      storyTop: top(story),
+      storyHeight: story.offsetHeight,
+      surfaceHeight: surface.offsetHeight,
+      showcaseTop: top(showcase),
+      backendTop: top(backend),
+      whitelistTop: top(whitelist),
+      stepTops: steps.map(top),
+      stepCenters: steps.map((e) => top(e) + e.offsetHeight * 0.5),
+      heroSlotTop: top(heroSlot),
+      backendSlotTop: top(backendSlot),
+      backendSlotHeight: backendSlot.offsetHeight,
+      whitelistSlotTop: top(whitelistSlot),
+      whitelistSlotHeight: whitelistSlot.offsetHeight,
+      backendListBottom: bottom(backendList),
+      whitelistHeadingTop: top(whitelistHeading),
+      stageTop: parseFloat(getComputedStyle(stage).top) || 0,
+    };
     active = "";
+    written.clear();
+    shown = undefined;
     schedule();
   }
-  function render() {
+  function render(now = performance.now()) {
     raf = 0;
     if (disposed) return;
-    const mobile = innerWidth <= 760,
-      position = scrollY + innerHeight * 0.5;
-    const centers = steps.map((e) => top(e) + e.offsetHeight * 0.5);
+    const L = geometry,
+      mobile = innerWidth <= 760,
+      position = scrollY + innerHeight * 0.5,
+      header = L.header;
+    const centers = L.stepCenters;
     let progress =
       mobile && !compact
-        ? 0.5 + (scrollY - top(story)) / (innerHeight * 0.95)
+        ? 0.5 + (scrollY - L.storyTop) / (innerHeight * 0.95)
         : 1 + (position - centers[0]) / (centers[1] - centers[0]);
     const selected = document.querySelector<HTMLElement>("[data-backend][aria-pressed=true]");
-    const header = parseFloat(getComputedStyle(root).getPropertyValue("--header-h")) || 60;
     // 移动端设备槽在各自内容之后：后端槽完全离开视口后才切到范围页，避免可见跳变。
     const inWhitelist =
         mobile && !compact
-          ? backendSlot.getBoundingClientRect().bottom < header && position >= top(whitelist) - innerHeight
-          : position >= top(whitelist),
-      inBackend = position >= top(backend);
+          ? L.backendSlotTop + L.backendSlotHeight - scrollY < header && position >= L.whitelistTop - innerHeight
+          : position >= L.whitelistTop,
+      inBackend = position >= L.backendTop;
     const scene = sceneState(progress, mobile, innerWidth);
     let route: KmpRoute = scene.route as KmpRoute,
       status = scene.status as DemoState,
@@ -87,7 +149,7 @@ export function initStoryScroll(
       effect = "none";
     }
     if (compact) {
-      const i = selectSection([top(hero), ...steps.map(top), top(backend), top(whitelist)], position);
+      const i = selectSection([L.heroTop, ...L.stepTops, L.backendTop, L.whitelistTop], position);
       const target = [hero, ...steps, backend, whitelist][i];
       route = target.dataset.route as KmpRoute;
       status = target.dataset.status as DemoState;
@@ -111,18 +173,18 @@ export function initStoryScroll(
       compact,
       inBackend,
       inWhitelist,
-      slotTop: mobile && inBackend ? backendSlot.getBoundingClientRect().top : undefined,
+      slotTop: mobile && inBackend ? L.backendSlotTop - scrollY : undefined,
       viewport: innerHeight,
       status,
     });
     const blackSwap = route === "backend" || (route === "privacy" && progress >= 2.15);
     if (!ready && !failed && (blackSwap || (routeChanged && lastDim > 0.95))) dim = 1;
     if (failed && status !== "dim_fallback") dim = 0;
-    phone.style.setProperty("--screen-dim", String(dim));
+    write("dim", String(dim), () => phone.style.setProperty("--screen-dim", String(dim)));
     lastDim = dim;
     lastRoute = route;
-    stage.style.setProperty("--device-x", String(mobile ? 0 : pose.x));
-    const initial = heroPose((scrollY - hero.offsetHeight * 0.2) / (hero.offsetHeight * 0.8), mobile);
+    const desktop = !mobile && !compact;
+    const initial = heroPose((scrollY - L.heroHeight * 0.2) / (L.heroHeight * 0.8), mobile);
     const phoneHeight =
       mobile || compact
         ? parseFloat(root.style.getPropertyValue("--mobile-phone-h"))
@@ -132,61 +194,89 @@ export function initStoryScroll(
       y = 0,
       opacity = 1;
     const fade = (v: number) => clamp(v / 120);
-    if (!mobile && !compact) mode = "sticky";
+    // 桌面运行方式到专注范围：运行方式内容离开设备所在高度后起步，范围标题进入前到达左侧。
+    if (desktop && inBackend) {
+      const tolerance = phoneHeight * 0.12,
+        start = L.backendListBottom - (L.stageTop + tolerance),
+        end = L.whitelistHeadingTop - (L.stageTop + phoneHeight - tolerance);
+      const span = Math.max(end - start, innerHeight * 0.25),
+        middle = (start + end) / 2;
+      pose = { ...pose, ...featurePose((scrollY - (middle - span / 2)) / span, innerWidth) };
+    }
+    if (desktop) mode = "sticky";
     else if (inBackend || inWhitelist) {
-      const slot = (inWhitelist ? whitelist : backend).querySelector<HTMLElement>(".device-slot")!;
-      const box = slot.getBoundingClientRect();
-      y = top(slot) + Math.max(0, (slot.offsetHeight - phoneHeight) / 2);
-      opacity = fade(innerHeight - box.top) * fade(box.bottom - header);
+      const slotTop = inWhitelist ? L.whitelistSlotTop : L.backendSlotTop,
+        slotHeight = inWhitelist ? L.whitelistSlotHeight : L.backendSlotHeight;
+      y = slotTop + Math.max(0, (slotHeight - phoneHeight) / 2);
+      opacity = fade(innerHeight - (slotTop - scrollY)) * fade(slotTop + slotHeight - scrollY - header);
     } else if (compact) {
-      y = top(document.querySelector<HTMLElement>(".hero-device-slot")!) + 16;
-      opacity = position < top(story) ? 1 : 0;
+      y = L.heroSlotTop + 16;
+      opacity = position < L.storyTop ? 1 : 0;
     } else {
-      const releaseAt = top(story) + story.offsetHeight - surface.offsetHeight - header;
-      const follow = mobileStoryFollow(scrollY, top(story), releaseAt, header);
+      const releaseAt = L.storyTop + L.storyHeight - L.surfaceHeight - header;
+      const follow = mobileStoryFollow(scrollY, L.storyTop, releaseAt, header);
       if (follow.mode === "fixed") {
         mode = "fixed";
         y = follow.top;
-        opacity = fade(scrollY - (top(story) - header));
+        opacity = fade(scrollY - (L.storyTop - header));
       } else if (follow.mode === "absolute") y = follow.y;
       else {
         // 首屏设备槽随文档离开，进入导航下方前淡出，三幕面板固定后再淡入。
-        const slot = document.querySelector<HTMLElement>(".hero-device-slot")!;
-        y = top(slot) + 16;
-        opacity = fade(slot.getBoundingClientRect().top + phoneHeight * 0.6 - header);
+        y = L.heroSlotTop + 16;
+        opacity = fade(L.heroSlotTop - scrollY + phoneHeight * 0.6 - header);
       }
     }
-    if (mode === "sticky") stage.style.position = stage.style.top = "";
-    else {
-      stage.style.position = mode;
-      stage.style.top = `${mode === "fixed" ? y : y - top(showcase)}px`;
-    }
-    stage.style.opacity = String(opacity);
-    stage.style.setProperty("--phone-h", `${phoneHeight}px`);
-    renderPhone(
-      compact || inBackend || inWhitelist
-        ? { rotateX: 0, rotateY: 0, rotateZ: 0 }
+    const stageTop = mode === "sticky" ? "" : `${mode === "fixed" ? y : y - L.showcaseTop}px`;
+    write("position", `${mode}:${stageTop}`, () => {
+      stage.style.position = mode === "sticky" ? "" : mode;
+      stage.style.top = stageTop;
+    });
+    write("opacity", String(opacity), () => (stage.style.opacity = String(opacity)));
+    write("phone-h", String(phoneHeight), () => stage.style.setProperty("--phone-h", `${phoneHeight}px`));
+    const flat = compact || ((inBackend || inWhitelist) && !desktop);
+    const target = flat
+      ? { x: 0, turn: 0, rotateX: 0, rotateZ: 0, scale: 1 }
+      : inBackend || inWhitelist
+        ? { x: pose.x, turn: pose.turn, rotateX: pose.rotateX, rotateZ: pose.rotateZ, scale: pose.scale }
         : {
+            x: pose.x,
+            turn: initial.rotateY + pose.turn,
             rotateX: initial.rotateX + pose.rotateX,
-            rotateY: initial.rotateY + pose.turn,
             rotateZ: initial.rotateZ + pose.rotateZ,
-            gripProgress: pose.scene,
             scale: pose.scale,
-          },
-    );
-    stage.style.setProperty("--grip-opacity", String(compact || inBackend || inWhitelist ? 0 : pose.grip));
-    stage.dataset.gripVisible = String(pose.grip > 0.01 && !inBackend && !inWhitelist);
+          };
+    // 横移与旋转短阻尼跟随，抹平滚轮台阶；纵向仍由 sticky 决定。
+    // 静止后再次滚动按一帧计时，不因空闲间隔直接对齐；测量后 shown 清空才直接对齐。
+    shown = followPose(shown, target, lastTime ? Math.min(now - lastTime, 32) : 16);
+    lastTime = now;
+    const shift = desktop ? (shown.x * Math.min(innerWidth, 1200)) / 2 : 0;
+    write("shift", shift.toFixed(2), () => stage.style.setProperty("--device-shift", `${shift.toFixed(2)}px`));
+    const gripOpacity = flat || inBackend || inWhitelist ? 0 : pose.grip;
+    renderPhone({
+      rotateX: shown.rotateX,
+      rotateY: shown.turn,
+      rotateZ: shown.rotateZ,
+      gripProgress: flat || inBackend || inWhitelist ? undefined : pose.scene,
+      scale: shown.scale,
+      shift,
+    });
+    write("grip", String(gripOpacity), () => stage.style.setProperty("--grip-opacity", String(gripOpacity)));
+    write("grip-visible", String(gripOpacity > 0.01), () => (stage.dataset.gripVisible = String(gripOpacity > 0.01)));
     steps.forEach((step, i) => {
       const alpha = compact ? 1 : readingOpacity(progress, i + 1);
-      step.style.setProperty("--copy-opacity", String(alpha));
-      step.style.opacity = String(alpha);
-      step.inert = !compact && alpha < 0.05;
+      write(`step-${i}`, String(alpha), () => {
+        step.style.setProperty("--copy-opacity", String(alpha));
+        step.style.opacity = String(alpha);
+      });
+      const inert = !compact && alpha < 0.05;
+      if (step.inert !== inert) step.inert = inert;
       step.classList.toggle("is-active", Math.round(progress) === i + 1);
     });
     stage.dataset.scene = String(progress);
+    if ((["x", "turn", "rotateX", "rotateZ", "scale"] as const).some((k) => shown![k] !== target[k])) schedule();
   }
   function schedule() {
-    if (!disposed && !raf) raf = requestAnimationFrame(render);
+    if (!disposed && !raf) raf = requestAnimationFrame((now) => render(now));
   }
   const observer = new ResizeObserver(measure);
   observer.observe(showcase);

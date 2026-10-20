@@ -320,7 +320,7 @@ h1 span {
   top: max(50px, calc((100svh - var(--phone-h)) / 2 - 20px));
   height: calc(var(--phone-h) + 60px);
   perspective: 1400px;
-  --device-x: 0.52;
+  --device-shift: calc(0.52 * min(100vw, 1200px) / 2);
 }
 .device-rig {
   position: relative;
@@ -328,7 +328,7 @@ h1 span {
   height: var(--phone-h);
   perspective: 1400px;
   margin-inline: auto;
-  transform: translateX(calc(var(--device-x) * min(100vw, 1200px) / 2));
+  transform: translateX(var(--device-shift));
 }
 .phone-halo {
   position: absolute;
@@ -470,8 +470,9 @@ h1 span {
 .grip-front {
   z-index: 3;
 }
-:root[data-theme="dark"] .grip-layer {
-  filter: brightness(0.82) saturate(0.88);
+/* 深色主题直接使用预先压暗的肤色，避免每帧改路径时重跑滤镜。 */
+:root[data-theme="dark"] .grip-layer [data-grip-path="silhouette"] {
+  fill: #bc8285;
 }
 .live-status {
   display: flex;
@@ -742,7 +743,7 @@ html,
 .live-status {
   width: calc(var(--phone-h) * var(--phone-ratio, 0.47706422));
   margin-inline: auto;
-  transform: translateX(calc(var(--device-x) * min(100vw, 1200px) / 2));
+  transform: translateX(var(--device-shift));
 }
 .live-status {
   margin-top: 26px;
@@ -1096,10 +1097,10 @@ html,
     top: 40px;
   }
   .device-rig {
-    transform: translateX(calc(var(--device-x) * 100vw / 2));
+    transform: translateX(var(--device-shift));
   }
   .live-status {
-    transform: translateX(calc(var(--device-x) * 100vw / 2));
+    transform: translateX(var(--device-shift));
     font-size: 9px;
   }
 
@@ -1423,6 +1424,15 @@ html {
 }
 .feature-panel h2 {
   font-size: clamp(34px, 3.4vw, 50px);
+}
+/* 专注范围：手机由右侧移到左侧，内容靠右；区间留白不小于手机高度，横移时两侧文字都已离开设备所在高度。 */
+.whitelist {
+  padding-top: calc(min(69svh, 625px) + 40px);
+}
+.whitelist .section-heading,
+.whitelist .focus-list,
+.whitelist .limit-card {
+  margin-left: auto;
 }
 .backend-list {
   display: grid;

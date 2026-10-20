@@ -31,20 +31,24 @@ export function forearmExtension(top, bottom, hostLeft, progress) {
   };
 }
 
-/** 凸实体的投影轮廓；去掉内部顶点并统一顺时针方向，复合填充不产生孔洞。 */
+/** 凸实体的投影轮廓；去掉内部顶点并统一顺时针方向，复合填充不产生孔洞。每帧调用，避免字符串去重。 */
 export function projectedHull(points) {
-  const sorted = [...new Map(points.map((p) => [p.join(","), p])).values()].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
-  if (sorted.length < 3) return sorted;
+  const sorted = points.toSorted((a, b) => a[0] - b[0] || a[1] - b[1]);
+  let n = 0;
+  for (const p of sorted) if (!n || p[0] !== sorted[n - 1][0] || p[1] !== sorted[n - 1][1]) sorted[n++] = p;
+  sorted.length = n;
+  if (n < 3) return sorted;
   const cross = (a, b, c) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
-  const half = (arr) => {
-    const result = [];
-    for (const p of arr) {
-      while (result.length > 1 && cross(result.at(-2), result.at(-1), p) <= 0) result.pop();
-      result.push(p);
+  const hull = [];
+  for (const pass of [sorted, sorted.toReversed()]) {
+    const start = hull.length;
+    for (const p of pass) {
+      while (hull.length > start + 1 && cross(hull[hull.length - 2], hull[hull.length - 1], p) <= 0) hull.pop();
+      hull.push(p);
     }
-    return result;
-  };
-  return [...half(sorted).slice(0, -1), ...half(sorted.toReversed()).slice(0, -1)];
+    hull.pop();
+  }
+  return hull;
 }
 export const polygonPath = (points) => (points.length ? `M ${points.map((p) => p.join(" ")).join(" L ")} Z` : "");
 /** 前后深度仅影响投影；所有皮肤合在一个复合路径中填充一次。 */

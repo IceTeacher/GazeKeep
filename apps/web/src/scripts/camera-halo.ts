@@ -10,6 +10,8 @@ export function initCameraHalo() {
     raf = 0,
     time = 0,
     y = scrollY,
+    // 滚动事件中记录位置，帧回调不读 scrollY，避免在其他脚本写样式后强制重排。
+    current = y,
     visible = false,
     disposed = false;
   const active = () => phone.dataset.effect === "camera-pulse";
@@ -18,12 +20,12 @@ export function initCameraHalo() {
     if (disposed || !visible || document.hidden) return;
     state = haloFrame(state, {
       dt: time ? now - time : 16,
-      delta: scrollY - y,
+      delta: current - y,
       active: active(),
       reduced: reduced.matches,
     });
     time = now;
-    y = scrollY;
+    y = current;
     halo.style.opacity = String(state.opacity);
     halo.style.transform = `rotate(${state.angle % 360}deg)`;
     const circumference = 2 * Math.PI * 12;
@@ -36,12 +38,14 @@ export function initCameraHalo() {
   }
   function resume() {
     time = 0;
-    y = scrollY;
+    y = current = scrollY;
     state.speed = 0;
     cancelAnimationFrame(raf);
     raf = 0;
     schedule();
   }
+  const track = () => (current = scrollY);
+  window.addEventListener("scroll", track, { passive: true });
   const mutation = new MutationObserver(resume);
   mutation.observe(phone, { attributes: true, attributeFilter: ["data-effect"] });
   const observer = new IntersectionObserver(([entry]) => {
@@ -54,6 +58,7 @@ export function initCameraHalo() {
   return () => {
     disposed = true;
     cancelAnimationFrame(raf);
+    window.removeEventListener("scroll", track);
     mutation.disconnect();
     observer.disconnect();
     document.removeEventListener("visibilitychange", resume);
