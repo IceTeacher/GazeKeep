@@ -12,6 +12,8 @@
 
 ## 官网本次验证（2026-10-20）
 
+- 根路径跳转：原 `index.astro` 依靠 meta refresh 跳转，浏览器会先渲染“进入 GazeKeep 官网”链接页。改为 `public/_redirects` 的 `/ /zh/ 302` 服务端跳转，兜底页加 `noindex`/`canonical` 并使用站点深色底。新增 1 项测试（缺少 `_redirects` 时先失败）；49 项官网 Node 测试、Astro 类型检查（0 错误）与 `build:site` 通过；本地 `wrangler pages dev dist` 中 `/` 返回 `302 Location: /zh/`，`/zh/`、`/en/` 返回 200。完整构建后已部署（预览 `https://4b331619.gazekeep.pages.dev`），线上 curl 复验 `https://gazekeep.pages.dev/` 返回 `302 location: /zh/`，`/zh/`、`/en/` 返回 200。未执行：真实浏览器观察跳转过程。
+- 静态托管部署到 Cloudflare Pages：使用 Wrangler Direct Upload 创建并绑定 `gazekeep` 项目（生产分支 `main`），在 `apps/web/package.json` 固化 `deploy` 脚本（`pnpm run build && wrangler pages deploy dist --project-name=gazekeep --branch=main`）。49 个静态资源成功上传并发布至 `https://gazekeep.pages.dev/`；线上 curl 验证根路由重定向至 `/zh/`（现为服务端 302，见上条），中英双语页面与 KMP Showcase HTML 响应 200，预览环境 `https://c99387c2.gazekeep.pages.dev` 访问一致。
 - 首屏加载优化：shaders 注册表裁剪到首屏 5 个组件（分块 2.56 MB → 1.30 MB，gzip 708 KB → 301 KB），Three.js 分块构建后注入 `modulepreload`，样式内联，页面图标由 263 KB 的 512px PNG 改为 6.6 KB WebP，favicon 改为 2.6 KB PNG。新增 5 项构建性能测试（缺少实现模块时先失败）；48 项官网 Node 测试、Astro 类型检查（0 错误）、完整 Wasm/JS → Astro 构建与格式检查通过。
 - 浏览器对比（本地 `astro preview`，390×844 移动端，4 倍 CPU 降速，Fast 4G，冷缓存，单次测量）：FCP 846 → 494 ms，机身首帧 1616 → 1141 ms，总阻塞时间 3.3 → 3.0 s。headless Chrome 默认没有 WebGPU 适配器，shader 走 CSS 降级；改用 SwiftShader WebGPU 后裁剪版 shader 运行正常（`data-running="true"`），1440×900 截图中光场正常。未执行：真实 GPU、Safari/Firefox、实体手机。
 - 待办：托管端压缩与缓存头尚未配置（`astro preview` 不压缩 `.wasm`，内屏实传 12.5 MB，约 17 s 才就绪；Brotli 后约 3.5 MB）。同源 iframe 中 Kotlin/Wasm 初始化仍有约 1.9 s 的主线程长任务，会阻塞父页面滚动，可评估改为跨源 iframe 隔离进程（桥接需改为纯消息通道）。KMP 字体与字符串在 Wasm 初始化后串行请求，可在展示入口预加载。`public/media/` 约 4.3 MB 资源在源码中没有引用，删除前需确认 `credits.txt` 的许可要求。

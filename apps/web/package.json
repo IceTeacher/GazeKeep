@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "node scripts/sync-kmp-strings.mjs && astro dev --host",
     "build": "node scripts/build.mjs",
+    "deploy": "pnpm run build && wrangler pages deploy dist --project-name=gazekeep --branch=main",
     "preview": "astro preview --host 127.0.0.1",
     "astro": "astro",
     "build:site": "node scripts/sync-kmp-strings.mjs && astro build",
@@ -27,6 +28,7 @@
     "@astrojs/check": "0.9.10",
     "@types/three": "^0.186.0",
     "prettier-plugin-astro": "^1.1.1",
-    "typescript": "^5.9.0"
+    "typescript": "^5.9.0",
+    "wrangler": "^4.151.2"
   }
 }

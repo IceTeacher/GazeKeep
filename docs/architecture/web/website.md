@@ -144,7 +144,7 @@ Web 字体使用带 OFL 许可的 Noto CJK 字符子集，位于 showcaseMain，
 
 本轮已完成双语数据、七模块页面、Three.js 实体设备、Shader/连续滚动调度、真实 miuix Wasm/JS 展示壳、语言/主题桥接、隐私资源校验和加载失败恢复。构建与维护命令见 [官网 README](../../../apps/web/README.md)，对应环境和验收结果见[任务清单](../../plans/todo.md#官网本次验证2026-10-20)。
 
-后续验证集中于 WebGPU 实际渲染、120Hz 硬件表现、跨浏览器矩阵和 KMP 资源体积。静态托管部署与 CI/CD 留待上线任务配置；官网完成后再评估是否接入统计脚本及其隐私要求。本轮不集成统计脚本或 Partytown。
+官网部署到 Cloudflare Pages 项目 `gazekeep`，生产分支为 `main`。完整构建依赖本机 JDK、Android SDK 与 Gradle，当前由本地执行完整构建，再通过 Wrangler Direct Upload 发布静态 `dist/`。根路径由 `public/_redirects` 在服务端 302 跳转到 `/zh/`，不渲染中间页；用 302 而非 301，便于以后按浏览器语言分流；`src/pages/index.astro` 只作为 `astro preview` 等不读取 `_redirects` 环境的兜底跳转页。Direct Upload 项目不能原地切换为 Git 集成，自动构建需另建项目并配置 KMP 工具链。后续验证集中于 WebGPU 实际渲染、120Hz 硬件表现、跨浏览器矩阵和 KMP 资源体积；官网完成后再评估是否接入统计脚本及其隐私要求。本轮不集成统计脚本或 Partytown。
 
 ### 第三轮设备与动效修订
 

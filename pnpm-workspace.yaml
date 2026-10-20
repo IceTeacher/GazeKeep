@@ -3,4 +3,11 @@ packages:
   - scripts/*
 
 allowBuilds:
+  esbuild: false
   lefthook: false
+  workerd: false
+
+minimumReleaseAgeExclude:
+  - "@astrojs/cloudflare@14.4.1"
+  - miniflare@5.20261019.0-beta
+  - wrangler@4.151.2
