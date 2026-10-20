@@ -3,6 +3,12 @@
 
 # GazeKeep 注视保亮
 
+[![GitHub stars](https://img.shields.io/github/stars/IceTeacher/GazeKeep)](https://github.com/IceTeacher/GazeKeep)
+[![Website](https://img.shields.io/badge/官网-gazekeep.rainafter.cn-14795e)](https://gazekeep.rainafter.cn)
+[![English README](https://img.shields.io/badge/README-English-blue)](README_en.md)
+
+[🌐 官方网站](https://gazekeep.rainafter.cn) &nbsp;|&nbsp; [📖 English README](README_en.md)
+
 </div>
 
 你有没有遇到过这样的痛点：看长文、查资料或者照着菜谱做饭时，手上有水不方便碰手机，屏幕却动不动就变暗甚至直接熄灭？
