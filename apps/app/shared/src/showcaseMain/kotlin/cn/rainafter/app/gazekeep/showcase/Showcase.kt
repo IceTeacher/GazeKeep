@@ -56,6 +56,7 @@ import top.yukonga.miuix.kmp.theme.ThemeController
 import top.yukonga.miuix.kmp.theme.defaultTextStyles
 
 private val route = mutableStateOf("home")
+private val requestRevision = mutableStateOf(0)
 private val locale = mutableStateOf("zh")
 private val dark = mutableStateOf(true)
 private val demoStatus = mutableStateOf("idle")
@@ -156,13 +157,19 @@ private object DemoActions : PlatformActions {
   }
 }
 
-expect fun installBridge(screen: (String) -> Unit, status: (String) -> Unit, appearance: (String, Boolean) -> Unit)
+expect fun installBridge(screen: (String, Int) -> Unit, status: (String) -> Unit, appearance: (String, Boolean) -> Unit)
 expect fun notifyReady()
+expect fun notifyRendered(screen: String, revision: Int)
 
 @OptIn(ExperimentalResourceApi::class)
 fun startShowcase() {
   installBridge(
-    { if (it in listOf("home", "backend", "settings", "whitelist", "privacy")) route.value = it },
+    { screen, revision ->
+      if (screen in listOf("home", "backend", "settings", "whitelist", "privacy")) {
+        route.value = screen
+        requestRevision.value = revision
+      }
+    },
     { status ->
       demoStatus.value = status
       val backend = when (status) {
@@ -247,6 +254,13 @@ fun startShowcase() {
           }
         }
       }
+    }
+    LaunchedEffect(route.value, requestRevision.value) {
+      val screen = route.value
+      val revision = requestRevision.value
+      withFrameNanos {}
+      withFrameNanos {}
+      notifyRendered(screen, revision)
     }
     LaunchedEffect(Unit) {
       withFrameNanos {}
