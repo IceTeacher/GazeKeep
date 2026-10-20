@@ -14,7 +14,8 @@ import {
   featureSpan,
   featureReveal,
   followPose,
-} from "./story-motion.mjs";
+  type FollowPose,
+} from "./story-motion.ts";
 import type { DemoState, KmpRoute } from "../data/schema";
 import type { PhonePose } from "./phone-display";
 
@@ -50,7 +51,7 @@ export function initStoryScroll(
     lastRoute = "home",
     lastDim = 0,
     lastTime = 0,
-    shown: Record<string, number> | undefined;
+    shown: FollowPose | undefined;
   let geometry = {
     header: 60,
     heroTop: 0,

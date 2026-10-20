@@ -1,13 +1,14 @@
-import { createShowcaseState, createShowcaseAttempts, createRenderGate, chooseRuntime } from "./showcase-state.mjs";
+import {
+  type Bridge,
+  createShowcaseState,
+  createShowcaseAttempts,
+  createRenderGate,
+  chooseRuntime,
+} from "./showcase-state.ts";
 import { initStoryScroll } from "./story-scroll";
 import { initCameraHalo } from "./camera-halo";
 import { initPhoneDisplay } from "./phone-display";
 import type { DemoState, KmpRoute } from "../data/schema";
-interface Bridge {
-  setScreen(route: string, revision?: number): void;
-  setDemoStatus(status: string): void;
-  setLocaleAndTheme(locale: string, dark: boolean): void;
-}
 type DemoWindow = Window & { GazeKeepWebShowcaseBridge?: Bridge };
 let initialized = false;
 export function initWebsite() {
@@ -255,7 +256,8 @@ export function initWebsite() {
       cancelAnimationFrame(raf);
       last = 0;
       if (instance) {
-        running ? instance.resume() : instance.pause();
+        if (running) instance.resume();
+        else instance.pause();
         canvas.dataset.running = String(running);
         if (running) raf = requestAnimationFrame(tick);
       }

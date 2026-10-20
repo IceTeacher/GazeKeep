@@ -1,4 +1,4 @@
-import { haloFrame, initialHalo } from "./camera-motion.mjs";
+import { haloFrame, initialHalo } from "./camera-motion.ts";
 
 /** 仅采样提示可见时连续绘制；后台恢复保留相位并丢弃旧速度。 */
 export function initCameraHalo() {

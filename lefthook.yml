@@ -8,19 +8,23 @@ pre-commit:
     - name: kotlin
       glob: "**/*.{kt,kts}"
       exclude: "**/build/**"
-      run: node scripts/repo-tools/scripts/hook-files.mjs kotlin {staged_files}
+      run: node scripts/repo-tools/scripts/hook-files.ts kotlin {staged_files}
       stage_fixed: true
     - name: text
-      glob: "**/*.{md,json,yml,yaml,js,cjs,mjs,ts,tsx,jsx,xml}"
+      glob: "**/*.{md,json,jsonc,yml,yaml,js,cjs,mjs,ts,mts,cts,tsx,jsx,astro,css,html}"
       exclude: "{**/build/**,**/dist/**,**/.next/**,**/.turbo/**,pnpm-lock.yaml}"
-      run: node scripts/repo-tools/scripts/hook-files.mjs text {staged_files}
+      run: node scripts/repo-tools/scripts/hook-files.ts text {staged_files}
       stage_fixed: true
+    - name: xml
+      glob: "**/*.xml"
+      exclude: "**/build/**"
+      run: node scripts/repo-tools/scripts/hook-files.ts xml {staged_files}
     - name: toml
       glob: "**/*.toml"
       exclude: "**/build/**"
-      run: node scripts/repo-tools/scripts/hook-files.mjs toml {staged_files}
+      run: node scripts/repo-tools/scripts/hook-files.ts toml {staged_files}
 
 commit-msg:
   jobs:
     - name: commitlint
-      run: ./node_modules/.bin/commitlint --config scripts/repo-tools/config/commitlint.config.cjs --edit "{1}"
+      run: ./node_modules/.bin/commitlint --config scripts/repo-tools/config/commitlint.config.ts --edit "{1}"

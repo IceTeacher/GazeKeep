@@ -10,6 +10,12 @@
 - 文档检查器与隔离测试改用新目录；先确认旧实现漏检新路径下的计划日期不一致，再修复检查入口。29 项仓库工具测试、文档索引、Agent 资产、架构、受影响文件 Prettier 检查与 `git diff --check` 通过。
 - 本次涉及文档组织与仓库检查工具，未运行 Android 构建或设备验收；候选验收证据保留原日期，下列实机与发布缺口继续保留。
 
+## 仓库工具链迁移（2026-10-20）
+
+- 仓库与官网脚本、测试由 `.mjs`/`.cjs`/`.py` 改为 TypeScript，Node 原生类型剥离直接运行；repo-tools 新增 `tsc` 严格检查，官网脚本与测试纳入 `astro check`。Prettier 由 oxfmt 0.73.0 替换（开启 Tailwind CSS 类名排序与 Astro 格式化），`node --check` 由 oxlint 1.88.0 correctness 规则替换；XML 改为只校验语法。修复 oxlint 报出的 2 处问题（三元表达式语句、未使用变量）。
+- 展示字体脚本改用 harfbuzzjs 1.6.3（hb-subset）并自行改写 name 表：与 fontTools 4.67.0 产物对比，表集合、422 个码位、702 个字形轮廓与步进、GSUB/GPOS 特性、18 条 name 记录和纵横度量一致；已提交字体未重新生成。
+- 主机验证：31 项仓库工具测试（新增 XML 阻断与 TypeScript/Tailwind 用例，先确认旧实现失败）、52 项官网 Node 测试（新增 3 项字体改名与校验和用例）、两工程 oxlint 与 `tsc`、Astro 类型检查（0 错误）、`build:site`、全仓 `format:check`、文档/Agent 资产/架构/Hook 检查、TS 版 commitlint 与 `git diff --check` 通过。未运行：Android 构建与 lint（未改动）、KMP 完整构建、真实编辑器集成。
+
 ## 官网本次验证（2026-10-20）
 
 - 根路径跳转：原 `index.astro` 依靠 meta refresh 跳转，浏览器会先渲染“进入 GazeKeep 官网”链接页。改为 `public/_redirects` 的 `/ /zh/ 302` 服务端跳转，兜底页加 `noindex`/`canonical` 并使用站点深色底。新增 1 项测试（缺少 `_redirects` 时先失败）；49 项官网 Node 测试、Astro 类型检查（0 错误）与 `build:site` 通过；本地 `wrangler pages dev dist` 中 `/` 返回 `302 Location: /zh/`，`/zh/`、`/en/` 返回 200。完整构建后已部署（预览 `https://4b331619.gazekeep.pages.dev`），线上 curl 复验 `https://gazekeep.pages.dev/` 返回 `302 location: /zh/`，`/zh/`、`/en/` 返回 200。未执行：真实浏览器观察跳转过程。

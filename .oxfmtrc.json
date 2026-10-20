@@ -1,0 +1,21 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 120,
+  "proseWrap": "preserve",
+  "sortPackageJson": false,
+  "astro": true,
+  "sortTailwindcss": { "stylesheet": "apps/web/src/styles/global.css" },
+  "ignorePatterns": [
+    "**/build/",
+    ".gradle/",
+    ".kotlin/",
+    ".cache/",
+    "pnpm-lock.yaml",
+    "**/gradle/wrapper/",
+    "**/dist/",
+    "**/.next/",
+    "**/.turbo/",
+    "**/coverage/",
+    "**/*.xml"
+  ]
+}

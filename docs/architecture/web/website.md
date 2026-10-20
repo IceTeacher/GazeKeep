@@ -23,7 +23,7 @@
 
 Web 字体使用带 OFL 许可的 Noto CJK 字符子集，位于 showcaseMain，仅用于网页展示。官网构建过滤 source map；KMP 生成目录排除在 Astro 类型检查之外。
 
-首屏加载：`shaders/js` 的 `createShader` 会注册整个组件库，构建插件（`scripts/build-performance.mjs`）在打包时把注册表裁到首屏实际使用的组件，测试保证保留列表与 `orchestrator.ts` 一致；shaders 版本固定，升级后注册表结构变化会让构建直接失败，而不是退回全量打包。构建完成后为 Three.js 分块注入 `modulepreload`，与入口脚本并行下载，以缩短机身首帧等待；样式内联，不再单独发出阻塞渲染的请求。页面内图标使用 192px WebP，favicon 使用 32px PNG，512px PNG 只作为 `og:image`。KMP 内屏的 Wasm 体积取决于托管端压缩：上线托管需对 `.wasm`/`.js` 启用 Brotli 或 gzip，带哈希的资源设为长期不可变缓存，无哈希的 KMP 入口用协商缓存。
+首屏加载：`shaders/js` 的 `createShader` 会注册整个组件库，构建插件（`scripts/build-performance.ts`）在打包时把注册表裁到首屏实际使用的组件，测试保证保留列表与 `orchestrator.ts` 一致；shaders 版本固定，升级后注册表结构变化会让构建直接失败，而不是退回全量打包。构建完成后为 Three.js 分块注入 `modulepreload`，与入口脚本并行下载，以缩短机身首帧等待；样式内联，不再单独发出阻塞渲染的请求。页面内图标使用 192px WebP，favicon 使用 32px PNG，512px PNG 只作为 `og:image`。KMP 内屏的 Wasm 体积取决于托管端压缩：上线托管需对 `.wasm`/`.js` 启用 Brotli 或 gzip，带哈希的资源设为长期不可变缓存，无哈希的 KMP 入口用协商缓存。
 
 ### 1.1 核心定位
 
@@ -128,7 +128,7 @@ Web 字体使用带 OFL 许可的 Noto CJK 字符子集，位于 showcaseMain，
 
 ### 4.1 当前目录与数据流
 
-`apps/web/src/components/Website.astro` 生成双语页面；`src/data/schema.ts` 约束 `zh.ts`、`en.ts` 的内容及演示路由。`src/styles/global.css` 实现布局、统一逻辑屏幕、CSS 设备降级和背景，`src/scripts/orchestrator.ts` 管理 Shader 与 KMP 桥接，`story-scroll.ts` 与 `story-motion.mjs` 管理原生滚动位置、统一姿态和内屏阶段；`phone-display.ts` 管理实体机身与 DOM 屏幕投影，`phone-geometry.mjs` 维护统一尺寸与投影变换，`grip-geometry.mjs` 维护握持坐标与前后 SVG 层的统一投影。`scripts/build.mjs` 先构建 shared 的 Wasm/JS 展示资源，`sync-kmp-strings.mjs` 从 Compose 资源生成双语隐私文案，随后 Astro 静态构建；`dev` 和 `check` 也先同步隐私文案。
+`apps/web/src/components/Website.astro` 生成双语页面；`src/data/schema.ts` 约束 `zh.ts`、`en.ts` 的内容及演示路由。`src/styles/global.css` 实现布局、统一逻辑屏幕、CSS 设备降级和背景，`src/scripts/orchestrator.ts` 管理 Shader 与 KMP 桥接，`story-scroll.ts` 与 `story-motion.ts` 管理原生滚动位置、统一姿态和内屏阶段；`phone-display.ts` 管理实体机身与 DOM 屏幕投影，`phone-geometry.ts` 维护统一尺寸与投影变换，`grip-geometry.ts` 维护握持坐标与前后 SVG 层的统一投影。`scripts/build.ts` 先构建 shared 的 Wasm/JS 展示资源，`sync-kmp-strings.ts` 从 Compose 资源生成双语隐私文案，随后 Astro 静态构建；`dev` 和 `check` 也先同步隐私文案。
 
 ### 4.2 KMP 展示桥接
 
@@ -136,7 +136,7 @@ Web 字体使用带 OFL 许可的 Noto CJK 字符子集，位于 showcaseMain，
 
 ### 4.3 手机外壳与视觉调度
 
-手机外壳由 Three.js 的实体圆角机身、玻璃面与侧键组成，内屏为一个 KMP 展示 iframe。WebGL 相机的四角投影通过单应矩阵驱动完整 DOM 屏幕，状态栏、挖孔、应用与横条整体缩放。机身按姿态/尺寸变化绘制，不建立持续旋转循环；离屏、后台暂停，WebGL 失效后保留正面 CSS 设备。`story-scroll.ts` 根据页面位置确定叙事步骤和页面路由，`story-motion.mjs` 提供正反方向共享的姿态插值。首屏 Shader 在离屏、页面隐藏或减少动态效果时暂停；不支持 WebGPU 或创建失败时由 CSS 背景降级。功能区使用原生连续滚动，手机在隐私区之前退出 sticky 范围。
+手机外壳由 Three.js 的实体圆角机身、玻璃面与侧键组成，内屏为一个 KMP 展示 iframe。WebGL 相机的四角投影通过单应矩阵驱动完整 DOM 屏幕，状态栏、挖孔、应用与横条整体缩放。机身按姿态/尺寸变化绘制，不建立持续旋转循环；离屏、后台暂停，WebGL 失效后保留正面 CSS 设备。`story-scroll.ts` 根据页面位置确定叙事步骤和页面路由，`story-motion.ts` 提供正反方向共享的姿态插值。首屏 Shader 在离屏、页面隐藏或减少动态效果时暂停；不支持 WebGPU 或创建失败时由 CSS 背景降级。功能区使用原生连续滚动，手机在隐私区之前退出 sticky 范围。
 
 ---
 

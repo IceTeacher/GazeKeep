@@ -6,28 +6,32 @@
     "node": ">=22.22.0"
   },
   "scripts": {
-    "tools:setup": "node scripts/repo-tools/scripts/setup-dev-tools.mjs",
-    "hooks:install": "node scripts/repo-tools/scripts/install-hooks.mjs",
-    "verify:hooks": "node scripts/repo-tools/scripts/check-hooks.mjs",
+    "tools:setup": "node scripts/repo-tools/scripts/setup-dev-tools.ts",
+    "hooks:install": "node scripts/repo-tools/scripts/install-hooks.ts",
+    "verify:hooks": "node scripts/repo-tools/scripts/check-hooks.ts",
     "verify:docs": "turbo run verify:docs --filter=@gazekeep/repo-tools",
     "verify:agent-assets": "turbo run verify:agent-assets --filter=@gazekeep/repo-tools",
     "verify:architecture": "turbo run verify:architecture --filter=@gazekeep/repo-tools",
     "test:tools": "turbo run test --filter=@gazekeep/repo-tools",
-    "format:check": "node scripts/repo-tools/scripts/hook-files.mjs all --check",
-    "format": "node scripts/repo-tools/scripts/hook-files.mjs all",
-    "verify:commits": "commitlint --config scripts/repo-tools/config/commitlint.config.cjs",
+    "format:check": "node scripts/repo-tools/scripts/hook-files.ts all --check",
+    "format": "node scripts/repo-tools/scripts/hook-files.ts all",
+    "verify:commits": "commitlint --config scripts/repo-tools/config/commitlint.config.ts",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "test": "turbo run test",
     "verify": "turbo run verify",
-    "verify:apk": "node scripts/repo-tools/scripts/check-apk.mjs"
+    "verify:apk": "node scripts/repo-tools/scripts/check-apk.ts"
   },
   "devDependencies": {
+    "@astrojs/compiler-rs": "0.5.2",
     "@commitlint/cli": "21.2.3",
     "@commitlint/config-conventional": "21.2.3",
-    "@prettier/plugin-xml": "3.4.2",
+    "@commitlint/types": "21.2.3",
+    "@types/node": "^24.19.2",
     "lefthook": "2.1.17",
-    "prettier": "3.9.9",
-    "turbo": "2.11.7"
+    "oxfmt": "0.73.0",
+    "oxlint": "1.88.0",
+    "turbo": "2.11.7",
+    "typescript": "5.9.3"
   }
 }

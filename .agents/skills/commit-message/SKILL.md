@@ -9,10 +9,10 @@ description: 生成当前暂存区的单条中文提交信息；用于单次提�
 
 ## 依据与输出
 
-- 读取 `scripts/repo-tools/config/commitlint.config.cjs` 的当前类型、范围与 emoji 选项，近期非合并提交仅作措辞参考，不沿用仅为历史兼容保留的值。
+- 读取 `scripts/repo-tools/config/commitlint.config.ts` 的当前类型、范围与 emoji 选项，近期非合并提交仅作措辞参考，不沿用仅为历史兼容保留的值。
 - 以 `git diff --cached` 为依据，结合状态和文件清单判断范围；需要文件内容时读取索引版本。未暂存和未跟踪内容不纳入，空索引明确报告无暂存变更。
 - 标题使用 `type(scope): emoji 中文描述`，概括主要行为或结果。复杂变更按需补充正文，说明相关修复、接口或验证事实，不规定条数，不推测未验证结果。
-- 用 `pnpm exec commitlint --config scripts/repo-tools/config/commitlint.config.cjs` 校验候选标题；失败修正后重验，工具缺失如实报告。
+- 用 `pnpm exec commitlint --config scripts/repo-tools/config/commitlint.config.ts` 校验候选标题；失败修正后重验，工具缺失如实报告。
 
 输出可直接使用的提交信息；必要时用一句话解释语义。不要用文件名清单代替描述。
 

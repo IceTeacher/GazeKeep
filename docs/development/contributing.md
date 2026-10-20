@@ -66,13 +66,15 @@ APK 位于 apps/app/android/build/outputs/apk/debug/。local.properties 和签�
 
 标题格式为 type(scope): emoji 中文描述。type 为 feat/fix/docs/style/refactor/perf/test/chore；建议 emoji 为 ✨/🐛/📝/🎨/♻️/⚡️/✅/🔨，subject 以 emoji 和空格开头并含中文。
 
-scope 从 Android settings 的 Gradle 模块派生（冒号改为连字符），另有 docs/dev-workflow/ci-cd/release/deps/web。唯一提交配置为 scripts/repo-tools/config/commitlint.config.cjs；根 pnpm verify:commits 和 commit-msg 使用显式配置路径。默认不重写历史，Git 自动生成的合并/回退信息沿用 commitlint 默认忽略规则。
+scope 从 Android settings 的 Gradle 模块派生（冒号改为连字符），另有 docs/dev-workflow/ci-cd/release/deps/web。唯一提交配置为 scripts/repo-tools/config/commitlint.config.ts；根 pnpm verify:commits 和 commit-msg 使用显式配置路径。默认不重写历史，Git 自动生成的合并/回退信息沿用 commitlint 默认忽略规则。
 
-Lefthook 使用[官方入口配置](https://lefthook.dev/configuration/lefthook/)锁定根 node_modules 中的本地版本，不回退全局版本。pre-commit 仅对暂存文件运行 ktlint、Prettier、TOML 解析和 JS 语法检查；TS/TSX/JSX 使用 Prettier 解析。XML 保持 strict 空白语义，stage_fixed 更新格式结果；部分暂存隐藏与恢复由 Lefthook 负责。冲突与工具缺失阻断并保留恢复材料。
+Lefthook 使用[官方入口配置](https://lefthook.dev/configuration/lefthook/)锁定根 node_modules 中的本地版本，不回退全局版本。pre-commit 仅对暂存文件运行 ktlint、oxlint、oxfmt、TOML 解析和 XML 语法校验。stage_fixed 更新格式结果；部分暂存隐藏与恢复由 Lefthook 负责。冲突与工具缺失阻断并保留恢复材料。
 
-源码格式为 UTF-8、LF、空格缩进 2、行宽 120。Kotlin 与 Gradle Kotlin DSL 由 ktlint 按根 `.editorconfig` 执行；Markdown、JSON、YAML、JavaScript 与 XML 由 Prettier 执行。`proseWrap` 保持 `preserve`，不重排既有段落。
+源码格式为 UTF-8、LF、空格缩进 2、行宽 120。Kotlin 与 Gradle Kotlin DSL 由 ktlint 按根 `.editorconfig` 执行；JavaScript/TypeScript、Astro、CSS、HTML、Markdown、JSON 与 YAML 由 oxfmt 执行，Tailwind CSS 类名按 `apps/web/src/styles/global.css` 排序，`package.json` 不重排键序。`proseWrap` 保持 `preserve`，不重排既有段落。XML 只校验语法、不格式化，保持 Android 与 Compose 资源的 strict 空白语义。
 
-Prettier 配置在工具目录，Hook 使用显式路径，不向官网根级散落配置。完整构建、测试和实机验收不放进提交 Hook。format:check/format 是显式全仓工具，锁文件、wrapper 和生成物排除；日常只格式化本次文件，不制造无关源码 diff。
+脚本类文件（含 `.astro`）先经 oxlint 的 correctness 规则检查，警告也阻断；类型由 `pnpm lint`（repo-tools 的 `tsc`）与官网 `astro check` 检查。仓库脚本均为 TypeScript，由 Node 原生类型剥离直接运行，只能使用可擦除语法（无 enum、namespace 与参数属性），相对导入写 `.ts` 扩展名。
+
+oxfmt 与 oxlint 配置位于仓库根（`.oxfmtrc.json`、`.oxlintrc.json`）：两者的 `ignorePatterns` 以配置所在目录为根，编辑器也只自动发现根配置；Hook 仍使用显式路径，不在各工程目录散落配置。完整构建、测试和实机验收不放进提交 Hook。format:check/format 是显式全仓工具，锁文件、wrapper 和生成物排除；日常只格式化本次文件，不制造无关源码 diff。
 
 ## 验证与发布边界
 
@@ -84,4 +86,4 @@ Prettier 配置在工具目录，Hook 使用显式路径，不向官网根级散
 
 `pnpm verify:apk --apk <APK路径> [--root <仓库路径>]` 检查实际 APK 的入口、版本、权限、反射类和品牌资源。依赖 PATH 中的 SDK `apkanalyzer` 与 ANDROID_HOME/ANDROID_SDK_ROOT 内稳定 build-tools 的 `aapt2`，不会自动安装工具。
 
-Debug 与压缩 Release 分别检查，不能用源码声明代替产物结果，也不能从静态检查推断框架或 ROM 验收通过。发布要求和当前候选版本见[发布门禁](release.md)，详细检查逻辑见 [check-apk.mjs](../../scripts/repo-tools/scripts/check-apk.mjs)。
+Debug 与压缩 Release 分别检查，不能用源码声明代替产物结果，也不能从静态检查推断框架或 ROM 验收通过。发布要求和当前候选版本见[发布门禁](release.md)，详细检查逻辑见 [check-apk.ts](../../scripts/repo-tools/scripts/check-apk.ts)。

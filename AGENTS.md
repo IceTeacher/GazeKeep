@@ -27,7 +27,7 @@
 - 已授权的本地实现、测试、格式化和修复持续推进，不为每一步重复请求确认。安装、重启、外部环境配置或发布先核对本次授权与影响；超出授权时先完成可审查的准备与验证，再说明具体动作及恢复方式。
 - 发现设计与实现差距时核对源码并登记待办，不能用目标设计豁免安全承诺。
 - 不提交本地配置、签名文件、密钥、原始系统转储或含个人信息的数据；测试样本只保留验证所需字段并脱敏。
-- 新提交使用 `type(scope): emoji 中文描述`，type/scope 以 `scripts/repo-tools/config/commitlint.config.cjs` 为准。生成单条或分组提交信息分别加载 [commit-message](.agents/skills/commit-message/SKILL.md)、[commit-message-groups](.agents/skills/commit-message-groups/SKILL.md)。
+- 新提交使用 `type(scope): emoji 中文描述`，type/scope 以 `scripts/repo-tools/config/commitlint.config.ts` 为准。生成单条或分组提交信息分别加载 [commit-message](.agents/skills/commit-message/SKILL.md)、[commit-message-groups](.agents/skills/commit-message-groups/SKILL.md)。
 - 默认不改写 Git 历史；用户明确要求时，先保留恢复引用，限定范围并验证文件快照与作者信息不变。Lefthook 只处理暂存文件的格式和轻量检查，完整构建与测试按风险执行。
 - 调整协作规则、Skills 或需要交接时读取[代理工作流](.agents/workflow.md)。
 

@@ -1,0 +1,7 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["eslint", "typescript", "unicorn", "oxc"],
+  "categories": { "correctness": "error" },
+  "env": { "builtin": true, "es2024": true, "node": true, "browser": true },
+  "ignorePatterns": ["**/build/", ".gradle/", ".kotlin/", ".cache/", "**/dist/", "**/.turbo/", "**/coverage/"]
+}

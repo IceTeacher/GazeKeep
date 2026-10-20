@@ -9,11 +9,11 @@ description: 为暂存区变更划分提交组并生成中文信息；用于拆�
 
 ## 分组与输出
 
-- 读取 `scripts/repo-tools/config/commitlint.config.cjs` 的当前类型、范围与 emoji 选项；按变更路径读取目录规则，近期非合并提交仅作措辞参考。
+- 读取 `scripts/repo-tools/config/commitlint.config.ts` 的当前类型、范围与 emoji 选项；按变更路径读取目录规则，近期非合并提交仅作措辞参考。
 - 以暂存差异及索引版本为依据，排除未暂存和未跟踪内容。空索引明确报告没有可分组的变更。
 - 按行为、修复目标和契约依赖分组；每个变更文件只属于一组，不拆文件内 hunk。重命名两端、必须同步的契约/生成物/实现/测试保持同组；整体不可分时只给一组。
 - 按依赖排序，列出每组的目的、文件清单和 `type(scope): emoji 中文描述`。复杂组按需补充正文，说明行为、实现与验证事实，不固定条数。
-- 逐条用 `pnpm exec commitlint --config scripts/repo-tools/config/commitlint.config.cjs` 校验标题；失败修正后重验，工具缺失如实报告。
+- 逐条用 `pnpm exec commitlint --config scripts/repo-tools/config/commitlint.config.ts` 校验标题；失败修正后重验，工具缺失如实报告。
 
 交付完整分组与简短理由，确保每个暂存变更路径恰好出现一次。
 

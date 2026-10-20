@@ -12,5 +12,5 @@
 作者：Katerina Limpitsouni
 来源：https://undraw.co/（来源与作者取自原 SVG 元数据）
 接入处理：仅提取手部，移除手机、人物及装饰；镜像并等比缩放外侧拇指、虎口和掌部，按实际机身校准四指；前景掌根保持参考椭圆比例、等比收小并移至屏幕下半部。单色复合路径只应用一次透明度，采用实体遮挡及分区屏幕保护。
-提取素材：grip-going-live-reference.svg；控制点：grip-reference.mjs。
+提取素材：grip-going-live-reference.svg；控制点：grip-reference.ts。
 下载原件、此前独立 SVG、摄影及其他任务生成素材保留，当前页面不再引用人物照片。

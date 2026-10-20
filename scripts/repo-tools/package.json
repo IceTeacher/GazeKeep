@@ -3,12 +3,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "verify:docs": "node scripts/check-docs.mjs",
-    "verify:agent-assets": "node scripts/check-agent-assets.mjs",
-    "verify:architecture": "node scripts/check-architecture.mjs",
-    "test": "node --test tests/*.test.mjs",
-    "lint": "node scripts/check-syntax.mjs",
-    "verify": "node scripts/verify.mjs"
+    "verify:docs": "node scripts/check-docs.ts",
+    "verify:agent-assets": "node scripts/check-agent-assets.ts",
+    "verify:architecture": "node scripts/check-architecture.ts",
+    "test": "node --test tests/*.test.ts",
+    "lint": "oxlint --config ../../.oxlintrc.json --deny-warnings . && tsc -p tsconfig.json",
+    "verify": "node scripts/verify.ts"
   },
   "devDependencies": {
     "smol-toml": "1.9.0",

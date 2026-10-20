@@ -1,5 +1,5 @@
-import { PHONE, fitPhone, projectPlane } from "./phone-geometry.mjs";
-import { gripPaths, projectedHull, polygonPath } from "./grip-geometry.mjs";
+import { PHONE, fitPhone, projectPlane } from "./phone-geometry.ts";
+import { gripPaths, projectedHull, polygonPath } from "./grip-geometry.ts";
 import type * as Three from "three";
 export interface PhonePose {
   rotateX: number;

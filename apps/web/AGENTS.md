@@ -25,4 +25,4 @@ Consult these guides before working on related tasks:
 
 继承根目录规则。官网使用纯 Astro/TypeScript 与双语数据源，不添加 React 或统计服务。KMP 生成资源通过 `pnpm --filter web build` 同步，禁止提交生成物；保留 Gradle 的依赖锁文件。产品事实、隐私三句以产品文档和 Compose 资源为准。
 
-改动后运行 `pnpm --filter web test`、`pnpm --filter web check`、完整构建及受影响的浏览器场景。相关设计见 [官网架构](../../docs/architecture/web/website.md)。
+改动后运行 `pnpm --filter web test`、`pnpm --filter web lint`、`pnpm --filter web check`、完整构建及受影响的浏览器场景。相关设计见 [官网架构](../../docs/architecture/web/website.md)。
