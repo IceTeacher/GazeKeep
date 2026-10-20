@@ -25,7 +25,7 @@ const sections = ["workflow", "backends", "privacy", "faq"];
     <meta property="og:locale" content={c.locale === "zh" ? "zh_CN" : "en_US"} />
     <meta name="twitter:card" content="summary" />
     <meta name="theme-color" content="#080d18" />
-    <link rel="icon" href="/app-icon.png" />
+    <link rel="icon" href="/favicon-32.png" type="image/png" />
     <link rel="alternate" hreflang="zh" href="/zh/" />
     <link rel="alternate" hreflang="en" href="/en/" />
     <link rel="alternate" hreflang="x-default" href="/zh/" />
@@ -51,7 +51,7 @@ const sections = ["workflow", "backends", "privacy", "faq"];
     <header class="nav-wrap">
       <nav class="nav shell" aria-label={c.menu}>
         <a class="brand" href={`/${c.locale}/`}>
-          <img src="/app-icon.png" width="32" height="32" alt="" />
+          <img src="/app-icon-192.webp" width="32" height="32" alt="" />
           <span>GazeKeep</span>
         </a>
         <div class="nav-links">
@@ -153,7 +153,7 @@ const sections = ["workflow", "backends", "privacy", "faq"];
                 <div id="phone-chassis" data-effect="none">
                   <div class="phone-screen">
                     <div id="phone-placeholder">
-                      <img src="/app-icon.png" width="58" height="58" alt="" />
+                      <img src="/app-icon-192.webp" width="58" height="58" alt="" />
                       <span id="load-message" role="status">
                         {c.loading}
                       </span>
@@ -230,6 +230,9 @@ const sections = ["workflow", "backends", "privacy", "faq"];
             <p>{c.story.intro}</p>
           </div>
           <div class="story-steps">
+            {c.story.steps.map(() => (
+              <span class="story-snap" aria-hidden="true" />
+            ))}
             <div class="story-sticky">
               {c.story.steps.map((step, i) => (
                 <article class="story-step" data-route={step.route} data-status={step.state} data-effect={step.effect}>
@@ -412,7 +415,7 @@ const sections = ["workflow", "backends", "privacy", "faq"];
         </section>
         <section class="closing shell">
           <div class="closing-glow" aria-hidden="true"></div>
-          <img src="/app-icon.png" width="64" height="64" alt="" />
+          <img src="/app-icon-192.webp" width="64" height="64" alt="" />
           <h2>{c.footer.title}</h2>
           <p>{c.footer.text}</p>
           <a class="button" href={site.download}>

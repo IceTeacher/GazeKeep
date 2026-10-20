@@ -6,6 +6,8 @@ import {
   readingOpacity,
   mobileReadingLayout,
   mobileFeaturePhoneHeight,
+  mobileStoryProgress,
+  mobileStorySnaps,
   screenDim,
   mobileStoryFollow,
   featurePose,
@@ -29,7 +31,8 @@ export function initStoryScroll(
   const story = document.querySelector<HTMLElement>(".story-steps")!,
     surface = document.querySelector<HTMLElement>(".story-sticky")!;
   const backendSlot = document.querySelector<HTMLElement>("#backends .device-slot")!;
-  const steps = [...document.querySelectorAll<HTMLElement>(".story-step")];
+  const steps = [...document.querySelectorAll<HTMLElement>(".story-step")],
+    snapMarks = [...document.querySelectorAll<HTMLElement>(".story-snap")];
   const hero = document.querySelector<HTMLElement>("#hero")!,
     backend = document.querySelector<HTMLElement>("#backends")!,
     whitelist = document.querySelector<HTMLElement>("#whitelist")!;
@@ -96,6 +99,12 @@ export function initStoryScroll(
     root.style.setProperty("--mobile-phone-h", `${Math.max(210, phoneHeight)}px`);
     root.style.setProperty("--mobile-feature-phone-h", `${mobileFeaturePhoneHeight(innerHeight)}px`);
     const bottom = (e: HTMLElement) => e.getBoundingClientRect().bottom + scrollY;
+    // 移动端吸附标记按实际视口高度定位，抵消吸附内边距后停靠点即整数幕。
+    const snapPad = parseFloat(getComputedStyle(root).scrollPaddingTop) || 0;
+    mobileStorySnaps(innerHeight, snapMarks.length).forEach((offset, i) => {
+      snapMarks[i].style.top = `${offset + snapPad}px`;
+    });
+    hero.style.setProperty("--hero-snap-extend", `${Math.max(0, top(story) - bottom(hero))}px`);
     geometry = {
       header: parseFloat(getComputedStyle(root).getPropertyValue("--header-h")) || 60,
       heroTop: top(hero),
@@ -134,7 +143,7 @@ export function initStoryScroll(
     const centers = L.stepCenters;
     let progress =
       mobile && !compact
-        ? 0.5 + (scrollY - L.storyTop) / (innerHeight * 0.95)
+        ? mobileStoryProgress(scrollY, L.storyTop, innerHeight)
         : 1 + (position - centers[0]) / (centers[1] - centers[0]);
     const selected = document.querySelector<HTMLElement>("[data-backend][aria-pressed=true]");
     // 移动端设备槽在各自内容之后：后端槽完全离开视口后才切到范围页，避免可见跳变。

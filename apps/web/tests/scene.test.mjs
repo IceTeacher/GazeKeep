@@ -5,6 +5,8 @@ import {
   readingOpacity,
   mobileReadingLayout,
   mobileFeaturePhoneHeight,
+  mobileStoryProgress,
+  mobileStorySnaps,
 } from "../src/scripts/story-motion.mjs";
 import { createRenderGate } from "../src/scripts/showcase-state.mjs";
 test("隐私先换页，手部后淡出；后端只在全黑期间切换", () => {
@@ -66,4 +68,17 @@ test("移动端后端与范围设备槽不受正文挤压，比三幕手机更�
   }
   assert.equal(mobileFeaturePhoneHeight(2000), 560);
   assert.equal(mobileFeaturePhoneHeight(300), 210);
+});
+
+test("移动端三幕吸附点落在整数幕，且都在面板固定期间", () => {
+  for (const height of [740, 875, 932]) {
+    const snaps = mobileStorySnaps(height, 3);
+    assert.equal(snaps.length, 3);
+    snaps.forEach((offset, i) => {
+      assert.ok(Math.abs(mobileStoryProgress(1000 + offset, 1000, height) - (i + 1)) < 1e-9);
+      assert.equal(readingOpacity(i + 1, i + 1), 1);
+    });
+    // 三幕区高 365svh，固定面板在剩余一屏前释放。
+    assert.ok(snaps[2] < height * 3.65 - height);
+  }
 });

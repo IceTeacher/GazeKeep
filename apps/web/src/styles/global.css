@@ -1933,3 +1933,36 @@ html {
     scroll-snap-stop: always;
   }
 }
+.story-snap {
+  display: none;
+}
+/*
+ * 移动端三幕逐幕吸附：三幕文案位于 sticky 面板内不能作为吸附目标，改由三幕区内的零高标记承担，脚本按视口高度定位到整数幕。
+ * 视口跨两个吸附区域时不是合法停靠，因此其余内容只用两个区域覆盖：首屏区域向下延伸到三幕区顶部（含工作流标题），
+ * 运行方式区域向下覆盖到页尾，区域内任意位置均合法，仍为连续滚动；紧凑与减少动态不启用。
+ */
+@media (max-width: 760px) {
+  :root:not([data-compact="true"]) {
+    scroll-padding-top: var(--header-h);
+    scroll-snap-type: y mandatory;
+  }
+  :root:not([data-compact="true"]) .story-snap {
+    display: block;
+    position: absolute;
+    left: 0;
+    width: 1px;
+    height: 0;
+    pointer-events: none;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+  :root:not([data-compact="true"]) .hero {
+    scroll-snap-align: start;
+    scroll-margin-top: calc(-1 * var(--header-h));
+    scroll-margin-bottom: var(--hero-snap-extend, 0px);
+  }
+  :root:not([data-compact="true"]) #backends {
+    scroll-snap-align: start;
+    scroll-margin-bottom: 100000px;
+  }
+}

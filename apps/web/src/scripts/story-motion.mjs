@@ -132,6 +132,20 @@ export function sceneState(progress, mobile = false, width = 1280) {
   };
 }
 
+/** 移动端三幕每幕占 0.95 屏滚动距离，进入三幕区时位于半幕。 */
+const MOBILE_STEP = 0.95;
+/** @param {number} scrollY @param {number} storyTop @param {number} viewport */
+export function mobileStoryProgress(scrollY, storyTop, viewport) {
+  return 0.5 + (scrollY - storyTop) / (viewport * MOBILE_STEP);
+}
+/**
+ * 移动端三幕吸附点：相对三幕区顶部的滚动偏移，停靠时进度恰为整数幕。
+ * @param {number} viewport @param {number} count
+ */
+export function mobileStorySnaps(viewport, count) {
+  return Array.from({ length: count }, (_, i) => (i + 0.5) * viewport * MOBILE_STEP);
+}
+
 /** 为系统导航、设备和最长正文保留互不相交的阅读区域。 */
 export function mobileReadingLayout(height, copyHeight) {
   const available = height - 60;
