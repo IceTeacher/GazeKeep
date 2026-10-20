@@ -1,1 +1,34 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body,#showcase{width:100%;height:100%;margin:0;overflow:hidden}body{background:#101318}</style></head><body><div id="showcase"></div><script>Object.defineProperty(navigator,"languages",{configurable:true,get:()=>[window.parent.document.documentElement.lang]});const attempt=Number(new URLSearchParams(location.search).get("attempt"));const reportError=()=>window.parent.dispatchEvent(new CustomEvent("gazekeep:error",{detail:{attempt}}));window.addEventListener("error",reportError);window.addEventListener("unhandledrejection",reportError);</script><!--SHOWCASE_ENTRY--></body></html>
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <style>
+      html,
+      body,
+      #showcase {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+      }
+      body {
+        background: #101318;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="showcase"></div>
+    <script>
+      Object.defineProperty(navigator, "languages", {
+        configurable: true,
+        get: () => [window.parent.document.documentElement.lang],
+      });
+      const attempt = Number(new URLSearchParams(location.search).get("attempt"));
+      const reportError = () => window.parent.dispatchEvent(new CustomEvent("gazekeep:error", { detail: { attempt } }));
+      window.addEventListener("error", reportError);
+      window.addEventListener("unhandledrejection", reportError);
+    </script>
+    <!--SHOWCASE_ENTRY-->
+  </body>
+</html>
