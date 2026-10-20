@@ -30,7 +30,7 @@ export const en = {
       {
         title: "Still looking? Keep reading.",
         text: "When you are facing the screen, GazeKeep delays sleep. Stay with the article, document or recipe in front of you.",
-        route: "home",
+        route: "privacy",
         state: "gaze_detected",
         effect: "screen-glow",
       },

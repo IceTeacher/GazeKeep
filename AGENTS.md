@@ -37,3 +37,14 @@
 - 相关工程或模块门禁、文档/资产检查和 `git diff --check` 通过，或如实记录缺失条件、替代检查与剩余风险；不把未执行或跳过写成通过。
 - Diff 中没有敏感信息、临时产物或无关修改；[docs/plans/todo.md](docs/plans/todo.md) 只保留未完成事项与本次验证、未运行项和风险，不累积历史流水。
 - 发布说明记录对应版本的验证环境、依赖版本与实际验收结果，不能从构建或隔离测试推断兼容性。
+
+<!-- BEGIN:turborepo-agent-rules -->
+
+# This is NOT the Turborepo you know
+
+Turborepo configuration, task behavior, and CLI commands can vary between installed versions and may differ from your training data. Resolve the `turbo` package from this file's directory or relevant workspace; in monorepos, it may not be visible from the repository root. For example, run `node -p "require.resolve('turbo/package.json')"` from a workspace that depends on `turbo`.
+
+Read `docs/README.md` inside that installed package first, then read the relevant pages from its `docs/` directory before changing Turborepo configuration or commands. Heed deprecation notices. These bundled docs match the installed package version and are available without network access.
+
+This block is written and re-added by `turbo` before repository-scoped commands when an AI agent is detected. In the Turborepo source repository, its template is defined in `crates/turborepo-cli/src/cli/agent_guidance.rs`. Removing the managed block while updates are enabled means a later qualifying invocation will add it again. Set `"agentGuidance": false` in the root `turbo.json` or `turbo.jsonc` to opt out; this does not remove an existing block. Keep the block committed with your work to avoid an uncommitted change on the next agent invocation.
+<!-- END:turborepo-agent-rules -->

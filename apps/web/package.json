@@ -6,7 +6,7 @@
     "node": ">=22.22.0"
   },
   "scripts": {
-    "dev": "node scripts/sync-kmp-strings.mjs && astro dev --background",
+    "dev": "node scripts/sync-kmp-strings.mjs && astro dev --host",
     "build": "node scripts/build.mjs",
     "preview": "astro preview --host 127.0.0.1",
     "astro": "astro",
@@ -19,11 +19,13 @@
     "astro": "^7.4.0",
     "gsap": "^3.14.0",
     "shaders": "4.0.4",
-    "tailwindcss": "^4.0.0"
+    "tailwindcss": "^4.0.0",
+    "three": "^0.186.1"
   },
   "private": true,
   "devDependencies": {
     "@astrojs/check": "0.9.10",
+    "@types/three": "^0.186.0",
     "prettier-plugin-astro": "^1.1.1",
     "typescript": "^5.9.0"
   }

@@ -28,7 +28,7 @@ export const zh = {
       {
         title: "你还在看，就继续亮着。",
         text: "检测到正视屏幕后延后熄屏。阅读长文、查阅文档、照着菜谱下厨，把注意力留给眼前。",
-        route: "home",
+        route: "privacy",
         state: "gaze_detected",
         effect: "screen-glow",
       },

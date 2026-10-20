@@ -51,3 +51,29 @@ export function createShowcaseState() {
     },
   };
 }
+
+/** 仅当前路由请求的绘制回执可以揭开屏幕。 */
+export function createRenderGate() {
+  let revision = 0,
+    route = "",
+    rendered = false;
+  return {
+    request(next) {
+      route = next;
+      rendered = false;
+      return ++revision;
+    },
+    accept(next, id) {
+      if (next !== route || id !== revision) return false;
+      rendered = true;
+      return true;
+    },
+    ready(next) {
+      return rendered && next === route;
+    },
+    reset() {
+      rendered = false;
+      revision++;
+    },
+  };
+}

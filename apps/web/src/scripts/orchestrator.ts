@@ -1,8 +1,10 @@
-import { createShowcaseState, createShowcaseAttempts, chooseRuntime } from "./showcase-state.mjs";
-import { initScrollSnap } from "./scroll-snap";
+import { createShowcaseState, createShowcaseAttempts, createRenderGate, chooseRuntime } from "./showcase-state.mjs";
+import { initStoryScroll } from "./story-scroll";
+import { initCameraHalo } from "./camera-halo";
+import { initPhoneDisplay } from "./phone-display";
 import type { DemoState, KmpRoute } from "../data/schema";
 interface Bridge {
-  setScreen(route: string): void;
+  setScreen(route: string, revision?: number): void;
   setDemoStatus(status: string): void;
   setLocaleAndTheme(locale: string, dark: boolean): void;
 }
@@ -12,8 +14,6 @@ export function initWebsite() {
   if (initialized) return;
   initialized = true;
   const disposers: (() => void)[] = [];
-  const transitions = new Set<Animation>();
-  disposers.push(() => transitions.forEach((animation) => animation.cancel()));
   let disposed = false;
   const content = JSON.parse(document.querySelector("#showcase-content")!.textContent!) as {
     locale: string;
@@ -21,31 +21,36 @@ export function initWebsite() {
     loading: string;
   };
   const state = createShowcaseState();
+  const renderGate = createRenderGate();
+  let requestedRoute = "",
+    renderTimeout: ReturnType<typeof setTimeout> | undefined;
   const frame = document.querySelector<HTMLIFrameElement>("#kmp-frame")!;
   const screen = document.querySelector<HTMLElement>(".phone-screen")!;
   const phone = document.querySelector<HTMLElement>("#phone-chassis")!;
   const placeholder = document.querySelector<HTMLElement>("#phone-placeholder")!;
-  const recovery = document.querySelector<HTMLElement>(".demo-recovery")!;
+  const recovery = document.querySelector<HTMLButtonElement>("#retry-showcase")!;
   const message = document.querySelector<HTMLElement>("#load-message")!;
   const statusLabel = document.querySelector<HTMLElement>("#demo-status")!;
   const reduce = matchMedia("(prefers-reduced-motion: reduce)");
   const systemTheme = matchMedia("(prefers-color-scheme: dark)");
-  // 固定真实排版视口，再缩放显示；外壳变窄时不改变 Compose 的 dp 布局。
-  const viewport = document.querySelector<HTMLElement>(".phone-viewport")!;
-  const fitViewport = () => {
-    const scale = Math.min(viewport.clientWidth / 392, viewport.clientHeight / 784);
-    frame.style.setProperty("--kmp-scale", String(scale));
-  };
-  const viewportObserver = new ResizeObserver(fitViewport);
-  viewportObserver.observe(viewport);
-  fitViewport();
-  disposers.push(() => viewportObserver.disconnect());
-  disposers.push(initScrollSnap(() => reduce.matches));
+  const phoneDisplay = initPhoneDisplay();
+  disposers.push(() => phoneDisplay.dispose());
+  disposers.push(initCameraHalo());
   function listen(target: EventTarget, type: string, fn: EventListener, options?: AddEventListenerOptions) {
     target.addEventListener(type, fn, options);
     disposers.push(() => target.removeEventListener(type, fn, options));
   }
+  listen(document.querySelector(".explore")!, "click", ((event: MouseEvent) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    if (location.hash !== "#workflow") history.pushState(null, "", "#workflow");
+    document
+      .querySelector("#workflow")!
+      .scrollIntoView({ behavior: reduce.matches ? "instant" : "smooth", block: "start" });
+  }) as EventListener);
+  let updateShaderTheme = () => {};
   const setAppearance = () => {
+    updateShaderTheme();
     state.update({ locale: content.locale, dark: document.documentElement.dataset.theme === "dark" });
     if (frame.contentDocument?.documentElement) frame.contentDocument.documentElement.lang = content.locale;
   };
@@ -89,7 +94,11 @@ export function initWebsite() {
       document.querySelectorAll("[data-backend]").forEach((c) => c.setAttribute("aria-pressed", String(c === card)));
       sync("backend", `backend_${card.dataset.backend}` as DemoState);
     };
-    ["mouseenter", "focus", "click"].forEach((event) => listen(card, event, activate));
+    listen(card, "click", activate);
+    listen(card, "focus", activate);
+    listen(card, "mouseenter", () => {
+      if (matchMedia("(hover:hover)").matches) activate();
+    });
     listen(card, "pointermove", ((event: PointerEvent) => {
       const box = card.getBoundingClientRect();
       card.style.setProperty("--mouse-x", `${event.clientX - box.left}px`);
@@ -111,6 +120,8 @@ export function initWebsite() {
   function failed(attempt: number) {
     if (!attempts.fail(attempt)) return;
     clearTimeout(timeout);
+    clearTimeout(renderTimeout);
+    screen.dataset.ready = "false";
     if (runtime === "wasm") {
       runtime = "js";
       load();
@@ -120,11 +131,15 @@ export function initWebsite() {
     recovery.hidden = false;
     message.textContent = content.locale === "zh" ? "界面暂时不可用" : "Interface unavailable";
     placeholder.querySelector(".loader")?.setAttribute("hidden", "");
+    window.dispatchEvent(new Event("gazekeep:scene-ready"));
   }
   function load() {
     if (disposed) return;
     clearTimeout(timeout);
     state.loading();
+    renderGate.reset();
+    requestedRoute = "";
+    clearTimeout(renderTimeout);
     recovery.hidden = true;
     screen.dataset.ready = "false";
     message.textContent = content.loading;
@@ -139,92 +154,83 @@ export function initWebsite() {
     if (!bridge) return;
     clearTimeout(timeout);
     (window as DemoWindow).GazeKeepWebShowcaseBridge = bridge;
-    state.attach(bridge);
+    state.attach({
+      ...bridge,
+      setScreen(route: string) {
+        if (requestedRoute === route) return;
+        requestedRoute = route;
+        const revision = renderGate.request(route);
+        bridge.setScreen(route, revision);
+        clearTimeout(renderTimeout);
+        renderTimeout = setTimeout(() => failed(event.detail.attempt), 8000);
+      },
+    });
     setAppearance();
     screen.dataset.ready = "true";
     recovery.hidden = true;
+  }) as EventListener);
+  listen(window, "gazekeep:rendered", ((event: CustomEvent<{ attempt: number; route: string; revision: number }>) => {
+    const d = event.detail;
+    if (!attempts.ready(d?.attempt) || !renderGate.accept(d.route, d.revision)) return;
+    clearTimeout(renderTimeout);
+    window.dispatchEvent(new Event("gazekeep:scene-ready"));
   }) as EventListener);
   listen(window, "gazekeep:error", ((event: CustomEvent<{ attempt: number }>) => {
     failed(event.detail?.attempt);
   }) as EventListener);
   listen(document.querySelector("#retry-showcase")!, "click", load);
+  const retryHit = document.querySelector<HTMLButtonElement>("#retry-hit")!;
+  listen(retryHit, "click", load);
+  const menu = document.querySelector<HTMLButtonElement>("#menu-toggle")!;
+  const nav = document.querySelector<HTMLElement>(".nav-wrap")!;
+  const closeMenu = () => {
+    menu.setAttribute("aria-expanded", "false");
+    nav.dataset.menu = "false";
+  };
+  listen(menu, "click", () => {
+    const open = menu.getAttribute("aria-expanded") !== "true";
+    menu.setAttribute("aria-expanded", String(open));
+    nav.dataset.menu = String(open);
+  });
+  document.querySelectorAll(".mobile-menu a").forEach((a) => listen(a, "click", closeMenu));
+  listen(window, "keydown", ((e: KeyboardEvent) => {
+    if (e.key === "Escape" && menu.getAttribute("aria-expanded") === "true") {
+      closeMenu();
+      menu.focus();
+    }
+  }) as EventListener);
+  let hitRaf = 0;
+  const updateChrome = () => {
+    cancelAnimationFrame(hitRaf);
+    nav.dataset.scrolled = String(scrollY > 20);
+    const button = document.querySelector<HTMLElement>("#retry-showcase")!;
+    const box = button.getBoundingClientRect();
+    retryHit.hidden =
+      button.hidden ||
+      box.bottom < 72 ||
+      box.top > innerHeight ||
+      getComputedStyle(document.querySelector(".screen-dim")!).opacity === "1";
+    retryHit.style.left = `${box.left + box.width / 2}px`;
+    retryHit.style.top = `${box.top + box.height / 2}px`;
+    if (!button.hidden && !document.hidden) hitRaf = requestAnimationFrame(updateChrome);
+  };
+  listen(window, "scroll", updateChrome, { passive: true });
+  listen(window, "resize", updateChrome);
+  listen(window, "gazekeep:scene-ready", updateChrome);
+  listen(document, "visibilitychange", updateChrome);
+  updateChrome();
+  disposers.push(() => cancelAnimationFrame(hitRaf));
+
   const fallbackTimeout = window.setTimeout.bind(window);
   const idle =
     "requestIdleCallback" in window ? window.requestIdleCallback(load, { timeout: 1500 }) : fallbackTimeout(load, 600);
   disposers.push(() => {
     clearTimeout(timeout);
+    clearTimeout(renderTimeout);
     if ("cancelIdleCallback" in window) window.cancelIdleCallback(idle);
     else clearTimeout(idle);
   });
-  // 以一个设备实例贯穿桌面叙事，移动端保持完整内容与自然滚动。
-  const targets = document.querySelectorAll<HTMLElement>("#hero, .story-step, #backends, #whitelist");
-  const observer = new IntersectionObserver(
-    (entries) => {
-      const visible = entries
-        .filter((e) => e.isIntersecting)
-        .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-      if (!visible) return;
-      const el = visible.target as HTMLElement;
-      document.querySelectorAll(".story-step").forEach((step) => step.classList.toggle("is-active", step === el));
-      if (el.id === "backends") {
-        const selected = el.querySelector<HTMLElement>("[aria-pressed=true]");
-        sync("backend", `backend_${selected?.dataset.backend ?? "lsposed"}` as DemoState);
-      } else sync(el.dataset.route as KmpRoute, el.dataset.status as DemoState, el.dataset.effect);
-    },
-    { rootMargin: "-25% 0px -35% 0px", threshold: [0, 0.2, 0.5, 1] },
-  );
-  targets.forEach((el) => observer.observe(el));
-  disposers.push(() => observer.disconnect());
-  async function motion() {
-    if (reduce.matches) return;
-    const [{ default: gsap }, { ScrollTrigger }] = await Promise.all([import("gsap"), import("gsap/ScrollTrigger")]);
-    if (disposed) return;
-    gsap.registerPlugin(ScrollTrigger);
-    const media = gsap.matchMedia();
-    media.add("(prefers-reduced-motion: no-preference)", () => {
-      const context = gsap.context(() => {
-        gsap.matchMedia().add("(min-width: 761px)", () => {
-          gsap.to(phone, {
-            rotateX: 0,
-            rotateY: 0,
-            rotateZ: 0,
-            ease: "none",
-            scrollTrigger: { trigger: "#hero", start: "top top", end: "bottom 30%", scrub: true },
-          });
-        });
-      });
-      return () => {
-        context.revert();
-      };
-    });
-    disposers.push(() => media.revert());
-  }
-  listen(window, "gazekeep:snapstart", ((event: CustomEvent<{ top: number }>) => {
-    if (reduce.matches) return;
-    const top = event.detail.top;
-    document
-      .querySelectorAll<HTMLElement>("h1, .section-heading, .story-step h3, .story-step p, .faq-section > h2")
-      .forEach((el) => {
-        const position = el.getBoundingClientRect().top + scrollY;
-        if (position >= top - 20 && position < top + innerHeight) {
-          const animation = el.animate(
-            [
-              { opacity: 0.65, transform: "translateY(16px)" },
-              { opacity: 1, transform: "translateY(0)" },
-            ],
-            { duration: 700, easing: "cubic-bezier(.22,1,.36,1)" },
-          );
-          transitions.add(animation);
-          animation.finished.then(
-            () => transitions.delete(animation),
-            () => transitions.delete(animation),
-          );
-        }
-      });
-  }) as EventListener);
-  void motion().catch(() => {
-    // 动效资源加载失败时继续使用原生滚动与步骤观察器。
-  });
+  disposers.push(initStoryScroll(sync, phoneDisplay.update, (route) => renderGate.ready(route)));
   async function shader() {
     const canvas = document.querySelector<HTMLCanvasElement>("#hero-shader")!;
     const hero = document.getElementById("hero")!;
@@ -236,11 +242,12 @@ export function initWebsite() {
     const tick = (now: number) => {
       if (last) elapsed += (now - last) / 1000;
       last = now;
-      instance?.update("gaze-gradient", { angle: Math.sin(elapsed * 0.4) * 55 });
+      instance?.update("gaze-gradient", { angle: 120 + Math.sin(elapsed * 0.16) * 65 });
       raf = requestAnimationFrame(tick);
     };
     const update = () => {
       const running = visible && !document.hidden && !reduce.matches;
+      canvas.hidden = reduce.matches;
       hero.dataset.motionPaused = String(!running);
       cancelAnimationFrame(raf);
       last = 0;
@@ -266,17 +273,59 @@ export function initWebsite() {
       cancelAnimationFrame(raf);
       instance?.destroy();
     });
-    if (reduce.matches || !("gpu" in navigator)) return;
+    const palette = () =>
+      document.documentElement.dataset.theme === "dark"
+        ? { colorA: "#080d18", colorB: "#377e68" }
+        : { colorA: "#f4f7fa", colorB: "#b4d5c7" };
+    updateShaderTheme = () => {
+      const colors = palette();
+      instance?.update("gaze-gradient", colors);
+      instance?.update("gaze-noise", colors);
+      instance?.update("gaze-prism", { beamColor: colors.colorB });
+      instance?.update("gaze-cursor", colors);
+    };
+    if (!("gpu" in navigator)) return;
     try {
       const { createShader } = await import("shaders/js");
       if (disposed) return;
-      instance = await createShader(canvas, {
-        components: [
-          { id: "gaze-gradient", type: "LinearGradient", props: { colorA: "#080d18", colorB: "#293359" } },
-          { type: "SimplexNoise", props: { scale: 1.7, speed: 0.65 } },
-          { type: "CursorTrail", props: { radius: 0.22, softness: 0.85 } },
-        ],
-      });
+      instance = await createShader(
+        canvas,
+        {
+          components: [
+            { id: "gaze-gradient", type: "LinearGradient", props: { ...palette(), angle: 120 } },
+            { id: "gaze-noise", type: "SimplexNoise", props: { ...palette(), scale: 2.4, speed: 0.22, opacity: 0.16 } },
+            {
+              id: "gaze-prism",
+              type: "Prism",
+              props: {
+                position: { x: 0.1, y: 0.8 },
+                splitPosition: { x: 0.56, y: 0.35 },
+                beamColor: palette().colorB,
+                beamWidth: 0.06,
+                saturation: 0.08,
+                intensity: 1.3,
+                spread: 0.45,
+                speed: 0.08,
+                opacity: 0.4,
+              },
+            },
+            { type: "WaveDistortion", props: { strength: 0.12, frequency: 2.2, speed: 0.18, angle: 35 } },
+            {
+              id: "gaze-cursor",
+              type: "CursorTrail",
+              props: { ...palette(), radius: 0.5, length: 0.4, softness: 0.9, opacity: 0.2 },
+            },
+          ],
+        },
+        {
+          disableTelemetry: true,
+          onError: (reason) => {
+            canvas.dataset.failureReason = reason;
+            canvas.dataset.fallback = "true";
+            canvas.style.opacity = "0";
+          },
+        },
+      );
       if (disposed) {
         instance.destroy();
         return;
@@ -288,6 +337,7 @@ export function initWebsite() {
         canvas.style.opacity = "0";
         return;
       }
+      updateShaderTheme();
       update();
     } catch {
       canvas.dataset.fallback = "true";

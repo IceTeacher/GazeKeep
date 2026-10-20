@@ -1,0 +1,23 @@
+<svg class="grip-layer grip-front" aria-hidden="true" overflow="visible">
+  <defs>
+    <clipPath id="grip-palm-window">
+      <path data-grip-path="palmWindow" />
+    </clipPath>
+    <mask
+      id="grip-occlusion"
+      maskUnits="userSpaceOnUse"
+      x="-10000"
+      y="-10000"
+      width="20000"
+      height="20000"
+      style="mask-type:luminance"
+    >
+      <rect x="-10000" y="-10000" width="20000" height="20000" fill="white" />
+      <path data-grip-path="occluder" fill="black" />
+      <path data-grip-path="contacts" fill="white" />
+      <path data-grip-path="protection" fill="black" />
+      <path data-grip-path="palmContact" fill="white" clip-path="url(#grip-palm-window)" />
+    </mask>
+  </defs>
+  <path data-grip-path="silhouette" fill="#ed9da0" fill-rule="nonzero" mask="url(#grip-occlusion)" />
+</svg>
