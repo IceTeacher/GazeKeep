@@ -9,6 +9,8 @@ androidx-lifecycle = "2.11.0"
 composeMultiplatform = "1.12.1"
 junit = "4.13.2"
 robolectric = "4.17"
+roborazzi = "1.76.0"
+androidx-compose-uiTest = "1.12.1"
 kotlin = "2.4.20"
 miuix = "0.9.4"
 datastore = "1.2.1"
@@ -30,6 +32,10 @@ kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotl
 kotlin-testJunit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
 junit = { module = "junit:junit", version.ref = "junit" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
+roborazzi = { module = "io.github.takahirom.roborazzi:roborazzi", version.ref = "roborazzi" }
+roborazzi-compose = { module = "io.github.takahirom.roborazzi:roborazzi-compose", version.ref = "roborazzi" }
+androidx-compose-uiTestJunit4 = { module = "androidx.compose.ui:ui-test-junit4", version.ref = "androidx-compose-uiTest" }
+androidx-compose-uiTestManifest = { module = "androidx.compose.ui:ui-test-manifest", version.ref = "androidx-compose-uiTest" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidx-core" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
 compose-uiTooling = { module = "org.jetbrains.compose.ui:ui-tooling", version.ref = "composeMultiplatform" }

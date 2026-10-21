@@ -31,7 +31,7 @@
 | `../docs/architecture/engine.md`                 | 决策架构 | 修改 reducer、时序、前台来源、退避或保亮上限时                                                                                                | 持续维护 | 2026-10-14 |
 | `../docs/architecture/capture-classification.md` | 检测架构 | 修改 CameraX、传感器门控、ML Kit、阈值或投票时                                                                                                | 持续维护 | 2026-10-14 |
 | `../docs/architecture/web/website.md`            | 官网架构 | 修改 Astro 双语官网、连续叙事、立体设备、KMP 展示、视觉联动、页面样式、桌面与移动端滚动吸附、滚动性能、首屏加载或 Cloudflare Pages 托管部署时 | 持续维护 | 2026-10-22 |
-| `../docs/architecture/ui.md`                     | UI 架构  | 修改页面、导航、日志、自检、平台契约或应用列表时                                                                                              | 持续维护 | 2026-10-18 |
+| `../docs/architecture/ui.md`                     | UI 架构  | 修改页面、导航、日志、自检、平台契约、应用列表或界面截图基线时                                                                                | 持续维护 | 2026-10-18 |
 | `../docs/architecture/backends/a11y.md`          | 后端架构 | 修改无障碍事件、Hold 或空闲时钟时                                                                                                             | 持续维护 | 2026-10-13 |
 | `../docs/architecture/backends/shizuku.md`       | 后端架构 | 修改 shell Binder、独立前台来源或同步超时恢复时                                                                                               | 持续维护 | 2026-10-08 |
 | `../docs/architecture/backends/lsposed.md`       | 后端架构 | 修改系统候选、入口兼容、前台来源、seq、指示器或打包时                                                                                         | 持续维护 | 2026-10-16 |

@@ -19,4 +19,4 @@ pnpm verify:architecture
 pnpm --filter @gazekeep/app exec ./gradlew :shared:testAndroidHostTest
 ```
 
-当前 host task 覆盖许可文本搜索的纯逻辑，没有 UI 行为测试。需运行真实页面场景，不能将此任务成功当验收；本轮不新建 UI 测试依赖。
+host task 覆盖许可文本搜索、字符串资源一致性，以及基于 Robolectric、Compose UI 测试与 Roborazzi 截图基线的页面交互；改动页面外观时按[测试规范](../../../docs/development/testing.md#界面与视觉入口)录制并逐张核对基线。主机渲染不代表真实 ROM，页面与相机释放仍需实机场景，不能将此任务成功当验收。测试数据与截图只用虚构样本，自检预览使用占位块。

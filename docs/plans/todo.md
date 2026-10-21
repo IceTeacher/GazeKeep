@@ -24,7 +24,7 @@
 - app 单元测试：现有 40 个 Kotlin 测试经审查均保留；`PowerDumpOracleTest` 改用 `kotlinx-coroutines-test`（1.10.2，与 coroutines 核心版本一致）虚拟时间，为此给 `PowerDumpOracle` 增加可注入轮询调度器；`SystemInfoFormatterTest` 改用虚构设备样本并补空字段边界；android 模块统一为 kotlin.test。新增 `LsposedKeepAwakeBackendTest`（Robolectric 4.17，9 项，生产构造函数不变，内部构造函数注入 Binder 解析）与 shared `StringResourcesTest`（自 web 迁入）。均先确认旧实现失败（缺少注入点编译失败；改坏 STALE 映射、协议版本校验与英文占位符后对应用例失败）。
 - 主机验证：`pnpm --filter @gazekeep/app verify`（Debug 组装、lint、246 项主机测试，失败/跳过 0）、ktlint/TOML 检查、31 项仓库工具测试、repo-tools lint 与架构检查通过。未执行：设备与实机验收。
 - [ ] 修复 Kotlin/JS 依赖安装：Kotlin Gradle 插件下载的 Yarn 1.22.22 向上读取仓库根 `package.json` 的 `packageManager: pnpm@11.7.0` 后中止，`:kotlinNpmInstall` 失败，进而阻断 `:core:allTests` 等 JS/Wasm 任务；在未改动的 HEAD 上同样复现，与本次无关。本次验证临时设置 `SKIP_YARN_COREPACK_CHECK=1` 绕过。
-- [ ] `shared/androidHostTest` 建立 Robolectric、Compose UI 测试与 Roborazzi 截图基线。
+- app 界面与视觉：`shared/androidHostTest` 新增 22 项交互用例与 11 张 Roborazzi 1.76.0 截图（Robolectric 4.17、androidx Compose ui-test 1.12.1，均只进入测试配置），驱动真实 `App` 入口。已用临时改坏实现确认失败（离页不取消自检、首页工作态配色）；校验模式连续两次通过。`pnpm --filter @gazekeep/app verify`（275 项主机测试，失败 0）与 Debug APK 静态门禁通过。未执行：真实 ROM 渲染、厂商字体、系统栏与大字号实机对比。
 - [ ] `android/src/androidTest` 建立 UiAutomator 实机套件；设备运行另需授权，未运行前不计作通过。
 
 ## 官网本次验证（2026-10-20）

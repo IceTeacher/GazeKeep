@@ -55,7 +55,7 @@ pnpm --filter web test:browser
 ```
 
 - web：Vitest `browser` project 在无头 Chromium 中运行。测试前由独立 Astro 开发服务渲染中英真实页面，浏览器侧注入 body 后调用 `initWebsite()`，以 `pagehide` 走页面自身的清理路径；KMP 内屏由 `tests/browser/fixtures/showcase.html` 按真实桥接协议模拟就绪、绘制与失败，不依赖 KMP 构建。截图基线位于 `apps/web/tests/browser/__screenshots__/`，按浏览器与平台命名，只覆盖页面排版并隐藏 WebGL 机身；有意改版时删除对应基线后重跑生成，逐张核对再提交。失败截图写入未提交的 `.vitest/`。
-- Android：尚未建立自动化界面或截图套件，页面按[页面场景](#分类与页面场景)人工验收。
+- Android：`:shared:testAndroidHostTest`（已含在 `pnpm --filter @gazekeep/app test`）用 Robolectric 4.17 原生图形模式运行真实 `App` 入口，controller 与 PlatformActions 为测试实现，统一 392×851dp、xhdpi。交互用例覆盖返回栈、自检进入/离开与预览释放、Unknown 不推进、Looking→Away 完成、首页启用与结果语言、应用列表搜索/选择/失败重试、保亮上限无限制和中英隐私三句；滚动容器内的点击使用语义 `OnClick`，因底部导航覆盖列表。Roborazzi 1.76.0 截图基线位于 `apps/app/shared/src/androidHostTest/screenshots/`（11 张，覆盖明暗、中英、1.3 倍字体与横屏），默认校验，有意改版时以 `./gradlew :shared:testAndroidHostTest -Pgazekeep.recordScreenshots=true` 重新录制并逐张核对；对比图写入 `shared/build/outputs/roborazzi/`。Robolectric 渲染不代表真实 ROM、厂商字体或系统栏，页面矩阵仍按[页面场景](#分类与页面场景)实机验收。
 
 ## 实机入口
 

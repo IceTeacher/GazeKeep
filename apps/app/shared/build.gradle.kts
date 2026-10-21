@@ -64,5 +64,28 @@ kotlin {
     commonTest.dependencies {
       implementation(libs.kotlin.test)
     }
+    getByName("androidHostTest").dependencies {
+      implementation(libs.kotlin.testJunit)
+      implementation(libs.junit)
+      implementation(libs.kotlinx.coroutines.test)
+      implementation(libs.robolectric)
+      implementation(libs.roborazzi)
+      implementation(libs.roborazzi.compose)
+      implementation(libs.androidx.activity.compose)
+      implementation(libs.androidx.compose.uiTestJunit4)
+      implementation(libs.androidx.compose.uiTestManifest)
+    }
+  }
+}
+
+// 截图基线随源码提交；默认校验，`-Pgazekeep.recordScreenshots=true` 时重新录制。
+val recordScreenshots = providers.gradleProperty("gazekeep.recordScreenshots").map { it == "true" }.orElse(false)
+tasks.withType<Test>().configureEach {
+  if (name.contains("HostTest")) {
+    val record = recordScreenshots.get()
+    systemProperty("roborazzi.test.record", record.toString())
+    systemProperty("roborazzi.test.verify", (!record).toString())
+    // Robolectric 的 Parcel/FileDescriptor 拦截需要访问 JDK 内部 API。
+    jvmArgs("--add-opens=java.base/jdk.internal.access=ALL-UNNAMED")
   }
 }
