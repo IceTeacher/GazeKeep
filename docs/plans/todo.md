@@ -33,6 +33,14 @@
 - `packageManager` 由 pnpm 11.7.0 升至 12.14.0（当时 `latest`，发布 7 天）；本机 11.7.0 自动切换到锁定版本，未修改全局安装。锁文件只新增首段 pnpm 自身二进制的完整性记录，依赖解析不变；`--no-frozen-lockfile` 重解析无变化。已核对 12.0.0 不兼容变更：仓库无 git 依赖，`--frozen-lockfile` 不带值使用，工作区设置均被识别。
 - 验证：冻结安装与供应链策略检查、Hook 自检、31 项仓库工具测试、文档/Agent 资产/架构检查、全仓格式与 lint、官网 64 项测试、lint、类型检查与 `build:site`、`pnpm --filter @gazekeep/app verify` 均通过。未执行：其他平台与 CI 环境。
 
+## CI 流水线（2026-10-22）
+
+- 新增 GitHub Actions 流水线，使用托管 runner：改动范围判断、仓库门禁、Android 主机门禁、官网完整构建，以及官网 Pages 预览与生产发布（含冒烟和 PR 评论）、tag 的 Release APK 门禁。官网仍用 Cloudflare Pages Direct Upload；k3s 与 GitOps 仓库不接入（当前没有服务端负载）。已用 `gh` 创建 Environment `web-preview` 与 `web-production`（后者仅允许 `main`），写入项目名、站点地址、账号 ID 与 Pages API token。
+- 新增 `ci-changes.ts`、`check-web-deploy.ts` 及 5 项测试，先确认模块缺失时失败。冒烟脚本对现网 `https://gazekeep.rainafter.cn` 通过；实测发现 Pages 会把 `index.html` 308 跳到目录地址，因此探测改为目录地址。
+- 本地验证：36 项仓库工具测试、repo-tools lint、文档/Agent 资产/架构检查、全仓格式、`git diff --check`、actionlint 1.7.12（含 shellcheck 0.11.0）均通过，`main..dev` 区间 commitlint 通过；Wrangler 输出解析、版本提取与评论正文已用本地样本模拟。
+- [ ] 推送后核对首次真实运行：托管 runner 上的 Android SDK 37 平台自动安装、`app` 门禁与官网 KMP 构建耗时、Playwright 浏览器测试、`dev` 预览、PR 评论原地更新，以及 `main` 生产发布与冒烟。以上均未在 CI 中执行，不计作通过。
+- [ ] 首个 `v*` tag 核对 unsigned Release 的 APK 门禁（托管镜像的 `apkanalyzer` 与 `aapt2`）；正式签名 secret 与 GitHub Release 自动化待授权后再接入。
+
 ## 官网本次验证（2026-10-20）
 
 - 根路径跳转：原 `index.astro` 依靠 meta refresh 跳转，浏览器会先渲染“进入 GazeKeep 官网”链接页。改为 `public/_redirects` 的 `/ /zh/ 302` 服务端跳转，兜底页加 `noindex`/`canonical` 并使用站点深色底。新增 1 项测试（缺少 `_redirects` 时先失败）；49 项官网 Node 测试、Astro 类型检查（0 错误）与 `build:site` 通过；本地 `wrangler pages dev dist` 中 `/` 返回 `302 Location: /zh/`，`/zh/`、`/en/` 返回 200。完整构建后已部署（预览 `https://4b331619.gazekeep.pages.dev`），线上 curl 复验 `https://gazekeep.pages.dev/` 返回 `302 location: /zh/`，`/zh/`、`/en/` 返回 200。未执行：真实浏览器观察跳转过程。

@@ -22,7 +22,7 @@ Release 启用 R8 与资源压缩。签名从 GAZEKEEP_STORE_FILE、GAZEKEEP_STO
 - 记录代码/APK 标识、设备与 ROM、后端/框架版本、系统超时、实际命中候选和未执行项，不从主机测试推断硬件通过。
 - 每个 Release 附实测范围、未测声明、隐私三句话、Root/非 Root 启用步骤、已知限制及需要重启的入口更新。
 
-未授权发布时交付本地可审查结果，不创建下载链接或上传安装包。
+未授权发布时交付本地可审查结果，不创建下载链接或上传安装包。`v*.*.*` tag 由流水线构建 Release 并执行 APK 静态门禁，产物仅作为 7 天的 workflow artifact 供评审，不创建 GitHub Release；未配置正式签名 secret 时为 unsigned APK，不可分发。规则见[持续集成](contributing.md#持续集成)。
 
 ## API 102 版本验收条件
 

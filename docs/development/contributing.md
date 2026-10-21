@@ -82,6 +82,25 @@ oxfmt 与 oxlint 配置位于仓库根（`.oxfmtrc.json`、`.oxlintrc.json`）�
 
 改 Android 依赖仍检查合并 Manifest 与 APK 权限，开发依赖不能进入 APK。Release 已启用 R8 与资源压缩；发布以[发布规范](release.md)为准，Debug 构建不代表 Release 或实机验收。
 
+## 持续集成
+
+`.github/workflows/pipeline.yml` 在 PR、`dev`/`main` 推送、`v*.*.*` tag 和手动触发时运行，全部使用 GitHub 托管 runner，不使用自建 runner。公共安装步骤位于 `.github/actions/setup`；第三方 action 固定到提交 SHA，workflow 默认只授予 `contents: read`。
+
+- `changes`：`scripts/repo-tools/scripts/ci-changes.ts` 按差异判断 Android 与官网是否受影响。根配置、锁文件、`.github/` 或基线未知（tag、手动触发、首次推送或强推）时全量回归；官网同时受 `apps/app/shared`、Gradle 根配置、版本目录与 Kotlin/JS 锁文件影响。
+- `repo`：始终运行 Hook、文档、Agent 资产、架构、全仓格式、repo-tools lint 与测试，并对本次提交区间执行 commitlint 与 `git diff --check`。
+- `app`：受影响时运行 `pnpm --filter @gazekeep/app verify`；实机套件不进入 CI。
+- `web`：受影响时完整构建官网（含 KMP Showcase），再运行测试、lint 与 `astro check`，产物交给发布 job 复用。发布规则见[官网架构](../architecture/web/website.md#六当前构建与后续验收)，冒烟由 `check-web-deploy.ts` 执行。
+- `release-apk`：tag 必须等于 `v<versionName>` 且位于 `main`；构建压缩 Release、执行 APK 静态门禁，并作为 artifact 保留 7 天。不创建 GitHub Release。未配置正式签名时产物为 unsigned，不可分发。
+
+公开仓库的 workflow 不写明文地址、项目名或凭据，配置集中在两个 GitHub Environment：
+
+| Environment      | 部署来源              | secret                                          | variable                                                 |
+| ---------------- | --------------------- | ----------------------------------------------- | -------------------------------------------------------- |
+| `web-preview`    | `dev` 推送、同仓库 PR | `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID` | `CLOUDFLARE_PAGES_PROJECT`                               |
+| `web-production` | 仅 `main`             | `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID` | `CLOUDFLARE_PAGES_PROJECT`、`GAZEKEEP_WEB_URL`（站点根） |
+
+Cloudflare token 只授予 Account › Cloudflare Pages:Edit。fork PR 拿不到 secret，只运行门禁；PR 评论权限只授予预览 job。
+
 ## APK 静态门禁
 
 `pnpm verify:apk --apk <APK路径> [--root <仓库路径>]` 检查实际 APK 的入口、版本、权限、反射类和品牌资源。依赖 PATH 中的 SDK `apkanalyzer` 与 ANDROID_HOME/ANDROID_SDK_ROOT 内稳定 build-tools 的 `aapt2`，不会自动安装工具。

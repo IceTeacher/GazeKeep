@@ -14,7 +14,7 @@ pnpm --filter web dev --host 127.0.0.1
 
 完整构建先运行 KMP Wasm/JS 分发任务，同步资源至 `public/kmp-showcase/`，然后校验隐私资源并生成静态页面。首次构建需要 JDK、Android SDK 与 Gradle/Node 依赖下载条件；Kotlin 内部 Yarn 与根 pnpm workspace 的检查冲突由构建脚本局部处理。
 
-开发服务沿用本地 `dev` 配置；`dev`、`check` 和 `build:site` 会先校验并同步隐私资源。纯官网修改已有 KMP 产物时可运行 `pnpm --filter web run build:site`；生产部署使用完整 `build`。在 Cloudflare 中首次创建 Pages 项目并登录后，运行 `pnpm --filter web run deploy`，会构建并直传到 `gazekeep` 项目，生产分支为 `main`。静态产物位于本目录 `dist/`。根路径 `/` 由 `public/_redirects` 在 Cloudflare Pages 服务端 302 跳转到 `/zh/`；`astro preview` 不读取该文件，会改用 `index.astro` 的兜底页跳转，可用 `pnpm --filter web exec wrangler pages dev dist` 验证服务端跳转。
+开发服务沿用本地 `dev` 配置；`dev`、`check` 和 `build:site` 会先校验并同步隐私资源。纯官网修改已有 KMP 产物时可运行 `pnpm --filter web run build:site`；生产部署使用完整 `build`。日常发布由 GitHub Actions 完成（预览、生产与冒烟规则见[官网架构](../../docs/architecture/web/website.md#六当前构建与后续验收)）；`pnpm --filter web run deploy` 仅用于本地应急，登录 Wrangler 后构建并直传到 `gazekeep` 项目的 `main` 分支。静态产物位于本目录 `dist/`。根路径 `/` 由 `public/_redirects` 在 Cloudflare Pages 服务端 302 跳转到 `/zh/`；`astro preview` 不读取该文件，会改用 `index.astro` 的兜底页跳转，可用 `pnpm --filter web exec wrangler pages dev dist` 验证服务端跳转。
 
 首次配置 Cloudflare Pages：
 

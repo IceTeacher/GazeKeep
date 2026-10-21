@@ -1,0 +1,339 @@
+name: pipeline
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - dev
+      - main
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pipeline-${{ github.event.pull_request.number || github.ref }}
+  # 只取消被新提交取代的 PR 运行；分支与 tag 的发布不中途打断。
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      app: ${{ steps.detect.outputs.app }}
+      web: ${{ steps.detect.outputs.web }}
+      full: ${{ steps.detect.outputs.full }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - id: detect
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          base='' head="$GITHUB_SHA"
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            base="$PR_BASE_SHA" head="$PR_HEAD_SHA"
+          elif [ "$GITHUB_EVENT_NAME" = push ] && [[ "$GITHUB_REF" == refs/heads/* ]]; then
+            base="$PUSH_BEFORE_SHA"
+          fi
+          # WHY：tag 与手动触发没有可信基线，空 base 由脚本按全量回归处理。
+          node scripts/repo-tools/scripts/ci-changes.ts --base "$base" --head "$head" --output "$GITHUB_OUTPUT"
+
+  repo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          java: "true"
+      - name: 准备本地工具与 Hook
+        run: |
+          set -euo pipefail
+          pnpm tools:setup
+          pnpm hooks:install
+          pnpm verify:hooks
+      - name: 文档、资产与架构
+        run: |
+          set -euo pipefail
+          pnpm verify:docs
+          pnpm verify:agent-assets
+          pnpm verify:architecture
+      - name: 格式、仓库工具 lint 与测试
+        run: |
+          set -euo pipefail
+          pnpm format:check
+          pnpm --filter @gazekeep/repo-tools lint
+          pnpm test:tools
+      - name: 提交信息与空白
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          to="$GITHUB_SHA"
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            from="$PR_BASE_SHA" to="$PR_HEAD_SHA"
+          elif [ "$GITHUB_EVENT_NAME" = push ] && [[ "$GITHUB_REF" == refs/heads/* ]] &&
+            [ -n "$PUSH_BEFORE_SHA" ] && ! [[ "$PUSH_BEFORE_SHA" =~ ^0+$ ]] &&
+            git cat-file -e "$PUSH_BEFORE_SHA^{commit}" 2>/dev/null; then
+            from="$PUSH_BEFORE_SHA"
+          else
+            # WHY：首次推送、强推、tag 与手动触发没有可用的 before；固定到主线共同祖先，避免空基线绕过门禁。
+            from="$(git merge-base origin/main "$to")"
+          fi
+          echo "commit range: $from..$to"
+          pnpm verify:commits --from "$from" --to "$to"
+          git diff --check "$from" "$to"
+
+  app:
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          java: "true"
+          gradle: "true"
+      # 主机门禁含 Debug 构建、lint、主机测试与实机套件编译；实机运行不进入 CI。
+      - run: pnpm --filter @gazekeep/app verify
+
+  web:
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          java: "true"
+          gradle: "true"
+      - name: 安装浏览器测试依赖
+        run: pnpm --filter web exec playwright install --with-deps chromium
+      # 完整构建先生成 KMP Showcase，再执行依赖其产物的测试与检查。
+      - name: 构建、测试与检查
+        run: |
+          set -euo pipefail
+          pnpm --filter web build
+          pnpm --filter web test
+          pnpm --filter web lint
+          pnpm --filter web check
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: web-dist
+          path: apps/web/dist
+          if-no-files-found: error
+          retention-days: 3
+
+  web-preview:
+    needs: [changes, repo, app, web]
+    # WHY：fork PR 拿不到 secret，只跑门禁；所有门禁通过（Android 未触发视为通过）才发布预览。
+    if: >-
+      always() &&
+      needs.repo.result == 'success' && needs.web.result == 'success' &&
+      (needs.app.result == 'success' || needs.app.result == 'skipped') &&
+      ((github.event_name == 'push' && github.ref == 'refs/heads/dev') ||
+      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: web-preview
+      url: ${{ steps.deploy.outputs.alias_url || steps.deploy.outputs.deployment_url }}
+    permissions:
+      contents: read
+      pull-requests: write
+    concurrency:
+      group: web-preview-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: web-dist
+          path: apps/web/dist
+      - id: deploy
+        name: 上传 Cloudflare Pages 预览
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID PAGES_PROJECT; do
+            if [ -z "${!name:-}" ]; then
+              echo "web-preview 环境缺少配置：$name" >&2
+              exit 1
+            fi
+          done
+          branch=dev
+          if [ -n "$PR_NUMBER" ]; then branch="pr-$PR_NUMBER"; fi
+          result="$RUNNER_TEMP/wrangler-output.ndjson"
+          WRANGLER_OUTPUT_FILE_PATH="$result" pnpm --filter web exec wrangler pages deploy dist \
+            --project-name "$PAGES_PROJECT" --branch "$branch" --commit-hash "$COMMIT_SHA" --commit-dirty=false
+          detail="$(jq -ec 'select(.type == "pages-deploy-detailed")' "$result")"
+          deployment_url="$(jq -er '.url' <<<"$detail")"
+          alias_url="$(jq -r '.alias // empty' <<<"$detail")"
+          echo "deployment_url=$deployment_url" >>"$GITHUB_OUTPUT"
+          echo "alias_url=$alias_url" >>"$GITHUB_OUTPUT"
+          {
+            echo "## 官网预览"
+            echo "- 分支别名：${alias_url:-未返回}"
+            echo "- 本次部署：$deployment_url"
+            echo "- 提交：\`$COMMIT_SHA\`"
+          } >>"$GITHUB_STEP_SUMMARY"
+      - name: 预览冒烟
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment_url }}
+        run: node scripts/repo-tools/scripts/check-web-deploy.ts --url "$DEPLOYMENT_URL"
+      - name: 更新 PR 预览评论
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment_url }}
+          ALIAS_URL: ${{ steps.deploy.outputs.alias_url }}
+        run: |
+          set -euo pipefail
+          marker='<!-- gazekeep-web-preview -->'
+          body="$(printf '%s\n' "$marker" '### 官网预览' '' '| 项目 | 内容 |' '| --- | --- |' \
+            "| 分支别名 | ${ALIAS_URL:-未返回} |" "| 本次部署 | $DEPLOYMENT_URL |" "| 提交 | \`$COMMIT_SHA\` |" \
+            '' '部署冒烟已通过；预览仅供评审，不代表真实浏览器或 WebGPU 渲染验收。')"
+          # 原地更新同一条评论，避免每次 push 都追加新评论。
+          comment_id="$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+            --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"$marker\"))) | .id" | head -n 1)"
+          if [ -n "$comment_id" ]; then
+            gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$comment_id" -f body="$body" >/dev/null
+          else
+            gh api --method POST "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" -f body="$body" >/dev/null
+          fi
+
+  web-production:
+    needs: [changes, repo, app, web]
+    if: >-
+      always() &&
+      needs.repo.result == 'success' && needs.web.result == 'success' &&
+      (needs.app.result == 'success' || needs.app.result == 'skipped') &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: web-production
+      url: ${{ vars.GAZEKEEP_WEB_URL }}
+    concurrency:
+      group: web-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: web-dist
+          path: apps/web/dist
+      - name: 发布 Cloudflare Pages 生产站
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT }}
+          WEB_URL: ${{ vars.GAZEKEEP_WEB_URL }}
+        run: |
+          set -euo pipefail
+          for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID PAGES_PROJECT WEB_URL; do
+            if [ -z "${!name:-}" ]; then
+              echo "web-production 环境缺少配置：$name" >&2
+              exit 1
+            fi
+          done
+          result="$RUNNER_TEMP/wrangler-output.ndjson"
+          WRANGLER_OUTPUT_FILE_PATH="$result" pnpm --filter web exec wrangler pages deploy dist \
+            --project-name "$PAGES_PROJECT" --branch main --commit-hash "$GITHUB_SHA" --commit-dirty=false
+          detail="$(jq -ec 'select(.type == "pages-deploy-detailed")' "$result")"
+          # WHY：项目生产分支若被改动，main 会落成预览；此时必须失败而不是误报已发布。
+          if [ "$(jq -r '.environment' <<<"$detail")" != production ]; then
+            echo "部署未进入生产环境：$(jq -c '{environment, production_branch}' <<<"$detail")" >&2
+            exit 1
+          fi
+          {
+            echo "## 官网生产发布"
+            echo "- 站点：$WEB_URL"
+            echo "- 本次部署：$(jq -r '.url' <<<"$detail")"
+            echo "- 提交：\`$GITHUB_SHA\`"
+          } >>"$GITHUB_STEP_SUMMARY"
+      - name: 生产冒烟
+        env:
+          WEB_URL: ${{ vars.GAZEKEEP_WEB_URL }}
+        run: node scripts/repo-tools/scripts/check-web-deploy.ts --url "$WEB_URL"
+
+  release-apk:
+    needs: [repo, app]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          java: "true"
+          gradle: "true"
+      - name: 核对 tag 与版本
+        run: |
+          set -euo pipefail
+          version="$(sed -nE 's/^[[:space:]]*versionName = "([^"]+)".*/\1/p' apps/app/android/build.gradle.kts)"
+          test -n "$version"
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "tag $GITHUB_REF_NAME 与 versionName $version 不一致" >&2
+            exit 1
+          fi
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+      # 未配置正式签名 secret 时产出 unsigned APK，只供静态门禁与评审，不可分发。
+      - name: 构建 Release 并执行 APK 门禁
+        id: apk
+        run: |
+          set -euo pipefail
+          pnpm --filter @gazekeep/app exec ./gradlew :android:assembleRelease --console=plain
+          mapfile -t apks < <(find apps/app/android/build/outputs/apk/release -maxdepth 1 -name '*.apk')
+          test "${#apks[@]}" -eq 1
+          PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH" pnpm verify:apk --apk "${apks[0]}"
+          echo "path=${apks[0]}" >>"$GITHUB_OUTPUT"
+          {
+            echo "## Release APK"
+            echo "- 文件：\`$(basename "${apks[0]}")\`"
+            echo "- SHA-256：\`$(sha256sum "${apks[0]}" | cut -d' ' -f1)\`"
+            echo "- 签名：未配置正式签名，不可分发；静态门禁通过不代表实机验收。"
+          } >>"$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: gazekeep-${{ github.ref_name }}-apk
+          path: ${{ steps.apk.outputs.path }}
+          if-no-files-found: error
+          retention-days: 7
