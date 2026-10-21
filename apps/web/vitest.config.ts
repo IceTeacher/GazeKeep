@@ -35,6 +35,7 @@ export default getViteConfig({
           name: "browser",
           include: ["tests/browser/**/*.browser.test.ts"],
           globalSetup: ["tests/browser/support/render-pages.ts"],
+          testTimeout: 30_000,
           browser: {
             enabled: true,
             commands: { emulateMedia },

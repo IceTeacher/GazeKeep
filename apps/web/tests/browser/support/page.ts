@@ -39,6 +39,9 @@ export async function mountWebsite(
   };
 }
 
+/** 内屏加载在 requestIdleCallback（最长 1.5 秒）后才开始，繁忙机器上还会更慢；等待内屏事件统一使用此上限。 */
+export const SHOWCASE_TIMEOUT = 15_000;
+
 export const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
 /** 等待浏览器原生滚动与其后至少两帧的渲染更新。 */

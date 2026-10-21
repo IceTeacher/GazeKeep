@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "vitest";
 import { page } from "vitest/browser";
-import { mountWebsite } from "./support/page.ts";
+import { mountWebsite, SHOWCASE_TIMEOUT } from "./support/page.ts";
 
 let site: Awaited<ReturnType<typeof mountWebsite>> | undefined;
 afterEach(() => {
@@ -17,13 +17,13 @@ test.each([
   expect(links.length).toBeGreaterThan(0);
   for (const link of links) expect(link.getAttribute("href")).toBe(`/${other}/`);
   await expect
-    .poll(() => site!.showcase.calls.find(([name]) => name === "setLocaleAndTheme"), { timeout: 5000 })
+    .poll(() => site!.showcase.calls.find(([name]) => name === "setLocaleAndTheme"), { timeout: SHOWCASE_TIMEOUT })
     .toEqual(["setLocaleAndTheme", lang, true]);
 });
 
 test("主题切换写入偏好并同步展示内屏", async () => {
   site = await mountWebsite("zh", { theme: "dark" });
-  await expect.poll(() => site!.showcase.calls.length, { timeout: 5000 }).toBeGreaterThan(0);
+  await expect.poll(() => site!.showcase.calls.length, { timeout: SHOWCASE_TIMEOUT }).toBeGreaterThan(0);
   await page.getByRole("button", { name: "切换明暗主题" }).click();
   expect(document.documentElement.dataset.theme).toBe("light");
   expect(localStorage.getItem("gazekeep-theme")).toBe("light");

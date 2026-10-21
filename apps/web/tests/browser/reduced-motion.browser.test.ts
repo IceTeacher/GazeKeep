@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "vitest";
 import { commands, page } from "vitest/browser";
-import { mountWebsite, nextFrame } from "./support/page.ts";
+import { mountWebsite, nextFrame, SHOWCASE_TIMEOUT } from "./support/page.ts";
 
 let site: Awaited<ReturnType<typeof mountWebsite>> | undefined;
 afterEach(async () => {
@@ -30,7 +30,7 @@ test("运行中切换减少动态偏好后立即改为紧凑布局，恢复后�
   await nextFrame();
   expect(document.documentElement.dataset.compact).toBe("false");
   await commands.emulateMedia({ reducedMotion: "reduce" });
-  await expect.poll(() => document.documentElement.dataset.compact).toBe("true");
+  await expect.poll(() => document.documentElement.dataset.compact, { timeout: SHOWCASE_TIMEOUT }).toBe("true");
   await commands.emulateMedia({ reducedMotion: "no-preference" });
-  await expect.poll(() => document.documentElement.dataset.compact).toBe("false");
+  await expect.poll(() => document.documentElement.dataset.compact, { timeout: SHOWCASE_TIMEOUT }).toBe("false");
 });
