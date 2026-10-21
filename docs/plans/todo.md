@@ -19,13 +19,14 @@
 ## 测试框架化（2026-10-22，进行中）
 
 - `testing-browser` 更名为 `testing-ui`，统一负责 app 的 Compose 交互与 Roborazzi 截图、web 的 Vitest 真实 Chromium 测试；`testing-unit` 与 `testing-e2e` 按新分层重写，测试规范登记目标分层与各入口现状。
-- web 迁到 Vitest 5.0.5：`unit` project 50 项（按源模块合并，删除与三幕姿态重复的 1 项；shader 保留列表改为与页面图层同源，删除读取源码的比对用例）；`browser` project 15 项，Playwright 1.64.1 无头 Chromium，覆盖桌面/移动端逐幕吸附、减少动态（含运行中切换）、中英语言与主题同步、内屏 Wasm→JS 降级与重试、`pagehide` 清理与往返缓存，以及 3 张排版截图基线。几何与姿态常量为官网架构写明的设计规格，作为规格断言保留。
+- web 迁到 Vitest 5.0.5：`unit` project 49 项（字符串资源用例已迁到 app）（按源模块合并，删除与三幕姿态重复的 1 项；shader 保留列表改为与页面图层同源，删除读取源码的比对用例）；`browser` project 15 项，Playwright 1.64.1 无头 Chromium，覆盖桌面/移动端逐幕吸附、减少动态（含运行中切换）、中英语言与主题同步、内屏 Wasm→JS 降级与重试、`pagehide` 清理与往返缓存，以及 3 张排版截图基线。等待内屏事件的上限统一为 15 秒：内屏在 requestIdleCallback 后才加载，机器负载约 20 时原 5 秒上限会偶发超时，调整后连续 3 次全部通过。几何与姿态常量为官网架构写明的设计规格，作为规格断言保留。
 - 已用临时改坏实现确认浏览器用例失败（禁用卸载清理、跳过 JS 降级、移除减少动态监听）。`pnpm --filter web test`、lint、Astro 类型检查（0 错误）、`build:site`（产物 shader 注册表仍只含首屏 5 个组件）与全仓格式检查通过。`resources.test.ts` 暂留 web，待 app 侧 Kotlin 资源测试落地后迁出。未执行：Safari/Firefox、真实 GPU 与 WebGL 机身渲染、实体手机触摸。
 - app 单元测试：现有 40 个 Kotlin 测试经审查均保留；`PowerDumpOracleTest` 改用 `kotlinx-coroutines-test`（1.10.2，与 coroutines 核心版本一致）虚拟时间，为此给 `PowerDumpOracle` 增加可注入轮询调度器；`SystemInfoFormatterTest` 改用虚构设备样本并补空字段边界；android 模块统一为 kotlin.test。新增 `LsposedKeepAwakeBackendTest`（Robolectric 4.17，9 项，生产构造函数不变，内部构造函数注入 Binder 解析）与 shared `StringResourcesTest`（自 web 迁入）。均先确认旧实现失败（缺少注入点编译失败；改坏 STALE 映射、协议版本校验与英文占位符后对应用例失败）。
 - 主机验证：`pnpm --filter @gazekeep/app verify`（Debug 组装、lint、246 项主机测试，失败/跳过 0）、ktlint/TOML 检查、31 项仓库工具测试、repo-tools lint 与架构检查通过。未执行：设备与实机验收。
 - [ ] 修复 Kotlin/JS 依赖安装：Kotlin Gradle 插件下载的 Yarn 1.22.22 向上读取仓库根 `package.json` 的 `packageManager: pnpm@11.7.0` 后中止，`:kotlinNpmInstall` 失败，进而阻断 `:core:allTests` 等 JS/Wasm 任务；在未改动的 HEAD 上同样复现，与本次无关。本次验证临时设置 `SKIP_YARN_COREPACK_CHECK=1` 绕过。
 - app 界面与视觉：`shared/androidHostTest` 新增 22 项交互用例与 11 张 Roborazzi 1.76.0 截图（Robolectric 4.17、androidx Compose ui-test 1.12.1，均只进入测试配置），驱动真实 `App` 入口。已用临时改坏实现确认失败（离页不取消自检、首页工作态配色）；校验模式连续两次通过。`pnpm --filter @gazekeep/app verify`（275 项主机测试，失败 0）与 Debug APK 静态门禁通过。未执行：真实 ROM 渲染、厂商字体、系统栏与大字号实机对比。
-- [ ] `android/src/androidTest` 建立 UiAutomator 实机套件；设备运行另需授权，未运行前不计作通过。
+- app 实机套件：`android/src/androidTest` 新增 4 项 UiAutomator 旅程（配置冷启动回读、相机权限撤销与拒绝、无障碍就绪一致性、熄屏超时恢复），`verify` 纳入 `:android:assembleDebugAndroidTest`，新增 `test:device` 入口；测试依赖只进入测试 APK，主 APK 静态门禁通过。
+- [ ] 在已授权设备上运行 `pnpm --filter @gazekeep/app test:device` 并记录设备、ROM、后端与结果；本次只编译，未在任何设备上执行，不计作通过。
 
 ## 官网本次验证（2026-10-20）
 

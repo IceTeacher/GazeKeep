@@ -34,6 +34,12 @@ dependencies {
   testImplementation(libs.kotlin.test)
   testImplementation(libs.kotlin.testJunit)
   testImplementation(libs.junit)
+  androidTestImplementation(libs.kotlin.test)
+  androidTestImplementation(libs.kotlin.testJunit)
+  androidTestImplementation(libs.androidx.test.runner)
+  androidTestImplementation(libs.androidx.test.rules)
+  androidTestImplementation(libs.androidx.test.ext.junit)
+  androidTestImplementation(libs.androidx.uiautomator)
 }
 
 android {
@@ -46,7 +52,10 @@ android {
     targetSdk = libs.versions.android.targetSdk.get().toInt()
     versionCode = 4
     versionName = "1.1.2"
+    testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
+  // 实机套件按资源键读取页面文案，避免在测试中复制字符串。
+  sourceSets.getByName("androidTest").assets.srcDir("../shared/src/commonMain/composeResources/values")
   packaging {
     resources {
       excludes += "/META-INF/{AL2.0,LGPL2.1}"
