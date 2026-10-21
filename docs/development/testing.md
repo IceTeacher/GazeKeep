@@ -37,7 +37,7 @@
 ```bash
 pnpm --filter @gazekeep/app exec ./gradlew :core:allTests
 pnpm --filter @gazekeep/app exec ./gradlew :engine:testDebugUnitTest :backend:a11y:testDebugUnitTest \
-  :backend:shizuku:testDebugUnitTest :xposed:testDebugUnitTest \
+  :backend:shizuku:testDebugUnitTest :backend:lsposed:testDebugUnitTest :xposed:testDebugUnitTest \
   :android:testDebugUnitTest
 pnpm --filter @gazekeep/app exec ./gradlew :shared:testAndroidHostTest
 pnpm --filter web test:unit
@@ -45,7 +45,7 @@ pnpm test:tools
 pnpm verify:architecture
 ```
 
-shared host task 覆盖许可文本搜索的纯逻辑；backend:lsposed 和 bridge:protocol 当前没有专属行为测试，以组装、协议测试和实机补证，不能写成有独立测试套件。web `test:unit` 只运行 Vitest `unit` project；`pnpm --filter web test` 同时运行 `unit` 与 `browser`。
+shared host task 覆盖许可文本搜索与中英字符串资源一致性；backend:lsposed 使用 Robolectric 与按真实 Parcel 布局应答的本地 Binder 验证握手、注册、seq/STALE 映射与失败关闭，不证明真实 system_server 钩点；bridge:protocol 只有常量，由两端测试与实机补证。Robolectric 模块需在单元测试 JVM 参数中开放 `java.base/jdk.internal.access`。上述任务均已纳入 `pnpm --filter @gazekeep/app test`。web `test:unit` 只运行 Vitest `unit` project；`pnpm --filter web test` 同时运行 `unit` 与 `browser`。
 
 ## 界面与视觉入口
 

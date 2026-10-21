@@ -5,8 +5,8 @@ import cn.rainafter.app.gazekeep.core.engine.DecisionRecord
 import cn.rainafter.app.gazekeep.core.model.Attention
 import cn.rainafter.app.gazekeep.core.model.BackendId
 import cn.rainafter.app.gazekeep.ui.contract.LogLevel
-import org.junit.Test
 import java.nio.file.Files
+import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 

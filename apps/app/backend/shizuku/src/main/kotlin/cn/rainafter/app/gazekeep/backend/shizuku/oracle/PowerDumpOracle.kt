@@ -8,6 +8,7 @@ import cn.rainafter.app.gazekeep.core.backend.TimeoutOracle
 import cn.rainafter.app.gazekeep.core.backend.captureWakeAtUptime
 import cn.rainafter.app.gazekeep.core.model.BackendId
 import cn.rainafter.app.gazekeep.core.policy.ScreenDimmingPolicy
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -27,6 +28,8 @@ class PowerDumpOracle(
   private val leadMs: Long = 2_000L,
   private val retryMs: Long = 1_000L,
   private val isExternalActivity: (Long) -> Boolean = { true },
+  // 轮询读取 dumpsys 不能占用调用方线程；测试注入虚拟时间调度器。
+  private val pollDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : TimeoutOracle,
   AutoCloseable {
   private val _deadlines = MutableSharedFlow<TimeoutDeadline>(replay = 1, extraBufferCapacity = 1)
@@ -37,7 +40,7 @@ class PowerDumpOracle(
 
   fun start() {
     if (pollJob?.isActive == true) return
-    pollJob = scope.launch(Dispatchers.Default) {
+    pollJob = scope.launch(pollDispatcher) {
       while (isActive) {
         val snapshot = runCatching { readPower() }.getOrNull()
         val waitMs = publish(snapshot)

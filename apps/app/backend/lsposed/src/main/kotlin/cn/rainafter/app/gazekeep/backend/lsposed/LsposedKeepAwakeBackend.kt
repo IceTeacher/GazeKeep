@@ -18,11 +18,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-class LsposedKeepAwakeBackend(
-  private val leadMillis: Long = 8_000L,
-  private val hideCameraIndicator: Boolean = false,
+class LsposedKeepAwakeBackend internal constructor(
+  private val leadMillis: Long,
+  private val hideCameraIndicator: Boolean,
+  // 主机测试注入本地 Binder，生产路径始终经 ServiceManager 解析 power 服务。
+  private val resolvePower: () -> IBinder?,
 ) : KeepAwakeBackend {
-  private val resolver = SystemPowerBinderResolver()
+  constructor(leadMillis: Long = 8_000L, hideCameraIndicator: Boolean = false) :
+    this(leadMillis, hideCameraIndicator, SystemPowerBinderResolver()::resolve)
   private val _readiness = MutableStateFlow<Readiness>(Readiness.NeedsSetup(SetupStep.InstallFramework))
   private val _deadlines = MutableSharedFlow<TimeoutDeadline>(extraBufferCapacity = 8)
   private var binder: IBinder? = null
@@ -34,7 +37,7 @@ class LsposedKeepAwakeBackend(
 
   /** 设置页只探测桥接状态，不能抢占运行服务的单客户端回调。 */
   fun checkReadiness(): Readiness {
-    val power = resolver.resolve()
+    val power = resolvePower()
     val readiness = when {
       power == null -> Readiness.NeedsSetup(SetupStep.InstallFramework)
       ping(power)?.mainReady != true -> Readiness.NeedsSetup(SetupStep.Reboot)
@@ -45,13 +48,13 @@ class LsposedKeepAwakeBackend(
   }
 
   fun checkIndicatorHookReadiness(): Boolean {
-    val power = resolver.resolve() ?: return false
+    val power = resolvePower() ?: return false
     return ping(power)?.indicatorReady == true
   }
 
   /** 将实验性隐藏相机隐私指示器开关状态实时同步至 system_server。 */
   fun syncHideCameraIndicator(enabled: Boolean): Boolean {
-    val power = binder ?: resolver.resolve() ?: return false
+    val power = binder ?: resolvePower() ?: return false
     val status = ping(power) ?: return false
     if (!status.mainReady || (enabled && !status.indicatorReady)) return false
     return transact(power, BridgeProtocol.TX_SET_HIDE_INDICATOR) { data ->
@@ -60,7 +63,7 @@ class LsposedKeepAwakeBackend(
   }
 
   override suspend fun attach() {
-    val power = resolver.resolve()
+    val power = resolvePower()
     if (power == null) {
       _readiness.value = Readiness.NeedsSetup(SetupStep.InstallFramework)
       return

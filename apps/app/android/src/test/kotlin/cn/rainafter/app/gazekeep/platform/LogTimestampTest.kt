@@ -1,8 +1,8 @@
 package cn.rainafter.app.gazekeep.platform
 
-import org.junit.Test
 import java.time.Instant
 import java.util.TimeZone
+import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class LogTimestampTest {

@@ -1,7 +1,7 @@
 package cn.rainafter.app.gazekeep.service
 
 import cn.rainafter.app.gazekeep.core.engine.Alert
-import org.junit.Test
+import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue

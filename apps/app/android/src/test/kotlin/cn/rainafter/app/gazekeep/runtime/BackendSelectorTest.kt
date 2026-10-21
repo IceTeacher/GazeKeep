@@ -12,8 +12,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import org.junit.Assert.assertEquals
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
 
 class BackendSelectorTest {
   @Test
@@ -57,11 +57,11 @@ class BackendSelectorTest {
     }
     try {
       availability.value = a11y
-      assertEquals(listOf(null, a11y), selected)
+      assertEquals<List<KeepAwakeBackend?>>(listOf(null, a11y), selected)
       availability.value = null
-      assertEquals(listOf(null, a11y, null), selected)
+      assertEquals<List<KeepAwakeBackend?>>(listOf(null, a11y, null), selected)
       availability.value = a11y
-      assertEquals(listOf(null, a11y, null, a11y), selected)
+      assertEquals<List<KeepAwakeBackend?>>(listOf(null, a11y, null, a11y), selected)
     } finally {
       job.cancel()
     }
@@ -80,9 +80,9 @@ class BackendSelectorTest {
     try {
       availability.value = replacement
       old.setReadiness(Readiness.Unavailable("disconnected"))
-      assertEquals(listOf(old, replacement), selected)
+      assertEquals<List<KeepAwakeBackend?>>(listOf(old, replacement), selected)
       replacement.setReadiness(Readiness.Unavailable("disconnected"))
-      assertEquals(listOf(old, replacement, null), selected)
+      assertEquals<List<KeepAwakeBackend?>>(listOf(old, replacement, null), selected)
     } finally {
       job.cancel()
     }
@@ -94,7 +94,7 @@ class BackendSelectorTest {
     val selector = BackendSelector(BackendLock.Accessibility, mutableMapOf())
     val selected = mutableListOf<KeepAwakeBackend?>()
     selector.trackAvailability(BackendId.Accessibility, flowOf(a11y)) { selected.add(selector.select()) }
-    assertEquals(listOf(null), selected)
+    assertEquals<List<KeepAwakeBackend?>>(listOf(null), selected)
   }
 
   @Test

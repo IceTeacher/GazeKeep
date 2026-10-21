@@ -6,8 +6,10 @@ export const TEST_TASKS = [
   ":engine:testDebugUnitTest",
   ":backend:a11y:testDebugUnitTest",
   ":backend:shizuku:testDebugUnitTest",
+  ":backend:lsposed:testDebugUnitTest",
   ":xposed:testDebugUnitTest",
   ":android:testDebugUnitTest",
+  ":shared:testAndroidHostTest",
 ];
 await cli(() => {
   const { android, positionals } = context({}, true);
