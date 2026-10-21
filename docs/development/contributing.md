@@ -23,7 +23,7 @@
 
 Android 使用 Gradle wrapper、JDK 21（编译目标 JVM 11）和 AGP 内置 Kotlin。当前 Gradle 9.5.1、AGP 9.1.1、Kotlin 2.4.20，compile/targetSdk 37、minSdk 26；wrapper 与 Android 版本目录是真源，不在模块脚本写版本。
 
-开发工具独立于 APK：Node >=22.22、pnpm 11.7.0；版本由根 package.json 与 pnpm-lock.yaml 锁定。脚本使用 TypeScript ESM，由 Node 原生类型剥离运行；仓库工具测试使用 Node 内置 node:test，官网测试使用 Vitest（浏览器测试需要 Playwright 的 Chromium，安装命令见[测试规范](testing.md#界面与视觉入口)），不需要 Python、venv 或 Ruff。ktlint 版本仍在 Android 版本目录。当前本地安装和 Hook 面向 Linux/POSIX，不宣称其他平台已验证。
+开发工具独立于 APK：Node >=22.22、pnpm 11.7.0；版本由根 package.json 与 pnpm-lock.yaml 锁定。脚本使用 TypeScript ESM，由 Node 原生类型剥离运行；仓库工具测试使用 Node 内置 node:test，官网测试使用 Vitest（浏览器测试需要 Playwright 的 Chromium，安装命令见[测试规范](testing.md#界面与视觉入口)），不需要 Python、venv 或 Ruff。ktlint 版本仍在 Android 版本目录。Kotlin/JS 与 Kotlin/Wasm 由 Kotlin Gradle 插件下载的 Yarn 1 安装依赖，锁文件在 `apps/app/kotlin-js-store/`；根构建脚本为生成的根 package.json 声明 Yarn 1，避免其读到仓库根的 pnpm `packageManager` 后中止，不需要启用 Corepack 或设置绕过变量。当前本地安装和 Hook 面向 Linux/POSIX，不宣称其他平台已验证。
 
 ```bash
 pnpm install --frozen-lockfile
