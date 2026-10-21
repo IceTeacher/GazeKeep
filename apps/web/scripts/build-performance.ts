@@ -1,9 +1,10 @@
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import type { AstroIntegration } from "astro";
+// 首屏 shader 组件与页面创建的图层共用同一来源。
+import { HERO_SHADER_COMPONENTS } from "../src/scripts/hero-shader.ts";
 
-/** 首屏 shader 实际使用的组件；与 orchestrator.ts 中 createShader 的 type 保持一致（由测试守护）。 */
-export const HERO_SHADER_COMPONENTS = ["LinearGradient", "SimplexNoise", "Prism", "WaveDistortion", "CursorTrail"];
+export { HERO_SHADER_COMPONENTS };
 
 /** 从 shaders 的注册表中删去未用组件；其余定义的导入随包级 sideEffects:false 被摇树移除。 */
 export function pruneShaderRegistry(code: string, keep: readonly string[]) {

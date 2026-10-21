@@ -8,6 +8,7 @@ import {
 import { initStoryScroll } from "./story-scroll";
 import { initCameraHalo } from "./camera-halo";
 import { initPhoneDisplay } from "./phone-display";
+import { heroShaderLayers } from "./hero-shader.ts";
 import type { DemoState, KmpRoute } from "../data/schema";
 type DemoWindow = Window & { GazeKeepWebShowcaseBridge?: Bridge };
 let initialized = false;
@@ -296,31 +297,7 @@ export function initWebsite() {
       instance = await createShader(
         canvas,
         {
-          components: [
-            { id: "gaze-gradient", type: "LinearGradient", props: { ...palette(), angle: 120 } },
-            { id: "gaze-noise", type: "SimplexNoise", props: { ...palette(), scale: 2.4, speed: 0.22, opacity: 0.16 } },
-            {
-              id: "gaze-prism",
-              type: "Prism",
-              props: {
-                position: { x: 0.1, y: 0.8 },
-                splitPosition: { x: 0.56, y: 0.35 },
-                beamColor: palette().colorB,
-                beamWidth: 0.06,
-                saturation: 0.08,
-                intensity: 1.3,
-                spread: 0.45,
-                speed: 0.08,
-                opacity: 0.4,
-              },
-            },
-            { type: "WaveDistortion", props: { strength: 0.12, frequency: 2.2, speed: 0.18, angle: 35 } },
-            {
-              id: "gaze-cursor",
-              type: "CursorTrail",
-              props: { ...palette(), radius: 0.5, length: 0.4, softness: 0.9, opacity: 0.2 },
-            },
-          ],
+          components: heroShaderLayers(palette()),
         },
         {
           disableTelemetry: true,

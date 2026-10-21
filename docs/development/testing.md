@@ -40,16 +40,22 @@ pnpm --filter @gazekeep/app exec ./gradlew :engine:testDebugUnitTest :backend:a1
   :backend:shizuku:testDebugUnitTest :xposed:testDebugUnitTest \
   :android:testDebugUnitTest
 pnpm --filter @gazekeep/app exec ./gradlew :shared:testAndroidHostTest
-pnpm --filter web test
+pnpm --filter web test:unit
 pnpm test:tools
 pnpm verify:architecture
 ```
 
-shared host task 覆盖许可文本搜索的纯逻辑；backend:lsposed 和 bridge:protocol 当前没有专属行为测试，以组装、协议测试和实机补证，不能写成有独立测试套件。web 测试当前仍为 `node:test` 纯逻辑，尚未迁到 Vitest。
+shared host task 覆盖许可文本搜索的纯逻辑；backend:lsposed 和 bridge:protocol 当前没有专属行为测试，以组装、协议测试和实机补证，不能写成有独立测试套件。web `test:unit` 只运行 Vitest `unit` project；`pnpm --filter web test` 同时运行 `unit` 与 `browser`。
 
 ## 界面与视觉入口
 
-当前尚未建立自动化界面或截图套件：Android 页面按[页面场景](#分类与页面场景)人工验收，web 交互按浏览器人工验收。建立后在此登记任务名、截图基线目录与更新方式。
+```bash
+pnpm --filter web exec playwright install chromium-headless-shell  # 首次或升级 Playwright 后
+pnpm --filter web test:browser
+```
+
+- web：Vitest `browser` project 在无头 Chromium 中运行。测试前由独立 Astro 开发服务渲染中英真实页面，浏览器侧注入 body 后调用 `initWebsite()`，以 `pagehide` 走页面自身的清理路径；KMP 内屏由 `tests/browser/fixtures/showcase.html` 按真实桥接协议模拟就绪、绘制与失败，不依赖 KMP 构建。截图基线位于 `apps/web/tests/browser/__screenshots__/`，按浏览器与平台命名，只覆盖页面排版并隐藏 WebGL 机身；有意改版时删除对应基线后重跑生成，逐张核对再提交。失败截图写入未提交的 `.vitest/`。
+- Android：尚未建立自动化界面或截图套件，页面按[页面场景](#分类与页面场景)人工验收。
 
 ## 实机入口
 
@@ -94,7 +100,7 @@ shared host task 覆盖许可文本搜索的纯逻辑；backend:lsposed 和 brid
 - 分类器/阈值变更：正常光正视 10 次至少 9 次 Looking，转头 90° 十次均非 Looking，闭眼非 Looking；补充眼镜、暗光、多脸、侧脸及相机抢占。只记录计数和耗时，不保存画面或人脸特征。
 - 页面：覆盖页面导航/返回、字体/明暗/旋转、授权与未就绪原因、白名单搜索/选择/滚动、配置保存/冷启动、快速开关。
 - 自检：Looking→Away 才完成，Unknown 不推进；离页、后台、取消和关闭 Activity 后释放相机。
-- 网站：覆盖桌面与移动端吸附、减少动态、语言切换、展示加载失败重试与首屏降级；无头 Chromium 不代表 Safari、Firefox、真实 GPU 或实体手机触摸。
+- 网站：自动化覆盖桌面与移动端逐幕吸附、减少动态、语言与主题、展示加载失败重试、卸载清理和三张排版截图；无头 Chromium 不代表 Safari、Firefox、真实 GPU、WebGL 机身渲染或实体手机触摸，这些仍按人工验收记录。
 
 ## 记录与验收状态
 

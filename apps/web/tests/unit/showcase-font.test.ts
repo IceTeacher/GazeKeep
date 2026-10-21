@@ -1,6 +1,5 @@
-import test from "node:test";
-import assert from "node:assert/strict";
-import { readNames, renameFont, sfntTables } from "../scripts/showcase-font.ts";
+import { expect, test } from "vitest";
+import { readNames, renameFont, sfntTables } from "../../scripts/showcase-font.ts";
 
 type Name = { platform: number; encoding: number; language: number; id: number; value: string };
 const encode = ({ platform, value }: Name) =>
@@ -58,17 +57,14 @@ test("展示字体改名覆盖全部平台与语言的家族、全名、PostScri
     6: "GazeKeepShowcaseSans",
     16: "GazeKeep Showcase Sans",
   });
-  assert.deepEqual(
-    readNames(font).map(({ platform, language, id, value }) => [platform, language, id, value]),
-    [
-      [1, 0, 1, "GazeKeep Showcase Sans"],
-      [3, 0x409, 1, "GazeKeep Showcase Sans"],
-      [3, 0x409, 2, "Regular"],
-      [3, 0x804, 4, "GazeKeep Showcase Sans"],
-      [3, 0x409, 6, "GazeKeepShowcaseSans"],
-      [3, 0x409, 16, "GazeKeep Showcase Sans"],
-    ],
-  );
+  expect(readNames(font).map(({ platform, language, id, value }) => [platform, language, id, value])).toEqual([
+    [1, 0, 1, "GazeKeep Showcase Sans"],
+    [3, 0x409, 1, "GazeKeep Showcase Sans"],
+    [3, 0x409, 2, "Regular"],
+    [3, 0x804, 4, "GazeKeep Showcase Sans"],
+    [3, 0x409, 6, "GazeKeepShowcaseSans"],
+    [3, 0x409, 16, "GazeKeep Showcase Sans"],
+  ]);
 });
 
 test("改名后表目录有序、四字节对齐，表校验和与整体校验调整值有效", () => {
@@ -76,24 +72,21 @@ test("改名后表目录有序、四字节对齐，表校验和与整体校验�
     6: "GazeKeepShowcaseSans",
   });
   const tables = sfntTables(font);
-  assert.deepEqual(
-    tables.map((t) => t.tag),
-    ["head", "name", "post"],
-  );
+  expect(tables.map((t) => t.tag)).toEqual(["head", "name", "post"]);
   for (const { tag, offset, length, sum } of tables) {
-    assert.equal(offset % 4, 0, tag);
+    expect(offset % 4, tag).toBe(0);
     const body = font.subarray(offset, offset + length);
     if (tag === "head") {
       const zeroed = Buffer.from(body);
       zeroed.writeUInt32BE(0, 8);
-      assert.equal(sum, checksum(zeroed), tag);
-    } else assert.equal(sum, checksum(body), tag);
+      expect(sum, tag).toBe(checksum(zeroed));
+    } else expect(sum, tag).toBe(checksum(body));
   }
-  assert.equal(checksum(font), 0xb1b0afba);
+  expect(checksum(font)).toBe(0xb1b0afba);
 });
 
 test("Mac 平台记录无法以单字节表示新名称时明确失败", () => {
   const font = sfnt({ head: Buffer.alloc(54), name: nameTable(source) });
-  assert.throws(() => renameFont(font, { 1: "注视常亮" }), /Mac/);
-  assert.throws(() => renameFont(sfnt({ head: Buffer.alloc(54) }), { 1: "x" }), /name/);
+  expect(() => renameFont(font, { 1: "注视常亮" })).toThrow(/Mac/);
+  expect(() => renameFont(sfnt({ head: Buffer.alloc(54) }), { 1: "x" })).toThrow(/name/);
 });

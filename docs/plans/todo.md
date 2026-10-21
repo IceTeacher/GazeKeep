@@ -19,7 +19,8 @@
 ## 测试框架化（2026-10-22，进行中）
 
 - `testing-browser` 更名为 `testing-ui`，统一负责 app 的 Compose 交互与 Roborazzi 截图、web 的 Vitest 真实 Chromium 测试；`testing-unit` 与 `testing-e2e` 按新分层重写，测试规范登记目标分层与各入口现状。
-- [ ] web 由 `node:test` 迁到 Vitest `unit`/`browser` 两个 project，按归类结果删改现有用例并补浏览器与截图测试。
+- web 迁到 Vitest 5.0.5：`unit` project 50 项（按源模块合并，删除与三幕姿态重复的 1 项；shader 保留列表改为与页面图层同源，删除读取源码的比对用例）；`browser` project 15 项，Playwright 1.64.1 无头 Chromium，覆盖桌面/移动端逐幕吸附、减少动态（含运行中切换）、中英语言与主题同步、内屏 Wasm→JS 降级与重试、`pagehide` 清理与往返缓存，以及 3 张排版截图基线。几何与姿态常量为官网架构写明的设计规格，作为规格断言保留。
+- 已用临时改坏实现确认浏览器用例失败（禁用卸载清理、跳过 JS 降级、移除减少动态监听）。`pnpm --filter web test`、lint、Astro 类型检查（0 错误）、`build:site`（产物 shader 注册表仍只含首屏 5 个组件）与全仓格式检查通过。`resources.test.ts` 暂留 web，待 app 侧 Kotlin 资源测试落地后迁出。未执行：Safari/Firefox、真实 GPU 与 WebGL 机身渲染、实体手机触摸。
 - [ ] app 单元测试按归类结果删改；`shared/androidHostTest` 建立 Robolectric、Compose UI 测试与 Roborazzi 截图基线。
 - [ ] `android/src/androidTest` 建立 UiAutomator 实机套件；设备运行另需授权，未运行前不计作通过。
 

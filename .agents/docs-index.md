@@ -10,7 +10,7 @@
 | ------------------------------------- | ---------- | ------------------------------------------- | -------- | ---------- |
 | `../docs/index.md`                    | 读者导航   | 调整文档入口或内容归属时                    | 持续维护 | 2026-10-17 |
 | `workflow.md`                         | Agent 流程 | 维护协作规则、Skills、执行边界或交接时      | 持续维护 | 2026-10-17 |
-| `../docs/development/contributing.md` | 开发流程   | 修改工具链、格式、构建、Hook 或工作区目录时 | 持续维护 | 2026-10-20 |
+| `../docs/development/contributing.md` | 开发流程   | 修改工具链、格式、构建、Hook 或工作区目录时 | 持续维护 | 2026-10-22 |
 | `../docs/development/testing.md`      | 测试规范   | 选择单元、界面/视觉、实机门禁与验收矩阵时   | 持续维护 | 2026-10-22 |
 | `../docs/product/privacy-security.md` | 隐私与安全 | 修改帧、权限、日志、系统设置或隐私文案时    | 持续维护 | 2026-10-18 |
 | `../docs/development/release.md`      | 发布规范   | 准备签名、Release、APK 权限与分发验收时     | 持续维护 | 2026-10-16 |
@@ -30,7 +30,7 @@
 | `../docs/architecture/android-runtime.md`        | 运行架构 | 修改服务生命周期、配置、Manifest、通知或日志时                                                                                                | 持续维护 | 2026-10-14 |
 | `../docs/architecture/engine.md`                 | 决策架构 | 修改 reducer、时序、前台来源、退避或保亮上限时                                                                                                | 持续维护 | 2026-10-14 |
 | `../docs/architecture/capture-classification.md` | 检测架构 | 修改 CameraX、传感器门控、ML Kit、阈值或投票时                                                                                                | 持续维护 | 2026-10-14 |
-| `../docs/architecture/web/website.md`            | 官网架构 | 修改 Astro 双语官网、连续叙事、立体设备、KMP 展示、视觉联动、页面样式、桌面与移动端滚动吸附、滚动性能、首屏加载或 Cloudflare Pages 托管部署时 | 持续维护 | 2026-10-20 |
+| `../docs/architecture/web/website.md`            | 官网架构 | 修改 Astro 双语官网、连续叙事、立体设备、KMP 展示、视觉联动、页面样式、桌面与移动端滚动吸附、滚动性能、首屏加载或 Cloudflare Pages 托管部署时 | 持续维护 | 2026-10-22 |
 | `../docs/architecture/ui.md`                     | UI 架构  | 修改页面、导航、日志、自检、平台契约或应用列表时                                                                                              | 持续维护 | 2026-10-18 |
 | `../docs/architecture/backends/a11y.md`          | 后端架构 | 修改无障碍事件、Hold 或空闲时钟时                                                                                                             | 持续维护 | 2026-10-13 |
 | `../docs/architecture/backends/shizuku.md`       | 后端架构 | 修改 shell Binder、独立前台来源或同步超时恢复时                                                                                               | 持续维护 | 2026-10-08 |
