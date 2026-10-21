@@ -1,19 +1,30 @@
 ---
 name: testing-unit
-description: 编写、修复或评审 GazeKeep Kotlin 与 Node 主机测试。
+description: 编写或评审 GazeKeep 单元测试时加载；覆盖 Kotlin 规则与隔离协作、web 纯逻辑和仓库工具，强调测试先行与风险覆盖。
 ---
 
-# 主机测试
+# 单元测试
 
-用于纯规则、reducer、解析、协议、配置、隔离 adapter 与仓库工具。按[测试规范](../../../docs/development/testing.md#主机入口)和目标目录规则选择实际入口；页面与真实设备旅程分别由 testing-browser、testing-e2e 处理。
+## 何时加载
 
-## 测试设计
+涉及纯规则、reducer、解析、协议、配置、状态机、窄接口 adapter、构建脚本或架构守卫时加载。页面与视觉使用 `testing-ui`，真实设备旅程使用 `testing-e2e`。具体任务名与当前覆盖以[测试规范](../../../docs/development/testing.md#主机入口)为准，不捏造入口。
 
-- 行为变更先用最小用例确认旧实现失败，再实现并运行受影响测试。按风险选择正常、边界、错误、权限、恢复或取消场景。
-- core/commonTest 验证纯规则，Android 模块 src/test 验证隔离协作；Node 使用 node:test 和临时仓库，不操作真实索引。
-- 固定时间与依赖，使用窄接口和隔离 fixture；验证公开行为和稳定协作，不锁定私有调用顺序，不依赖真实摄像头、随机等待或执行顺序。
-- 涉及引擎或后端时检查[七条不变量](../../../docs/development/testing.md#七条必守不变量)中的受影响项；不 Extend 不能证明 Hold 释放或实际熄屏。
+## 工作顺序
 
-## 结果判定
+1. 从可观察行为和改动风险列出最小场景：正常、边界、非法输入、依赖失败、权限与隐私、取消、幂等或恢复。
+2. 先写或调整最小测试并确认旧实现失败；文档、格式、纯重命名、生成物同步和无行为配置变更记录例外。
+3. 实现使测试通过，再运行受影响测试与目录门禁。
+4. 失败先核对实现、fixture、调用栈和环境；不删断言、扩大 mock、增加 skip 或改成空收集换取通过。
 
-失败先核对实现、断言、fixture、调用栈和环境，不扩大 mock 或 skip 掩盖错误。NO-SOURCE 不代表有行为测试。按[验证范围与停止条件](../../../docs/development/testing.md#验证范围与停止条件)结束检查；具体模块与缺失套件以测试规范为准，不捏造入口。
+## 选择与边界
+
+- 测试公开行为与稳定协作接口，不锁定私有调用顺序、局部常量或无意义的 getter；数值类断言优先表达比例、单调、连续与边界关系。
+- 覆盖率只用于发现未解释的风险，不为行数或文件数补无行为价值的用例；重复覆盖同一决策的用例合并。
+- 修复缺陷时回归测试先于修复；重构前用 characterization test 固定现有行为。
+- 时间、随机数、协程调度、文件和系统服务必须可控；使用窄接口 fake 与隔离 fixture，不依赖真实摄像头、随机等待或执行顺序。
+
+## 各工程
+
+- Kotlin：kotlin.test 与 JUnit4，协程使用 `kotlinx-coroutines-test` 的虚拟时间。core 与 shared 的纯规则放在 `commonTest`，Android 模块的隔离协作放在 `src/test`。涉及引擎或后端时检查[七条不变量](../../../docs/development/testing.md#七条必守不变量)中的受影响项；不 Extend 不能证明 Hold 释放或实际熄屏，`NO-SOURCE` 不代表有行为测试。
+- web：Vitest `unit` project，运行于 Node，测试位于 `apps/web/tests/unit/`，只覆盖不依赖 DOM 的模块与构建脚本；需要 DOM 的场景交给 `testing-ui` 的 `browser` project。
+- 仓库工具：`node:test` 与严格断言，使用临时仓库和隔离 fixture，不操作真实索引；不引入第三方测试框架，保持与生产脚本相同的 Node 原生运行方式。

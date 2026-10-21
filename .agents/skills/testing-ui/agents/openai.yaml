@@ -1,0 +1,3 @@
+interface:
+  display_name: "testing-ui"
+  short_description: "编写或评审 GazeKeep 界面与视觉测试；app Compose 截图与 web Vitest 浏览器测试。"

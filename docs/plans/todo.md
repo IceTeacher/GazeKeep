@@ -16,6 +16,13 @@
 - 展示字体脚本改用 harfbuzzjs 1.6.3（hb-subset）并自行改写 name 表：与 fontTools 4.67.0 产物对比，表集合、422 个码位、702 个字形轮廓与步进、GSUB/GPOS 特性、18 条 name 记录和纵横度量一致；已提交字体未重新生成。
 - 主机验证：31 项仓库工具测试（新增 XML 阻断与 TypeScript/Tailwind 用例，先确认旧实现失败）、52 项官网 Node 测试（新增 3 项字体改名与校验和用例）、两工程 oxlint 与 `tsc`、Astro 类型检查（0 错误）、`build:site`、全仓 `format:check`、文档/Agent 资产/架构/Hook 检查、TS 版 commitlint 与 `git diff --check` 通过。未运行：Android 构建与 lint（未改动）、KMP 完整构建、真实编辑器集成。
 
+## 测试框架化（2026-10-22，进行中）
+
+- `testing-browser` 更名为 `testing-ui`，统一负责 app 的 Compose 交互与 Roborazzi 截图、web 的 Vitest 真实 Chromium 测试；`testing-unit` 与 `testing-e2e` 按新分层重写，测试规范登记目标分层与各入口现状。
+- [ ] web 由 `node:test` 迁到 Vitest `unit`/`browser` 两个 project，按归类结果删改现有用例并补浏览器与截图测试。
+- [ ] app 单元测试按归类结果删改；`shared/androidHostTest` 建立 Robolectric、Compose UI 测试与 Roborazzi 截图基线。
+- [ ] `android/src/androidTest` 建立 UiAutomator 实机套件；设备运行另需授权，未运行前不计作通过。
+
 ## 官网本次验证（2026-10-20）
 
 - 根路径跳转：原 `index.astro` 依靠 meta refresh 跳转，浏览器会先渲染“进入 GazeKeep 官网”链接页。改为 `public/_redirects` 的 `/ /zh/ 302` 服务端跳转，兜底页加 `noindex`/`canonical` 并使用站点深色底。新增 1 项测试（缺少 `_redirects` 时先失败）；49 项官网 Node 测试、Astro 类型检查（0 错误）与 `build:site` 通过；本地 `wrangler pages dev dist` 中 `/` 返回 `302 Location: /zh/`，`/zh/`、`/en/` 返回 200。完整构建后已部署（预览 `https://4b331619.gazekeep.pages.dev`），线上 curl 复验 `https://gazekeep.pages.dev/` 返回 `302 location: /zh/`，`/zh/`、`/en/` 返回 200。未执行：真实浏览器观察跳转过程。

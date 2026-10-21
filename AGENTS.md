@@ -19,7 +19,7 @@
 
 - 新增或修复行为时，先写或调整最小测试并确认旧实现失败，再修改代码；硬件/UI 先定义可复现的验收场景，条件不足明确记录未执行。文档、格式、纯重命名和无行为配置变更可记录例外。
 - 按受影响行为与目录规则选择门禁；通过后，仅在新增改动、失败或具体风险未解决时扩大或重跑。覆盖率用于发现风险；禁止无价值用例、弱化安全断言、无理由 skip 或空测试收集。
-- 按任务与目录规则加载 [testing-unit](.agents/skills/testing-unit/SKILL.md)、[testing-browser](.agents/skills/testing-browser/SKILL.md) 或 [testing-e2e](.agents/skills/testing-e2e/SKILL.md)，不为文档任务引入测试框架。
+- 按任务与目录规则加载 [testing-unit](.agents/skills/testing-unit/SKILL.md)、[testing-ui](.agents/skills/testing-ui/SKILL.md) 或 [testing-e2e](.agents/skills/testing-e2e/SKILL.md)，不为文档任务引入测试框架。
 - fake、主机测试或构建成功不能证明真实环境验收通过；空测试、缺少运行条件和旧版本结果都不能写成当前验收通过。
 
 ## 安全与决策边界

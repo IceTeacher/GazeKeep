@@ -21,12 +21,16 @@
 
 ## 测试分层
 
-| 层次        | 对象                         | 入口与限制                              |
-| ----------- | ---------------------------- | --------------------------------------- |
-| Kotlin 主机 | core 规则及模块隔离协作      | Gradle 测试；不证明硬件兼容             |
-| Node 工具   | 路径、索引、Hook 与架构守卫  | `pnpm test:tools`，使用临时隔离 fixture |
-| 页面交互    | Android miuix 页面与生命周期 | 当前按设备场景验收，无自动化 UI 套件    |
-| 完整旅程    | 相机、ROM、三后端与超时恢复  | 真实组件，先核对设备操作授权            |
+| 层次      | 对象                                 | 框架与位置                                                          | 规则 Skill     |
+| --------- | ------------------------------------ | ------------------------------------------------------------------- | -------------- |
+| 单元      | Kotlin 规则与模块隔离协作            | kotlin.test、JUnit4；`commonTest`、`src/test`                       | `testing-unit` |
+| 单元      | web 纯逻辑与构建脚本                 | Vitest `unit` project；`apps/web/tests/unit/`                       | `testing-unit` |
+| 单元      | 仓库工具：路径、索引、Hook、架构守卫 | `node:test`；`scripts/repo-tools/tests/`，临时隔离 fixture          | `testing-unit` |
+| 界面/视觉 | Android miuix 页面、交互与截图       | Robolectric、Compose UI 测试、Roborazzi；`shared/androidHostTest`   | `testing-ui`   |
+| 界面/视觉 | web DOM、滚动、生命周期与截图        | Vitest `browser` project（Chromium）；`apps/web/tests/browser/`     | `testing-ui`   |
+| 完整旅程  | 相机、ROM、三后端与超时恢复          | androidx.test、UiAutomator；`android/src/androidTest`，另加人工矩阵 | `testing-e2e`  |
+
+上表是目标分层，正在按[任务清单](../plans/todo.md)迁移；各入口当前是否已建立以下方小节为准，未建立的套件不能计作通过。
 
 ## 主机入口
 
@@ -36,10 +40,20 @@ pnpm --filter @gazekeep/app exec ./gradlew :engine:testDebugUnitTest :backend:a1
   :backend:shizuku:testDebugUnitTest :xposed:testDebugUnitTest \
   :android:testDebugUnitTest
 pnpm --filter @gazekeep/app exec ./gradlew :shared:testAndroidHostTest
+pnpm --filter web test
+pnpm test:tools
 pnpm verify:architecture
 ```
 
-shared host task 覆盖许可文本搜索的纯逻辑，没有 UI 行为测试；backend:lsposed 和 bridge:protocol 当前没有专属行为测试，以组装、协议测试和实机补证，不能写成有独立测试套件。
+shared host task 覆盖许可文本搜索的纯逻辑；backend:lsposed 和 bridge:protocol 当前没有专属行为测试，以组装、协议测试和实机补证，不能写成有独立测试套件。web 测试当前仍为 `node:test` 纯逻辑，尚未迁到 Vitest。
+
+## 界面与视觉入口
+
+当前尚未建立自动化界面或截图套件：Android 页面按[页面场景](#分类与页面场景)人工验收，web 交互按浏览器人工验收。建立后在此登记任务名、截图基线目录与更新方式。
+
+## 实机入口
+
+当前尚未建立 UiAutomator 实机套件，完整旅程按[实机矩阵](#实机完整矩阵)人工执行。实机套件不进入默认 `pnpm test`，运行前核对设备操作授权。
 
 ## 七条必守不变量
 
@@ -80,7 +94,7 @@ shared host task 覆盖许可文本搜索的纯逻辑，没有 UI 行为测试�
 - 分类器/阈值变更：正常光正视 10 次至少 9 次 Looking，转头 90° 十次均非 Looking，闭眼非 Looking；补充眼镜、暗光、多脸、侧脸及相机抢占。只记录计数和耗时，不保存画面或人脸特征。
 - 页面：覆盖页面导航/返回、字体/明暗/旋转、授权与未就绪原因、白名单搜索/选择/滚动、配置保存/冷启动、快速开关。
 - 自检：Looking→Away 才完成，Unknown 不推进；离页、后台、取消和关闭 Activity 后释放相机。
-- 网站：apps/web 尚未实现，无浏览器测试入口；不得把未建立的测试计作通过。
+- 网站：覆盖桌面与移动端吸附、减少动态、语言切换、展示加载失败重试与首屏降级；无头 Chromium 不代表 Safari、Firefox、真实 GPU 或实体手机触摸。
 
 ## 记录与验收状态
 

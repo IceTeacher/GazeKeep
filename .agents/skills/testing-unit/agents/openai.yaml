@@ -1,3 +1,3 @@
 interface:
   display_name: "testing-unit"
-  short_description: "编写、修复或评审 GazeKeep Kotlin 与 Node 主机测试。"
+  short_description: "编写或评审 GazeKeep Kotlin、web 纯逻辑与仓库工具的单元测试。"

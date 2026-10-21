@@ -10,7 +10,7 @@
 
 应用 Manifest 合并必须满足 app 层禁止权限要求；新增依赖若带入 `INTERNET`，用 `tools:node="remove"` 去掉，并核对最终合并 Manifest。
 
-相关专题：[当前架构](../../../docs/architecture/android-runtime.md)；按任务选择[测试 skill](../../../.agents/skills/testing-browser/SKILL.md)，只加载受影响内容。
+相关专题：[当前架构](../../../docs/architecture/android-runtime.md)；按任务选择 [testing-unit](../../../.agents/skills/testing-unit/SKILL.md) 或 [testing-e2e](../../../.agents/skills/testing-e2e/SKILL.md)，只加载受影响内容。
 
 ## 验证
 
