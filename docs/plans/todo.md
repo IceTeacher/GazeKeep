@@ -38,6 +38,7 @@
 - 新增 GitHub Actions 流水线，使用托管 runner：改动范围判断、仓库门禁、Android 主机门禁、官网完整构建，以及官网 Pages 预览与生产发布（含冒烟和 PR 评论）、tag 的 Release APK 门禁。官网仍用 Cloudflare Pages Direct Upload；k3s 与 GitOps 仓库不接入（当前没有服务端负载）。已用 `gh` 创建 Environment `web-preview` 与 `web-production`（后者仅允许 `main`），写入项目名、站点地址、账号 ID 与 Pages API token。
 - 新增 `ci-changes.ts`、`check-web-deploy.ts` 及 5 项测试，先确认模块缺失时失败。冒烟脚本对现网 `https://gazekeep.rainafter.cn` 通过；实测发现 Pages 会把 `index.html` 308 跳到目录地址，因此探测改为目录地址。
 - 本地验证：36 项仓库工具测试、repo-tools lint、文档/Agent 资产/架构检查、全仓格式、`git diff --check`、actionlint 1.7.12（含 shellcheck 0.11.0）均通过，`main..dev` 区间 commitlint 通过；Wrangler 输出解析、版本提取与评论正文已用本地样本模拟。
+- 首次 CI 运行（`dev` 推送）：仓库门禁与改动范围判断通过，暴露两个已有问题，均已修复，待下一次运行复核。① Wasm 锁文件未被跟踪，`kotlinWasmRestoreYarnLock` 被跳过，干净环境中 `:kotlinWasmStoreYarnLock` 找不到 `build/wasm/yarn.lock` 而失败；本机残留旧生成物掩盖了问题。现已提交 `kotlin-js-store/wasm/yarn.lock`，本地清空 `build/wasm` 后恢复、安装与存储通过。② 官网 3 张截图基线是在本机命中微软雅黑时录制的，Ubuntu runner 上有 3%–5% 像素差异。浏览器测试改为在锁定版本的 Playwright 镜像（v1.64.1-noble，文泉驿正黑）中运行，新增 `test:browser:docker`；先确认旧基线在容器内失败 3 项、其余 12 项通过，用 `--update` 重录后连续 2 次 15 项全部通过，3 张基线已逐张目视核对。
 - [ ] 推送后核对首次真实运行：托管 runner 上的 Android SDK 37 平台自动安装、`app` 门禁与官网 KMP 构建耗时、Playwright 浏览器测试、`dev` 预览、PR 评论原地更新，以及 `main` 生产发布与冒烟。以上均未在 CI 中执行，不计作通过。
 - [ ] 首个 `v*` tag 核对 unsigned Release 的 APK 门禁（托管镜像的 `apkanalyzer` 与 `aapt2`）；正式签名 secret 与 GitHub Release 自动化待授权后再接入。
 

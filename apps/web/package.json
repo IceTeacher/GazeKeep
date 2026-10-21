@@ -17,7 +17,8 @@
     "font:showcase": "node scripts/subset-showcase-font.ts",
     "test": "node scripts/sync-kmp-strings.ts && vitest run",
     "test:unit": "vitest run --project unit",
-    "test:browser": "node scripts/sync-kmp-strings.ts && vitest run --project browser"
+    "test:browser": "node scripts/sync-kmp-strings.ts && vitest run --project browser",
+    "test:browser:docker": "node scripts/sync-kmp-strings.ts && node scripts/test-browser-docker.ts"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.0.0",

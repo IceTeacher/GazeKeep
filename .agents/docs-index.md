@@ -11,7 +11,7 @@
 | `../docs/index.md`                    | 读者导航   | 调整文档入口或内容归属时                                                                  | 持续维护 | 2026-10-17 |
 | `workflow.md`                         | Agent 流程 | 维护协作规则、Skills、执行边界或交接时                                                    | 持续维护 | 2026-10-17 |
 | `../docs/development/contributing.md` | 开发流程   | 修改工具链（含 pnpm 版本）、格式、构建、Kotlin/JS 依赖安装、Hook、CI 流水线或工作区目录时 | 持续维护 | 2026-10-22 |
-| `../docs/development/testing.md`      | 测试规范   | 选择测试分层、门禁、测试依赖、实机套件与验收矩阵时                                        | 持续维护 | 2026-10-22 |
+| `../docs/development/testing.md`      | 测试规范   | 选择测试分层、门禁、测试依赖、实机套件、容器截图基线与验收矩阵时                          | 持续维护 | 2026-10-22 |
 | `../docs/product/privacy-security.md` | 隐私与安全 | 修改帧、权限、日志、系统设置或隐私文案时                                                  | 持续维护 | 2026-10-18 |
 | `../docs/development/release.md`      | 发布规范   | 准备签名、Release、tag 构建、APK 权限与分发验收时                                         | 持续维护 | 2026-10-22 |
 

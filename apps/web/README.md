@@ -23,12 +23,13 @@ pnpm --filter web exec wrangler login
 pnpm --filter web exec wrangler pages project create gazekeep --production-branch main --force
 ```
 
-当前完整构建依赖本机 JDK、Android SDK 与 Gradle，因此使用 Cloudflare Pages Direct Upload。Direct Upload 项目不能原地切换为 Git 集成；如需 Cloudflare 自动从 Git 构建，需新建 Git 集成项目并提供 KMP 所需工具链。
+完整构建依赖 JDK、Android SDK 与 Gradle，因此由 CI 构建后使用 Cloudflare Pages Direct Upload。Direct Upload 项目不能原地切换为 Git 集成；如需 Cloudflare 自动从 Git 构建，需新建 Git 集成项目并提供 KMP 所需工具链。
 
 ## 验证
 
 ```bash
-pnpm --filter web test
+pnpm --filter web test:unit
+pnpm --filter web test:browser:docker
 pnpm --filter web check
 pnpm verify:architecture
 pnpm verify:docs

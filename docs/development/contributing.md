@@ -89,7 +89,7 @@ oxfmt 与 oxlint 配置位于仓库根（`.oxfmtrc.json`、`.oxlintrc.json`）�
 - `changes`：`scripts/repo-tools/scripts/ci-changes.ts` 按差异判断 Android 与官网是否受影响。根配置、锁文件、`.github/` 或基线未知（tag、手动触发、首次推送或强推）时全量回归；官网同时受 `apps/app/shared`、Gradle 根配置、版本目录与 Kotlin/JS 锁文件影响。
 - `repo`：始终运行 Hook、文档、Agent 资产、架构、全仓格式、repo-tools lint 与测试，并对本次提交区间执行 commitlint 与 `git diff --check`。
 - `app`：受影响时运行 `pnpm --filter @gazekeep/app verify`；实机套件不进入 CI。
-- `web`：受影响时完整构建官网（含 KMP Showcase），再运行测试、lint 与 `astro check`，产物交给发布 job 复用。发布规则见[官网架构](../architecture/web/website.md#六当前构建与后续验收)，冒烟由 `check-web-deploy.ts` 执行。
+- `web`：受影响时完整构建官网（含 KMP Showcase），再运行单元测试、容器内浏览器与截图测试（`test:browser:docker`）、lint 与 `astro check`，产物交给发布 job 复用。发布规则见[官网架构](../architecture/web/website.md#六当前构建与后续验收)，冒烟由 `check-web-deploy.ts` 执行。
 - `release-apk`：tag 必须等于 `v<versionName>` 且位于 `main`；构建压缩 Release、执行 APK 静态门禁，并作为 artifact 保留 7 天。不创建 GitHub Release。未配置正式签名时产物为 unsigned，不可分发。
 
 公开仓库的 workflow 不写明文地址、项目名或凭据，配置集中在两个 GitHub Environment：

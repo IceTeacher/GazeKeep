@@ -128,14 +128,14 @@ jobs:
         with:
           java: "true"
           gradle: "true"
-      - name: 安装浏览器测试依赖
-        run: pnpm --filter web exec playwright install --with-deps chromium
       # 完整构建先生成 KMP Showcase，再执行依赖其产物的测试与检查。
+      # 浏览器与截图测试在锁定版本的 Playwright 镜像中运行，与本地录制基线的字体和 Chromium 一致。
       - name: 构建、测试与检查
         run: |
           set -euo pipefail
           pnpm --filter web build
-          pnpm --filter web test
+          pnpm --filter web test:unit
+          pnpm --filter web test:browser:docker
           pnpm --filter web lint
           pnpm --filter web check
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
