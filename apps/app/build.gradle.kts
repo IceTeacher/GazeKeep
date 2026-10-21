@@ -24,3 +24,17 @@ tasks.withType<org.jetbrains.kotlin.gradle.targets.js.npm.tasks.RootPackageJsonT
     file.writeText(groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(json)) + "\n")
   }
 }
+
+// JS 依赖安装与 Wasm 测试工具安装都会启动 Yarn 1 并共用其全局缓存；配置缓存下二者会并行执行，
+// 冷缓存时 Yarn 1 的并发写入可能留下不完整的 node_modules 或缺失 yarn.lock。限定同一时刻只运行一个。
+abstract class SerialYarnService : BuildService<BuildServiceParameters.None>
+
+val serialYarn = gradle.sharedServices.registerIfAbsent("serialYarn", SerialYarnService::class) {
+  maxParallelUsages.set(1)
+}
+tasks.withType<org.jetbrains.kotlin.gradle.targets.js.npm.tasks.KotlinNpmInstallTask>().configureEach {
+  usesService(serialYarn)
+}
+tasks.withType<org.jetbrains.kotlin.gradle.targets.js.npm.tasks.KotlinToolingSetupTask>().configureEach {
+  usesService(serialYarn)
+}

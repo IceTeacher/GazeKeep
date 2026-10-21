@@ -1,0 +1,2 @@
+# Kotlin Gradle 插件生成的 Yarn 锁文件按原样提交；Yarn 在文件末尾写空行，不做空白检查。
+apps/app/kotlin-js-store/**/yarn.lock -whitespace

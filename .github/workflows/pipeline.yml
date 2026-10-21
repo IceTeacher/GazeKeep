@@ -114,6 +114,23 @@ jobs:
           gradle: "true"
       # 主机门禁含 Debug 构建、lint、主机测试与实机套件编译；实机运行不进入 CI。
       - run: pnpm --filter @gazekeep/app verify
+      # Gradle 默认不输出 Yarn 日志；失败时保留 Kotlin/JS 安装目录的 Yarn 错误日志供排查。
+      - name: 收集 Yarn 错误日志
+        if: failure()
+        run: |
+          set -euo pipefail
+          dest="$RUNNER_TEMP/yarn-logs"
+          mkdir -p "$dest"
+          find "$HOME/.kotlin/kotlin-npm-tooling" apps/app/build/js apps/app/build/wasm -maxdepth 3 \
+            \( -name yarn-error.log -o -name package.json -o -name yarn.lock \) -not -path '*/node_modules/*' \
+            -exec cp --parents {} "$dest" \; 2>/dev/null || true
+      - if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: app-yarn-logs
+          path: ${{ runner.temp }}/yarn-logs
+          if-no-files-found: ignore
+          retention-days: 7
 
   web:
     needs: changes
