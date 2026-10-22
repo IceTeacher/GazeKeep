@@ -43,7 +43,9 @@
 - 之后 job 依赖改为三层（`app`、`web` 依赖 `changes` 与 `repo`，发布 job 只依赖 `app` 与 `web`），job 与 step 改用英文名，官网检查拆成独立 step；actionlint 1.7.12（含 shellcheck）通过，新任务图与命名尚待下一次 CI 运行确认。
 - 随后优化缓存：pnpm 本体按版本缓存并替代 `pnpm/action-setup`（本地确认 npm 安装 `pnpm@12.14.0` 可用）；Gradle 缓存在 `dev`/`main` 推送时写入；新增 Kotlin/JS 工具与 Yarn 缓存；runner 固定为 `ubuntu-24.04`。actionlint 与 shellcheck 通过；推送后首次运行（run 39713395454，冷缓存）通过并写入缓存，三层任务图与英文步骤名生效；第二次手动运行（run 39714436230）命中 pnpm、Gradle 与 Kotlin/JS 缓存，Android app 由约 9.7 分钟降至 1.5 分钟，Website 由约 6.8 分钟降至 3 分钟，整次运行约 3.8 分钟。输入未变的 Gradle 任务（含测试）从构建缓存复用，这是 Gradle 的增量语义，不代表重新执行。Gradle 配置缓存不跨运行复用：试过传入 `cache-encryption-key`，调试日志显示 setup-gradle v6.4.0 的项目状态缓存为 `not-enabled`（需隐藏开关与 Develocity 授权），且命中依赖缓存后配置阶段仅 11–15 秒，已撤销该配置并删除 secret。
 - [ ] 核对 PR 预览评论原地更新，以及 `main` 生产发布与冒烟。以上未在 CI 中执行，不计作通过。
-- [ ] 首个 `v*` tag 核对 unsigned Release 的 APK 门禁（托管镜像的 `apkanalyzer` 与 `aapt2`）；正式签名 secret 与 GitHub Release 自动化待授权后再接入。
+- 正式签名：已生成 RSA 4096 密钥库（证书 SHA-256 `bbf8c24e…7514d94f`），保存在维护者本机仓库外，CI 副本存于仅允许 `v*.*.*` tag 的 `release` 环境。`release-apk` 改为正式签名构建、核对证书指纹并创建 GitHub 预发布，发布说明取自 `docs/releases/<tag>.md`。本地正式签名构建通过 `apksigner verify` 与 APK 静态门禁；用开发签名 APK 确认指纹解析能区分不同证书。
+- [ ] 首个 `v1.1.2` tag：核对托管镜像上的签名构建、`apkanalyzer`/`aapt2` 门禁、指纹核对与预发布创建。
+- [ ] 维护者离线备份正式签名密钥库与密码（本机 `~/.android/` 以外的位置）；丢失后无法覆盖升级。
 
 ## 官网本次验证（2026-10-20）
 
@@ -86,7 +88,7 @@
 - [ ] 完成 Shizuku 原系统超时恢复实机验收：临时延长、屏灭、进程被杀、Binder 重连及 Shizuku 重启；同步持久化和恢复读回已由主机测试覆盖。
 - [ ] 补齐 LSPosed 隐私指示器的多 ROM、开关恢复、后台/自检采样、其他应用绿点不受影响及异常降级场景，并记录当前 APK 实际命中候选。
 - [ ] 补齐两台设备的作用域配置和实际命中候选；完成确实选择旧登记的 legacy 框架独立回归。当前真机环境与 APK 已经直接核对，见本轮真机调试记录。
-- [ ] 完成正式签名、本地压缩 Release 对应产物的设备运行及分发验收；当前 Release 无正式签名，不作为已发布版本。
+- [ ] 完成正式签名 Release 的设备运行验收（开发签名旧版需卸载重装），通过后再把预发布转为正式版。
 
 ## 候选 1.1.2 验证记录（2026-10-14）
 
