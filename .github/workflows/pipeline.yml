@@ -124,6 +124,7 @@ jobs:
         with:
           java: "true"
           gradle: "true"
+          gradle-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
           kotlin-js: "true"
       # 主机门禁含 Debug 构建、lint、主机测试与实机套件编译；实机运行不进入 CI。
       - name: Verify Android app
@@ -163,6 +164,7 @@ jobs:
         with:
           java: "true"
           gradle: "true"
+          gradle-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
           kotlin-js: "true"
       # 完整构建先生成 KMP Showcase，再执行依赖其产物的测试与检查。
       # 浏览器与截图测试在锁定版本的 Playwright 镜像中运行，与本地录制基线的字体和 Chromium 一致。
@@ -354,6 +356,7 @@ jobs:
         with:
           java: "true"
           gradle: "true"
+          gradle-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
       - name: Verify tag matches versionName
         run: |
           set -euo pipefail
