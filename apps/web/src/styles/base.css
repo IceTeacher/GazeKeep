@@ -91,12 +91,9 @@ html[lang="en"] h2 {
   font-size: 14px;
   font-weight: 600;
   transition:
-    transform 0.2s,
-    filter 0.2s;
-}
-.button:hover {
-  filter: brightness(1.12);
-  transform: translateY(-2px);
+    transform 0.25s cubic-bezier(0.2, 0.7, 0.2, 1),
+    filter 0.25s,
+    box-shadow 0.25s;
 }
 .button.small {
   padding: 10px 17px;

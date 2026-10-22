@@ -92,39 +92,9 @@
   animation: dial-in 1.4s cubic-bezier(0.3, 0, 0.2, 1) backwards 0.3s;
 }
 
-/* 微交互：主题图标切换旋入，链接箭头随悬停前移。 */
+/* 主题图标切换时旋入；常见问题答案随展开淡入。悬停细节见 interactions.css。 */
 .theme-toggle .theme-icon {
   animation: icon-in 0.45s cubic-bezier(0.3, 1.3, 0.5, 1);
-}
-.button svg,
-.text-link svg,
-.limit-link svg {
-  transition: transform 0.25s;
-}
-.button:hover svg,
-.text-link:hover svg,
-.limit-card:hover .limit-link svg {
-  transform: translate(2px, -2px);
-}
-.hero-actions .button:hover svg {
-  transform: translateY(2px);
-}
-.nav-links a {
-  position: relative;
-}
-.nav-links a::after {
-  content: "";
-  position: absolute;
-  inset: auto 0 -6px;
-  height: 1px;
-  background: var(--accent);
-  transform: scaleX(0);
-  transform-origin: right center;
-  transition: transform 0.3s;
-}
-.nav-links a:hover::after {
-  transform: scaleX(1);
-  transform-origin: left center;
 }
 .faq-answer p {
   opacity: 0;
