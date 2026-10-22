@@ -8,4 +8,6 @@ export const site = {
   license: "https://github.com/IceTeacher/GazeKeep/blob/main/LICENSE",
   /** 无脚本时浏览器界面色，与 tokens.css 的 --bg 一致；脚本运行后按实际主题读取 --bg 更新。 */
   themeColor: { dark: "#080d18", light: "#f4f7fa" },
+  /** Umami 站点 ID；脚本与上报经 functions/stats 同站代理到自建实例。 */
+  umamiWebsiteId: "35f452cf-4935-4581-9b9a-fac2c27cdd07",
 };

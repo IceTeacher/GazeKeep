@@ -29,3 +29,6 @@ src/data/privacy.generated.json
 
 # Vitest 浏览器测试的失败截图与对比输出
 .vitest/
+
+# Wrangler 本地开发与部署缓存
+.wrangler/

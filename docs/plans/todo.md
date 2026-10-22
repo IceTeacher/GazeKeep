@@ -39,7 +39,13 @@
 - 修复：shared 新增 `webpack.config.d/public-path.js` 固定 `publicPath: "./"`；`scripts/build.ts` 检查两个入口不再含自动推断运行时，否则中止构建（`tests/scripts/kmp-showcase.test.ts`，先确认模块缺失时失败）。
 - 验证：本地以 Playwright 在所有 HTML 页尾注入跨源脚本复现，修复前 Wasm/JS 入口都向注入脚本的源请求 `.wasm`；完整构建后 `.wasm` 均从 `/kmp-showcase/<运行时>/` 加载，`/zh/` 内屏 `data-ready=true` 且无页面错误。官网 64+1 项 unit、lint、类型检查、完整构建与 `git diff --check` 通过。未执行：浏览器 project 容器基线（未改页面外观）、合入后线上复验。
 - [ ] 合入 `main` 发布后在生产站复验内屏加载。
-- [ ] 决定是否保留 Cloudflare Web Analytics：架构写明本轮不集成统计脚本，当前在 Pages 面板开启，与设计不一致；保留需补隐私说明，否则在面板关闭。
+- Cloudflare Web Analytics 保留：统计只针对官网，App 隐私承诺不变，无需补充隐私说明。
+
+## 官网接入 Umami 统计（2026-10-23）
+
+- `/zh/`、`/en/` 头部加载自建 Umami 的 `/stats/script.js`（`data-domains` 限生产域名）与 `/stats/recorder.js`；Pages `_redirects` 不能代理外部域名，新增 Pages Function `functions/stats/[[path]].ts` 转发到 `https://umami.rainafter.cn`，以访客 IP 写入 `X-Forwarded-For`，不转发官网 Cookie。
+- 测试先行：Function 3 项（路径与查询、方法/请求体/请求头、非 `/stats` 路径）与页面脚本 2 项均先确认失败；架构测试的镜像目录加入 `functions`，页面渲染工具新增头部外链脚本属性。`wrangler pages dev dist` 实测 `/stats/script.js`、`/stats/recorder.js` 与录制配置接口经代理返回 200，`/` 302、`/zh/` 与 KMP 目录 200。未经代理发送真实上报，避免污染生产统计。
+- [ ] 推送 `dev` 后在预览站确认 `/stats/*` 转发，且预览不计入页面统计；合入 `main` 后确认 Umami 后台的访问、地区与会话录制。地区若全部相同，需在 Umami 设置 `CLIENT_IP_HEADER=x-forwarded-for`（仓库外配置）。
 
 ## CI 流水线（2026-10-22）
 

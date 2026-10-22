@@ -8,7 +8,7 @@ import { describe, expect, test } from "vitest";
 const projectRoot = fileURLToPath(new URL("../../", import.meta.url));
 const testsRoot = path.join(projectRoot, "tests");
 // tests/<目录> 镜像工程内同名源码目录。
-const mirrors = ["src", "scripts"];
+const mirrors = ["src", "scripts", "functions"];
 const reserved = ["scenarios", "architecture", "fixtures", "_support"];
 const sourceExtensions = [".ts", ".astro"];
 const vitestConfig = readFileSync(path.join(projectRoot, "vitest.config.ts"), "utf8");
