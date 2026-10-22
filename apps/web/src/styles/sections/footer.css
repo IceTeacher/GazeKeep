@@ -1,0 +1,30 @@
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 120px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.footer .brand {
+  color: var(--text);
+  font-size: 19px;
+}
+.footer > div {
+  display: flex;
+  gap: 25px;
+}
+.footer a:hover {
+  color: var(--accent);
+}
+@media (max-width: 760px) {
+  .footer {
+    flex-wrap: wrap;
+    padding-block: 30px;
+  }
+  .footer > div {
+    width: 100%;
+    justify-content: space-between;
+  }
+}

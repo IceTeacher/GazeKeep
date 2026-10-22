@@ -2,7 +2,7 @@
 
 package cn.rainafter.app.gazekeep.showcase
 
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,11 +19,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.platform.Font
 import androidx.compose.ui.unit.dp
@@ -49,6 +45,7 @@ import gazekeep.shared.generated.resources.Res
 import gazekeep.shared.generated.resources.m0_capturing
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.jetbrains.compose.resources.ExperimentalResourceApi
+import org.jetbrains.compose.resources.decodeToImageBitmap
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -61,22 +58,36 @@ private val locale = mutableStateOf("zh")
 private val dark = mutableStateOf(true)
 private val demoStatus = mutableStateOf("idle")
 
+/**
+ * 演示应用列表只使用开源应用与 AOSP 系统应用，按标签排序与真机列表一致；
+ * 图标从模拟器实际渲染结果导出，位于 composeResources/files/apps/<包名>.webp。
+ */
+private val DEMO_APPS = listOf(
+  AppEntry("cn.rainafter.app.gazekeep", "GazeKeep"),
+  AppEntry("org.lsposed.manager", "LSPosed"),
+  AppEntry("com.topjohnwu.magisk", "Magisk"),
+  AppEntry("moe.shizuku.privileged.api", "Shizuku"),
+  AppEntry("com.android.stk", "SIM Toolkit"),
+  AppEntry("org.matrix.vector.manager", "Vector"),
+)
+
 // 仅供官网演示，平台操作不连接 Android 或申请硬件权限。
 private object DemoController : GazeKeepController {
   override val state = MutableStateFlow(
     ControllerState(
       loaded = true,
-      config = GazeConfig(enabled = true, packages = setOf("demo.reader", "demo.browser")),
+      config = GazeConfig(enabled = true, packages = setOf("cn.rainafter.app.gazekeep", "org.lsposed.manager")),
       selfTestPassed = true, cameraGranted = true,
       backends = BackendId.entries.associateWith { Readiness.Ready },
       activeBackend = BackendId.Lsposed, serviceRunning = true,
-      apps = listOf(
-        AppEntry("demo.reader", "Reader"),
-        AppEntry("demo.browser", "Browser"),
-        AppEntry("demo.documents", "Documents"),
-      ),
+      apps = DEMO_APPS,
       appsLoadState = AppListLoadState.Loaded,
-      systemInfo = SystemInfo(appVersion = "Demo", androidVersion = "—", deviceModel = "GazeKeep Demo"),
+      // 应用版本为真实的当前版本；Android 版本与设备信息仍为演示值。
+      systemInfo = SystemInfo(
+        appVersion = "v$SHOWCASE_VERSION_NAME",
+        androidVersion = "—",
+        deviceModel = "GazeKeep Demo",
+      ),
     ),
   )
   override val selfTest = MutableStateFlow(SelfTestState())
@@ -109,50 +120,19 @@ private object DemoActions : PlatformActions {
 
   @Composable override fun SelfTestPreview(modifier: Modifier) {}
 
-  @Composable override fun AppIcon(packageName: String, modifier: Modifier) {
-    val color = when (packageName) {
-      "demo.reader" -> Color(0xFF279D78)
-      "demo.browser" -> Color(0xFF4E78DB)
-      else -> Color(0xFFE7A142)
+  // 与 Android 端一致：圆角容器底色上绘制应用图标，图标异步解码，缺失时只显示容器。
+  @OptIn(ExperimentalResourceApi::class)
+  @Composable
+  override fun AppIcon(packageName: String, modifier: Modifier) {
+    val icon by produceState<ImageBitmap?>(null, packageName) {
+      value = runCatching { Res.readBytes("files/apps/$packageName.webp").decodeToImageBitmap() }.getOrNull()
     }
-    Canvas(modifier.clip(RoundedCornerShape(11.dp)).background(color)) {
-      val w = size.width
-      val h = size.height
-      val ink = Color.White
-      val stroke = w * 0.035f
-      when (packageName) {
-        "demo.reader" -> {
-          val book = Path().apply {
-            moveTo(w * 0.19f, h * 0.25f)
-            quadraticTo(w * 0.36f, h * 0.20f, w * 0.5f, h * 0.31f)
-            quadraticTo(w * 0.64f, h * 0.20f, w * 0.81f, h * 0.25f)
-            lineTo(w * 0.81f, h * 0.72f)
-            quadraticTo(w * 0.64f, h * 0.67f, w * 0.5f, h * 0.78f)
-            quadraticTo(w * 0.36f, h * 0.67f, w * 0.19f, h * 0.72f)
-            close()
-          }
-          drawPath(book, ink)
-          drawLine(color, Offset(w * 0.5f, h * 0.32f), Offset(w * 0.5f, h * 0.73f), stroke)
-        }
-
-        "demo.browser" -> {
-          drawCircle(ink, w * 0.3f, style = Stroke(stroke))
-          drawOval(ink, Offset(w * 0.37f, h * 0.20f), Size(w * 0.26f, h * 0.60f), style = Stroke(stroke))
-          drawLine(ink, Offset(w * 0.21f, h * 0.5f), Offset(w * 0.79f, h * 0.5f), stroke)
-        }
-
-        else -> {
-          drawRoundRect(
-            ink,
-            Offset(w * 0.27f, h * 0.18f),
-            Size(w * 0.46f, h * 0.64f),
-            androidx.compose.ui.geometry.CornerRadius(w * 0.05f),
-          )
-          for (y in listOf(0.39f, 0.51f, 0.63f)) {
-            drawLine(color, Offset(w * 0.36f, h * y), Offset(w * 0.64f, h * y), stroke)
-          }
-        }
-      }
+    Box(
+      modifier
+        .clip(RoundedCornerShape(8.dp))
+        .background(MiuixTheme.colorScheme.surfaceContainerHigh),
+    ) {
+      icon?.let { Image(it, contentDescription = null, modifier = Modifier.fillMaxSize()) }
     }
   }
 }

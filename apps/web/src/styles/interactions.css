@@ -1,0 +1,157 @@
+/*
+ * 悬停与按压细节。悬停只在有精确指针的设备上生效（避免触屏点按后残留悬停态），键盘聚焦复用同一表现；
+ * 减少动态时基础样式统一关闭过渡与动画，只保留颜色等即时变化。
+ */
+@keyframes arrow-drop {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(3px);
+  }
+}
+@keyframes scroll-cue {
+  0% {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* 箭头与图标统一过渡。 */
+.button svg,
+.text-link svg,
+.limit-link svg,
+.mobile-menu svg,
+.icon-button svg {
+  transition:
+    transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1),
+    color 0.2s;
+}
+.text-link,
+.language,
+.footer a,
+.nav-links a,
+.faq-trigger,
+.manifest-card summary,
+.mobile-menu a {
+  transition:
+    color 0.2s,
+    background-color 0.2s;
+}
+.icon-button,
+.language {
+  border-radius: 50%;
+  transition:
+    background-color 0.2s,
+    color 0.2s;
+}
+.nav-links a {
+  position: relative;
+}
+.nav-links a::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 -6px;
+  height: 1px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: right center;
+  transition: transform 0.3s;
+}
+.faq-mark {
+  transition:
+    transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1),
+    color 0.2s;
+}
+
+/* 按压：主按钮轻微下沉，给出点击确认。 */
+.button:active {
+  transform: translateY(0) scale(0.97);
+  filter: brightness(0.96);
+  transition-duration: 0.08s;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  /* 主按钮上浮并投出主题绿柔光。 */
+  .button:hover {
+    filter: brightness(1.1);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px -12px color-mix(in srgb, var(--accent) 85%, transparent);
+  }
+  .button:active {
+    transform: translateY(0) scale(0.97);
+  }
+  /* 下载：托盘不动，箭头循环下落提示下载；外链箭头朝右上探出。 */
+  .button:hover .lucide-download path:not(:nth-child(2)) {
+    animation: arrow-drop 0.9s ease-in-out infinite;
+  }
+  .button:hover .lucide-arrow-up-right,
+  .text-link:hover .lucide-arrow-up-right,
+  .limit-card:hover .lucide-arrow-up-right,
+  .mobile-menu a:hover .lucide-arrow-up-right {
+    transform: translate(3px, -3px);
+  }
+  .text-link:hover,
+  .footer a:hover,
+  .nav-links a:hover,
+  .manifest-card summary:hover {
+    color: var(--accent);
+  }
+  .nav-links a:hover::after {
+    transform: scaleX(1);
+    transform-origin: left center;
+  }
+  /* 导航图标按钮与语言切换：圆形底色反馈。 */
+  .icon-button:hover,
+  .language:hover {
+    background: color-mix(in srgb, var(--text) 8%, transparent);
+  }
+  .theme-toggle:hover .theme-icon {
+    transform: rotate(-15deg);
+  }
+  .mobile-menu a:hover {
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+    border-radius: 12px;
+  }
+  /* 常见问题：问题变为主题绿，加号放大。 */
+  .faq-trigger:hover {
+    color: var(--accent);
+  }
+  .faq-trigger:hover .faq-mark {
+    transform: scale(1.15);
+  }
+  .faq-trigger[aria-expanded="true"]:hover .faq-mark {
+    transform: rotate(45deg) scale(1.15);
+  }
+  /* 运行方式：悬停项的图标恢复原色。 */
+  .backend-card:hover .backend-symbol {
+    filter: none;
+  }
+  /* 探索入口：滚轮点循环下滑。 */
+  .explore:hover {
+    color: var(--text);
+  }
+  .explore:hover .scroll-mark::before {
+    animation: scroll-cue 1.2s ease-in-out infinite;
+  }
+}
+
+/* 键盘聚焦复用悬停表现中的位移提示。 */
+.button:focus-visible .lucide-arrow-up-right,
+.text-link:focus-visible .lucide-arrow-up-right,
+.limit-card:focus-visible .lucide-arrow-up-right {
+  transform: translate(3px, -3px);
+}
+.icon-button:focus-visible,
+.language:focus-visible {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}

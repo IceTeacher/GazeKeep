@@ -1,0 +1,22 @@
+---
+import type { SiteContent } from "../../data/schema";
+interface Props {
+  content: SiteContent;
+}
+const { content: c } = Astro.props;
+---
+
+<section id="start" class="start-section shell">
+  <div class="section-heading" data-reveal>
+    <h2>{c.start.title}</h2>
+  </div>
+  <div class="start-grid">
+    {c.start.steps.map((step, i) => (
+      <article data-reveal style={`--reveal-order: ${i + 1}`}>
+        <span class="start-number">0{i + 1}</span>
+        <h3>{step.title}</h3>
+        <p>{step.text}</p>
+      </article>
+    ))}
+  </div>
+</section>

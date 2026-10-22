@@ -1,0 +1,24 @@
+---
+import type { SiteContent } from "../../data/schema";
+import { site } from "../../data/site.config";
+import ArrowUpRight from "@lucide/astro/icons/arrow-up-right";
+interface Props {
+  content: SiteContent;
+}
+const { content: c } = Astro.props;
+---
+
+<section class="closing shell">
+  <div class="closing-glow" aria-hidden="true"></div>
+  <img src="/app-icon-192.webp" width="64" height="64" alt="" data-reveal />
+  <h2 data-reveal style="--reveal-order: 1">
+    {c.footer.title}
+  </h2>
+  <p data-reveal style="--reveal-order: 2">
+    {c.footer.text}
+  </p>
+  <a class="button" href={site.download} data-reveal style="--reveal-order: 3">
+    {c.download}
+    <ArrowUpRight size={16} stroke-width={1.8} />
+  </a>
+</section>

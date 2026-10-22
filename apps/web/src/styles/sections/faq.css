@@ -1,0 +1,68 @@
+/* 常见问题左侧标题随列表停留，问题之间只用行距分隔。 */
+.faq-section {
+  padding-block: 120px 160px;
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 80px;
+  align-items: start;
+}
+.faq-section h2 {
+  position: sticky;
+  top: calc(var(--header-h, 72px) + 40px);
+  font-size: clamp(32px, 3.4vw, 48px);
+}
+.faq-item h3 {
+  font-size: 17px;
+  letter-spacing: 0;
+}
+.faq-trigger {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  padding: 18px 0;
+  text-align: left;
+  background: none;
+  border: 0;
+}
+.faq-mark {
+  color: var(--accent);
+  transition: transform 0.3s;
+}
+.faq-trigger[aria-expanded="true"] .faq-mark {
+  transform: rotate(45deg);
+}
+.faq-answer {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.35s;
+}
+.faq-answer > div {
+  overflow: hidden;
+}
+.faq-answer p {
+  font-size: 14px;
+  padding-bottom: 28px;
+  max-width: 600px;
+}
+.faq-item:has([aria-expanded="true"]) .faq-answer {
+  grid-template-rows: 1fr;
+}
+@media (max-width: 760px) {
+  .faq-section {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    padding-block: 88px 104px;
+  }
+  .faq-section h2 {
+    position: static;
+    font-size: 32px;
+  }
+  .faq-item h3 {
+    font-size: 15px;
+  }
+  .faq-trigger {
+    padding-block: 14px;
+  }
+}

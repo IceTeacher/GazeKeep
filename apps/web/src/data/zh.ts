@@ -1,12 +1,13 @@
 import type { SiteContent } from "./schema";
 export const zh = {
   locale: "zh",
-  title: "GazeKeep · 目光所及，屏幕常明",
+  title: "GazeKeep - 注视保亮",
   description: "面向 Android 的端侧离线注视保亮工具。临近熄屏短时采样，注视时延后熄屏，看不清时正常熄屏。",
+  ogImageAlt: "GazeKeep 官网首屏：目光所及，屏幕常明，右侧为显示 GazeKeep 主页的手机",
   nav: ["工作方式", "运行后端", "隐私", "常见问题"],
   download: "下载 APK",
   source: "查看源码",
-  theme: "切换明暗主题",
+  theme: { label: "切换主题", system: "跟随系统", light: "浅色", dark: "深色" },
   menu: "导航菜单",
   hero: {
     title: ["目光所及，", "屏幕常明。"],
@@ -70,8 +71,7 @@ export const zh = {
   },
   whitelist: {
     title: "让专注，\n有自己的范围。",
-    text: "在阅读器、浏览器和文档里启用。只有确认当前应用在白名单内，才进行保亮。安装后白名单默认开启且为空；手机演示使用示例应用。",
-    categories: ["阅读", "浏览器", "文档", "代码", "漫画"],
+    text: "在阅读器、浏览器和文档里启用。只有确认当前应用在白名单内，才进行保亮。安装后白名单默认开启且为空；手机演示列出几款开源应用作为示例。",
     limit: "30 分钟",
     detail: "默认单次保护上限 · 可自定义或设为无限制",
   },
@@ -135,5 +135,21 @@ export const zh = {
     backend_lsposed: "LSPosed · 演示已就绪",
     backend_shizuku: "Shizuku · 演示已就绪",
     backend_accessibility: "无障碍 · 演示已就绪",
+  },
+  ui: {
+    skip: "跳至正文",
+    productNote: "为 Android 而生的注视默契",
+    kickers: {
+      workflow: "恰到好处的工作方式",
+      backends: "三种连接，一份默契",
+      whitelist: "你的范围，你的节奏",
+      privacy: "隐私，始于克制。",
+    },
+    limitLabel: "保护上限",
+    limitLink: "查看设置",
+    tagline: "目光所及，屏幕常明。",
+    switchLanguage: "Switch to English",
+    languageShort: "EN",
+    languageName: "English",
   },
 } satisfies SiteContent;

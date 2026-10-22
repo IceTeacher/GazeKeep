@@ -1,0 +1,89 @@
+---
+import type { SiteContent } from "../../data/schema";
+import GripLayers from "./GripLayers.astro";
+interface Props {
+  content: SiteContent;
+}
+const { content: c } = Astro.props;
+---
+
+<div id="device-track">
+  <div id="phone-stage">
+    <div class="phone-halo"></div>
+    <div class="device-rig">
+      <div id="phone-visual">
+        <canvas id="phone-body" aria-hidden="true"></canvas>
+        <div id="phone-chassis" data-effect="none">
+          <div class="phone-screen">
+            <div id="phone-placeholder">
+              <img src="/app-icon-192.webp" width="58" height="58" alt="" />
+              <span id="load-message" role="status">
+                {c.loading}
+              </span>
+              <span class="loader"></span>
+              <button tabindex="-1" aria-hidden="true" id="retry-showcase" class="button small" hidden>
+                {c.retry}
+              </button>
+            </div>
+            <div class="phone-viewport">
+              <iframe id="kmp-frame" title={c.demo} tabindex="-1" inert loading="eager"></iframe>
+            </div>
+            <div class="screen-dim"></div>
+            <div class="camera" aria-hidden="true">
+              <span></span>
+              <svg class="camera-halo" viewBox="0 0 28 28" aria-hidden="true">
+                <circle cx="14" cy="14" r="12"></circle>
+              </svg>
+            </div>
+            <div class="phone-statusbar" aria-hidden="true">
+              <span>9:41</span>
+              <span class="status-icons">
+                <!-- 状态栏图标模仿 Android 原生实心风格，属于机身仿真而非界面图标，不使用 Lucide。 -->
+                <svg
+                  class="status-wifi"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path d="M1 9a17 17 0 0 1 22 0L12 22Z"></path>
+                </svg>
+                <svg
+                  class="status-signal"
+                  width="15"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path d="M2 22 22 2v20Z"></path>
+                </svg>
+                <svg
+                  class="status-battery"
+                  width="10"
+                  height="17"
+                  viewBox="0 0 14 24"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M5 1h4v2h3a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h3Z"
+                    opacity=".35"
+                  ></path>
+                  <path d="M3 7h8v14H3Z"></path>
+                </svg>
+              </span>
+            </div>
+            <div class="home-indicator"></div>
+          </div>
+        </div>
+        <GripLayers />
+      </div>
+    </div>
+    <div class="live-status">
+      <span class="tiny-dot"></span>
+      <span id="demo-status">{c.status.idle}</span>
+    </div>
+  </div>
+</div>

@@ -42,7 +42,7 @@ function fixture(t: TestContext) {
     ".oxfmtrc.json",
     ".oxlintrc.json",
     ".editorconfig",
-    "apps/web/src/styles/global.css",
+    "apps/web/src/styles/tailwind.css",
     "scripts/repo-tools/config/commitlint.config.ts",
     "scripts/repo-tools/package.json",
     "apps/app/settings.gradle.kts",

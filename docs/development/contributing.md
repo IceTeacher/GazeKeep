@@ -70,7 +70,7 @@ scope 从 Android settings 的 Gradle 模块派生（冒号改为连字符），
 
 Lefthook 使用[官方入口配置](https://lefthook.dev/configuration/lefthook/)锁定根 node_modules 中的本地版本，不回退全局版本。pre-commit 仅对暂存文件运行 ktlint、oxlint、oxfmt、TOML 解析和 XML 语法校验。stage_fixed 更新格式结果；部分暂存隐藏与恢复由 Lefthook 负责。冲突与工具缺失阻断并保留恢复材料。
 
-源码格式为 UTF-8、LF、空格缩进 2、行宽 120。Kotlin 与 Gradle Kotlin DSL 由 ktlint 按根 `.editorconfig` 执行；JavaScript/TypeScript、Astro、CSS、HTML、Markdown、JSON 与 YAML 由 oxfmt 执行，Tailwind CSS 类名按 `apps/web/src/styles/global.css` 排序，`package.json` 不重排键序。`proseWrap` 保持 `preserve`，不重排既有段落。XML 只校验语法、不格式化，保持 Android 与 Compose 资源的 strict 空白语义。
+源码格式为 UTF-8、LF、空格缩进 2、行宽 120。Kotlin 与 Gradle Kotlin DSL 由 ktlint 按根 `.editorconfig` 执行；JavaScript/TypeScript、Astro、CSS、HTML、Markdown、JSON 与 YAML 由 oxfmt 执行，Tailwind CSS 类名按只含 Tailwind 入口的 `apps/web/src/styles/tailwind.css` 排序，`package.json` 不重排键序。`proseWrap` 保持 `preserve`，不重排既有段落。XML 只校验语法、不格式化，保持 Android 与 Compose 资源的 strict 空白语义。
 
 脚本类文件（含 `.astro`）先经 oxlint 的 correctness 规则检查，警告也阻断；类型由 `pnpm lint`（repo-tools 的 `tsc`）与官网 `astro check` 检查。仓库脚本均为 TypeScript，由 Node 原生类型剥离直接运行，只能使用可擦除语法（无 enum、namespace 与参数属性），相对导入写 `.ts` 扩展名。
 

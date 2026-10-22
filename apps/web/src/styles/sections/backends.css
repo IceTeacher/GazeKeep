@@ -1,0 +1,121 @@
+.backend-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 56px;
+  position: relative;
+  z-index: 6;
+}
+.backend-card {
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  column-gap: 18px;
+  align-items: start;
+  width: 100%;
+  margin: 0;
+  padding: 22px 0 22px 20px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  text-align: left;
+  position: relative;
+  opacity: 0.55;
+  transition: opacity 0.25s;
+}
+.backend-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 22px;
+  bottom: 22px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  transform: scaleY(0);
+  transition: transform 0.3s;
+}
+.backend-card:hover,
+.backend-card:focus-visible {
+  opacity: 0.85;
+}
+.backend-card[aria-pressed="true"] {
+  opacity: 1;
+}
+.backend-card[aria-pressed="true"]::before {
+  transform: none;
+}
+.backend-top {
+  display: contents;
+}
+/* 图标与 Android 启动器一致为圆形；无障碍没有应用图标，以主题绿圆底承托人形。 */
+.backend-symbol {
+  display: grid;
+  place-items: center;
+  grid-row: 1 / 4;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 6px 16px -8px var(--shadow);
+  transition:
+    transform 0.3s,
+    filter 0.3s;
+}
+.backend-symbol[data-kind="system"] {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.backend-symbol img {
+  width: 100%;
+  height: 100%;
+}
+/* 未选中的后端图标去饱和，选中时恢复原色并轻微放大。 */
+.backend-card:not([aria-pressed="true"]) .backend-symbol {
+  filter: grayscale(0.6);
+}
+.backend-card[aria-pressed="true"] .backend-symbol {
+  transform: scale(1.06);
+}
+.backend-tag {
+  grid-column: 3;
+  grid-row: 1;
+  align-self: center;
+  color: var(--muted);
+  font-size: 11px;
+}
+.backend-card h3 {
+  grid-column: 2;
+  grid-row: 1;
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.5;
+}
+.backend-card p,
+.backend-card .requirement {
+  grid-column: 2 / 4;
+}
+.backend-card p {
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.75;
+}
+.backend-card .requirement {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 11px;
+}
+@media (max-width: 760px) {
+  .backend-list {
+    margin-top: 32px;
+    gap: 4px;
+  }
+  .backend-card {
+    grid-template-columns: 36px 1fr auto;
+    column-gap: 14px;
+    padding: 20px 0 20px 16px;
+  }
+  .backend-symbol {
+    width: 36px;
+    height: 36px;
+  }
+}

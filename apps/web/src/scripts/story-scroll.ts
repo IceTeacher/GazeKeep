@@ -1,6 +1,7 @@
 import {
   sceneState,
   storyPose,
+  heroDrift,
   heroPose,
   selectSection,
   readingOpacity,
@@ -51,6 +52,9 @@ export function initStoryScroll(
     lastRoute = "home",
     lastDim = 0,
     lastTime = 0,
+    driftStart: number | undefined,
+    driftTimer: ReturnType<typeof setTimeout> | undefined,
+    lastScrollY = Number.NaN,
     shown: FollowPose | undefined;
   let geometry = {
     header: 60,
@@ -202,7 +206,11 @@ export function initStoryScroll(
     lastDim = dim;
     lastRoute = route;
     const desktop = !mobile && !compact;
-    const initial = heroPose((scrollY - L.heroHeight * 0.2) / (L.heroHeight * 0.8), mobile);
+    const heroProgress = (scrollY - L.heroHeight * 0.2) / (L.heroHeight * 0.8);
+    const initial = heroPose(heroProgress, mobile);
+    // 首屏停留时叠加缓慢漂移；减少动态与紧凑布局为平放，不叠加；内屏加载失败时停住，便于点击重试。
+    driftStart ??= now;
+    const drift = heroDrift((now - driftStart) / 1000, failed ? 1 : heroProgress, mobile);
     // 移动端后端与范围设备槽不与正文同屏，使用更大的槽位高度；切换发生在槽位进入视口前的透明阶段。
     const phoneHeight =
       mobile && !compact && (inBackend || inWhitelist)
@@ -263,11 +271,11 @@ export function initStoryScroll(
       : inBackend || inWhitelist
         ? { x: pose.x, turn: pose.turn, rotateX: pose.rotateX, rotateZ: pose.rotateZ, scale: pose.scale }
         : {
-            x: pose.x,
-            turn: initial.rotateY + pose.turn,
-            rotateX: initial.rotateX + pose.rotateX,
-            rotateZ: initial.rotateZ + pose.rotateZ,
-            scale: pose.scale,
+            x: pose.x + drift.x,
+            turn: initial.rotateY + pose.turn + drift.rotateY,
+            rotateX: initial.rotateX + pose.rotateX + drift.rotateX,
+            rotateZ: initial.rotateZ + pose.rotateZ + drift.rotateZ,
+            scale: pose.scale + drift.scale,
           };
     // 横移与旋转短阻尼跟随，抹平滚轮台阶；纵向仍由 sticky 决定。
     // 静止后再次滚动按一帧计时，不因空闲间隔直接对齐；测量后 shown 清空才直接对齐。
@@ -300,7 +308,18 @@ export function initStoryScroll(
       step.classList.toggle("is-active", Math.round(progress) === i + 1);
     });
     stage.dataset.scene = String(progress);
-    if ((["x", "turn", "rotateX", "rotateZ", "scale"] as const).some((k) => shown![k] !== target[k])) schedule();
+    const keys = ["x", "turn", "rotateX", "rotateZ", "scale"] as const;
+    const moving = keys.some((k) => shown![k] !== target[k]);
+    // 漂移是时间驱动的：即使阻尼跟随恰好收敛（各轴差值低于吸附阈值），只要仍在漂移就继续下一拍。
+    const drifting = !flat && !inBackend && !inWhitelist && !failed && heroProgress < 1;
+    // 只剩首屏漂移在推动时降到约 25 帧：每秒约 1° 的漂移看不出差别，也避免停留首屏时满帧重绘 3D 机身。
+    const driftOnly = scrollY === lastScrollY && keys.every((k) => Math.abs(shown![k] - target[k]) < 0.05);
+    if (moving && !driftOnly) schedule();
+    else if (moving || drifting) {
+      clearTimeout(driftTimer);
+      driftTimer = setTimeout(schedule, 40);
+    }
+    lastScrollY = scrollY;
   }
   function schedule() {
     if (!disposed && !raf) raf = requestAnimationFrame((now) => render(now));
@@ -318,6 +337,7 @@ export function initStoryScroll(
     disposed = true;
     observer.disconnect();
     cancelAnimationFrame(raf);
+    clearTimeout(driftTimer);
     window.removeEventListener("scroll", schedule);
     window.removeEventListener("resize", measure);
     window.removeEventListener("pageshow", measure);

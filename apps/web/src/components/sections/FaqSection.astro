@@ -1,0 +1,29 @@
+---
+import type { SiteContent } from "../../data/schema";
+import Plus from "@lucide/astro/icons/plus";
+interface Props {
+  content: SiteContent;
+}
+const { content: c } = Astro.props;
+---
+
+<section id="faq" class="faq-section shell">
+  <h2 data-reveal>{c.faq.title}</h2>
+  <div class="faq-list">
+    {c.faq.items.map((item, i) => (
+      <div class="faq-item" data-reveal style={`--reveal-order: ${i}`}>
+        <h3>
+          <button aria-expanded="false" aria-controls={`answer-${i}`} class="faq-trigger">
+            {item.question}
+            <Plus class="faq-mark" size={20} stroke-width={1.5} />
+          </button>
+        </h3>
+        <div id={`answer-${i}`} class="faq-answer" inert>
+          <div>
+            <p>{item.answer}</p>
+          </div>
+        </div>
+      </div>
+    ))}
+  </div>
+</section>

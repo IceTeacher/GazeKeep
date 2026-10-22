@@ -1,0 +1,54 @@
+---
+import type { SiteContent } from "../../data/schema";
+import { site } from "../../data/site.config";
+import { sections } from "../../data/sections";
+import ThemeToggle from "./ThemeToggle.astro";
+import ArrowUpRight from "@lucide/astro/icons/arrow-up-right";
+import Menu from "@lucide/astro/icons/menu";
+interface Props {
+  content: SiteContent;
+}
+const { content: c } = Astro.props;
+const other = c.locale === "zh" ? "en" : "zh";
+---
+
+<header class="nav-wrap">
+  <nav class="nav shell" aria-label={c.menu}>
+    <a class="brand" href={`/${c.locale}/`}>
+      <img src="/app-icon-192.webp" width="32" height="32" alt="" />
+      <span>GazeKeep</span>
+    </a>
+    <div class="nav-links">
+      {c.nav.map((name, i) => (
+        <a href={`#${sections[i]}`}>{name}</a>
+      ))}
+    </div>
+    <div class="nav-actions">
+      <a class="language" href={`/${other}/`} lang={other} aria-label={c.ui.switchLanguage}>
+        {c.ui.languageShort}
+      </a>
+      <ThemeToggle content={c} />
+      <a class="button small" href={site.download}>
+        {c.download}
+        <ArrowUpRight size={14} stroke-width={2} />
+      </a>
+      <button
+        id="menu-toggle"
+        class="icon-button"
+        aria-controls="mobile-menu"
+        aria-expanded="false"
+        aria-label={c.menu}
+      >
+        <Menu size={20} stroke-width={1.5} />
+      </button>
+    </div>
+  </nav>
+  <div id="mobile-menu" class="mobile-menu shell">
+    {c.nav.map((name, i) => (
+      <a href={`#${sections[i]}`}>{name}</a>
+    ))}
+    <a href={site.download}>
+      {c.download} <ArrowUpRight size={14} stroke-width={2} />
+    </a>
+  </div>
+</header>

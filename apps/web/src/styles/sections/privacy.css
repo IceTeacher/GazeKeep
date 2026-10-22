@@ -1,0 +1,116 @@
+.privacy-section {
+  position: relative;
+  /* clip 不建立滚动容器，内部标题才能作为页面吸附点。 */
+  overflow: clip;
+  padding: 160px 0 140px;
+  background: var(--bg);
+}
+.privacy-section .shell {
+  position: relative;
+}
+.privacy-heading {
+  max-width: 760px;
+  margin: 0 auto;
+  text-align: center;
+}
+.privacy-heading .section-kicker {
+  grid-column: 1 / -1;
+}
+.privacy-heading h2 {
+  margin: 0 0 28px;
+  font-size: clamp(44px, 5.4vw, 76px);
+  line-height: 1.15;
+  letter-spacing: -0.055em;
+}
+.privacy-heading p {
+  max-width: 520px;
+  margin: 0 auto;
+  font-size: 15px;
+}
+.privacy-lines {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 56px;
+  margin-top: 96px;
+}
+/* 图标置于描边圆环中，三项之间只靠列距分组，不加连线与光晕。 */
+.privacy-icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin: 0 0 24px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg));
+  color: var(--accent);
+}
+.privacy-lines h3 {
+  margin: 0 0 10px;
+  font-size: 19px;
+}
+.privacy-lines p {
+  margin: 0;
+  font-size: 14px;
+}
+.manifest-card {
+  margin: 80px auto 0;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+.manifest-card summary {
+  cursor: pointer;
+  padding-block: 12px;
+}
+.manifest-card pre {
+  font:
+    12px/1.8 ui-monospace,
+    monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.manifest-card .text-link {
+  font-size: 12px;
+  margin-top: 15px;
+}
+@media (max-width: 760px) {
+  .privacy-section {
+    padding: 96px 0 80px;
+  }
+  .privacy-heading {
+    text-align: left;
+  }
+  .privacy-heading .section-kicker {
+    margin: 0;
+  }
+  .privacy-heading h2 {
+    font-size: 40px;
+  }
+  .privacy-heading p {
+    margin: 0;
+    font-size: 13px;
+  }
+  .privacy-lines {
+    grid-template-columns: 1fr;
+    gap: 36px;
+    margin-top: 56px;
+  }
+  .privacy-lines article {
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    gap: 16px;
+  }
+  .privacy-icon {
+    width: 44px;
+    height: 44px;
+    margin: 0;
+  }
+  .privacy-lines p {
+    font-size: 13px;
+  }
+  .manifest-card {
+    margin-top: 56px;
+    text-align: left;
+  }
+}

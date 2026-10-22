@@ -26,5 +26,5 @@ description: 编写或评审 GazeKeep 单元测试时加载；覆盖 Kotlin 规�
 ## 各工程
 
 - Kotlin：kotlin.test 与 JUnit4，协程使用 `kotlinx-coroutines-test` 的虚拟时间。core 与 shared 的纯规则放在 `commonTest`，Android 模块的隔离协作放在 `src/test`。涉及引擎或后端时检查[七条不变量](../../../docs/development/testing.md#七条必守不变量)中的受影响项；不 Extend 不能证明 Hold 释放或实际熄屏，`NO-SOURCE` 不代表有行为测试。
-- web：Vitest `unit` project，运行于 Node，测试位于 `apps/web/tests/unit/`，只覆盖不依赖 DOM 的模块与构建脚本；需要 DOM 的场景交给 `testing-ui` 的 `browser` project。
+- web：Vitest `unit` project，运行于 Node，测试按源码镜像放在 `apps/web/tests/src/` 与 `tests/scripts/`（与被测文件同名），只覆盖不依赖 DOM 的模块与构建脚本；需要 DOM 的场景交给 `testing-ui` 的 `browser` project。
 - 仓库工具：`node:test` 与严格断言，使用临时仓库和隔离 fixture，不操作真实索引；不引入第三方测试框架，保持与生产脚本相同的 Node 原生运行方式。

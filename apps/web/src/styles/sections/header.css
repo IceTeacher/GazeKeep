@@ -1,0 +1,120 @@
+/*
+ * 导航顶部透明，不加分隔线；滚动后由两层伪元素承托模糊并交叉淡入。
+ * 首屏层用半透明底色、不增饱和并向下渐隐，融入着色的 Shader 底；
+ * 正文层以 84% 页面底色承托模糊，避免下方彩色内容被饱和放大成色块。
+ */
+.nav-wrap {
+  position: fixed;
+  inset: 0 0 auto;
+  top: 0;
+  z-index: 20;
+  padding-top: env(safe-area-inset-top);
+}
+.nav-wrap::before,
+.nav-wrap::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.nav-wrap::before {
+  bottom: -28px;
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  -webkit-mask-image: linear-gradient(#000 60%, transparent);
+  mask-image: linear-gradient(#000 60%, transparent);
+}
+.nav-wrap::after {
+  background: color-mix(in srgb, var(--bg) 84%, transparent);
+  -webkit-backdrop-filter: saturate(1.8) blur(20px);
+  backdrop-filter: saturate(1.8) blur(20px);
+}
+.nav-wrap[data-scrolled="true"][data-zone="hero"]::before,
+.nav-wrap[data-scrolled="true"][data-zone="content"]::after {
+  opacity: 1;
+}
+.nav {
+  height: var(--header-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 30px;
+}
+.brand {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 21px;
+  font-weight: 650;
+  letter-spacing: -0.6px;
+}
+.brand img {
+  border-radius: 9px;
+}
+.nav-links,
+.nav-actions {
+  display: flex;
+  gap: 30px;
+  align-items: center;
+}
+.nav-links {
+  font-size: 13px;
+  color: var(--muted);
+}
+.nav-links a:hover {
+  color: var(--accent);
+}
+.nav-actions {
+  gap: 20px;
+  font-size: 12px;
+}
+#menu-toggle,
+.mobile-menu {
+  display: none;
+}
+@media (max-width: 1050px) {
+  .nav-links {
+    display: none;
+  }
+}
+@media (max-width: 760px) {
+  .nav {
+    gap: 12px;
+  }
+  .nav .brand {
+    font-size: 17px;
+    gap: 8px;
+  }
+  .brand img {
+    width: 28px;
+    height: 28px;
+  }
+  .nav-actions {
+    gap: 8px;
+  }
+  .nav-actions > .button {
+    display: none;
+  }
+  #menu-toggle {
+    display: flex;
+  }
+  .mobile-menu {
+    padding: 8px;
+    border-radius: 20px;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    -webkit-backdrop-filter: saturate(1.8) blur(20px);
+    backdrop-filter: saturate(1.8) blur(20px);
+    box-shadow: 0 18px 48px var(--shadow);
+  }
+  .nav-wrap[data-menu="true"] .mobile-menu {
+    display: grid;
+    gap: 4px;
+  }
+  .mobile-menu a {
+    padding: 12px;
+  }
+}

@@ -1,0 +1,22 @@
+---
+import type { SiteContent } from "../../data/schema";
+import { site } from "../../data/site.config";
+interface Props {
+  content: SiteContent;
+}
+const { content: c } = Astro.props;
+const other = c.locale === "zh" ? "en" : "zh";
+---
+
+<footer class="footer shell">
+  <a class="brand" href={`/${c.locale}/`}>
+    GazeKeep
+  </a>
+  <span>{c.ui.tagline}</span>
+  <div>
+    <a href={site.repository}>GitHub</a>
+    <a href={site.docs}>{c.footer.docs}</a>
+    <a href={site.license}>{c.footer.license}</a>
+    <a href={`/${other}/`}>{c.ui.languageName}</a>
+  </div>
+</footer>
