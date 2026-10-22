@@ -21,7 +21,8 @@ concurrency:
 jobs:
   changes:
     name: Detect changes
-    runs-on: ubuntu-latest
+    # 各 job 固定 runner 镜像版本：ubuntu-latest 会随 GitHub 迁移到新系统，Android SDK、Docker 与 APK 工具随之变化。
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       app: ${{ steps.detect.outputs.app }}
@@ -54,7 +55,7 @@ jobs:
 
   repo:
     name: Repository checks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -111,7 +112,7 @@ jobs:
     name: Android app
     needs: [changes, repo]
     if: needs.changes.outputs.app == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
       - name: Checkout
@@ -123,6 +124,7 @@ jobs:
         with:
           java: "true"
           gradle: "true"
+          kotlin-js: "true"
       # 主机门禁含 Debug 构建、lint、主机测试与实机套件编译；实机运行不进入 CI。
       - name: Verify Android app
         run: pnpm --filter @gazekeep/app verify
@@ -149,7 +151,7 @@ jobs:
     name: Website
     needs: [changes, repo]
     if: needs.changes.outputs.web == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - name: Checkout
@@ -161,6 +163,7 @@ jobs:
         with:
           java: "true"
           gradle: "true"
+          kotlin-js: "true"
       # 完整构建先生成 KMP Showcase，再执行依赖其产物的测试与检查。
       # 浏览器与截图测试在锁定版本的 Playwright 镜像中运行，与本地录制基线的字体和 Chromium 一致。
       - name: Build website
@@ -191,7 +194,7 @@ jobs:
       (needs.app.result == 'success' || needs.app.result == 'skipped') &&
       ((github.event_name == 'push' && github.ref == 'refs/heads/dev') ||
       (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     environment:
       name: web-preview
@@ -280,7 +283,7 @@ jobs:
       !cancelled() && needs.web.result == 'success' &&
       (needs.app.result == 'success' || needs.app.result == 'skipped') &&
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     environment:
       name: web-production
@@ -338,7 +341,7 @@ jobs:
     name: Release APK
     needs: app
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - name: Checkout

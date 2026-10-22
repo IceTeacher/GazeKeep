@@ -86,6 +86,12 @@ oxfmt 与 oxlint 配置位于仓库根（`.oxfmtrc.json`、`.oxlintrc.json`）�
 
 `.github/workflows/pipeline.yml` 在 PR、`dev`/`main` 推送、`v*.*.*` tag 和手动触发时运行，全部使用 GitHub 托管 runner，不使用自建 runner。公共安装步骤位于 `.github/actions/setup`；第三方 action 固定到提交 SHA，workflow 默认只授予 `contents: read`。job 按三层依赖：`changes` 与 `repo` 并行，二者通过后运行 `app` 与 `web`，发布 job 只依赖 `app` 与 `web`。仓库门禁失败时不再消耗长构建，任务图也不出现跨层连线。job 与 step 名称使用英文，便于在 Actions 页面阅读。
 
+runner 固定为 `ubuntu-24.04`，避免 `ubuntu-latest` 迁移系统时 Android SDK、Docker 与 APK 工具随之变化。缓存策略：
+
+- pnpm 本体按 `packageManager` 版本缓存，未命中时用 npm 安装并重试 3 次；不使用 `pnpm/action-setup`，因为它每次都会清空目录并从 registry 下载两次。依赖由 `setup-node` 缓存 pnpm store。
+- Gradle User Home 只在 `dev`、`main` 推送时写缓存，PR 只读。
+- Kotlin/JS 与 Kotlin/Wasm 的测试工具目录（`~/.kotlin/kotlin-npm-tooling`）和 Yarn 下载缓存按 `kotlin-js-store` 锁文件与版本目录缓存，只在 job 成功时保存。
+
 - `changes`：`scripts/repo-tools/scripts/ci-changes.ts` 按差异判断 Android 与官网是否受影响。根配置、锁文件、`.github/` 或基线未知（tag、手动触发、首次推送或强推）时全量回归；官网同时受 `apps/app/shared`、Gradle 根配置、版本目录与 Kotlin/JS 锁文件影响。
 - `repo`：始终运行 Hook、文档、Agent 资产、架构、全仓格式、repo-tools lint 与测试，并对本次提交区间执行 commitlint 与 `git diff --check`。
 - `app`：受影响时运行 `pnpm --filter @gazekeep/app verify`；实机套件不进入 CI。

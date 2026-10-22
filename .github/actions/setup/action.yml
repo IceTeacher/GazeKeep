@@ -1,5 +1,5 @@
 name: 准备工作区
-description: 安装锁定版本的 Node、pnpm 与依赖；按需准备 JDK 21 与 Gradle 缓存。
+description: 安装锁定版本的 Node、pnpm 与依赖；按需准备 JDK 21、Gradle 缓存与 Kotlin/JS 依赖缓存。
 inputs:
   java:
     description: 是否准备 JDK 21（ktlint、Gradle 与 KMP 构建需要）
@@ -7,22 +7,85 @@ inputs:
   gradle:
     description: 是否启用 Gradle 缓存
     default: "false"
+  kotlin-js:
+    description: 是否缓存 Kotlin/JS 与 Kotlin/Wasm 的 Yarn 依赖与测试工具
+    default: "false"
 runs:
   using: composite
   steps:
-    # 不指定版本，读取根 package.json 的 packageManager，避免与本地锁定版本分叉。
-    - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+    # pnpm/action-setup 每次都会清空目录并从 npm registry 下载引导版与目标版各一次；
+    # 改为按 packageManager 版本缓存 pnpm 本体，命中时不访问 registry。
+    - name: Resolve pnpm version
+      id: pnpm
+      shell: bash
+      run: |
+        set -euo pipefail
+        version="$(node -p "require('./package.json').packageManager.match(/^pnpm@([^+]+)/)[1]")"
+        echo "version=$version" >>"$GITHUB_OUTPUT"
+        echo "dir=$HOME/.cache/pnpm-bin/$version" >>"$GITHUB_OUTPUT"
+    - name: Restore pnpm
+      id: pnpm-cache
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.pnpm.outputs.dir }}
+        key: pnpm-bin-${{ runner.os }}-${{ runner.arch }}-${{ steps.pnpm.outputs.version }}
+    - name: Install pnpm
+      if: steps.pnpm-cache.outputs.cache-hit != 'true'
+      shell: bash
+      working-directory: ${{ runner.temp }}
+      env:
+        PNPM_DIR: ${{ steps.pnpm.outputs.dir }}
+        PNPM_VERSION: ${{ steps.pnpm.outputs.version }}
+      run: |
+        set -euo pipefail
+        # registry 偶发缓慢或中断时重试，单次限时避免整个 job 卡到超时。
+        for attempt in 1 2 3; do
+          rm -rf "$PNPM_DIR"
+          if timeout 120 npm install --prefix "$PNPM_DIR" --no-save --no-package-lock --no-audit --no-fund \
+            "pnpm@$PNPM_VERSION"; then
+            break
+          fi
+          if [ "$attempt" = 3 ]; then exit 1; fi
+          sleep $((attempt * 10))
+        done
+    - name: Add pnpm to PATH
+      shell: bash
+      env:
+        PNPM_DIR: ${{ steps.pnpm.outputs.dir }}
+        PNPM_VERSION: ${{ steps.pnpm.outputs.version }}
+      run: |
+        set -euo pipefail
+        echo "$PNPM_DIR/node_modules/.bin" >>"$GITHUB_PATH"
+        test "$("$PNPM_DIR/node_modules/.bin/pnpm" --version)" = "$PNPM_VERSION"
+    - name: Set up Node.js
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
       with:
         node-version: 24
         cache: pnpm
     # Gradle daemon JVM 条件锁定 Azul 21；使用同厂商发行版可避免 Gradle 再下载一份工具链。
-    - if: inputs.java == 'true'
+    - name: Set up JDK 21
+      if: inputs.java == 'true'
       uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
       with:
         distribution: zulu
         java-version: 21
-    - if: inputs.gradle == 'true'
+    # setup-gradle 默认只在默认分支写缓存；dev 与 main 推送都写入，PR 只读取，避免 PR 缓存挤占配额。
+    - name: Set up Gradle
+      if: inputs.gradle == 'true'
       uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
-    - shell: bash
+      with:
+        cache-read-only: ${{ !(github.event_name == 'push' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')) }}
+    # Kotlin/JS 工具目录与 Yarn 下载缓存不在 Gradle User Home 内；按锁文件与版本目录缓存，
+    # 冷缓存时 Yarn 安装约 1.5 分钟。缓存只在 job 成功时保存，不会固化安装失败留下的残缺目录。
+    - name: Cache Kotlin/JS dependencies
+      if: inputs.kotlin-js == 'true'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ~/.kotlin/kotlin-npm-tooling
+          ~/.cache/yarn
+        key: kotlin-js-${{ runner.os }}-${{ hashFiles('apps/app/kotlin-js-store/**/yarn.lock', 'apps/app/gradle/libs.versions.toml') }}
+        restore-keys: kotlin-js-${{ runner.os }}-
+    - name: Install dependencies
+      shell: bash
       run: pnpm install --frozen-lockfile
