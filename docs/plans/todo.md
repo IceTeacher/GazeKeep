@@ -47,6 +47,16 @@
 - [ ] 首个 `v1.1.2` tag：核对托管镜像上的签名构建、`apkanalyzer`/`aapt2` 门禁、指纹核对与预发布创建。首次推送 `v1.1.2`（run 39740578287）在仓库门禁失败：tag 指向 `main` 的最新提交，与主线共同祖先相同，commitlint 拒绝起止相同的区间，签名构建未执行、未创建预发布。已改为区间为空时跳过提交检查，待合入 `main` 后重新触发。
 - [ ] 维护者离线备份正式签名密钥库与密码（本机 `~/.android/` 以外的位置）；丢失后无法覆盖升级。
 
+## 分 ABI 打包与流水线去重（2026-10-22）
+
+- Release 按 ABI 拆分为 `arm64-v8a`、`armeabi-v7a`、`x86_64` 与 `universal`，32 位 x86 不打包；原生库改为压缩存放。本地 unsigned Release：原单包 40.8 MB，拆分后 arm64-v8a 10.5 MB、armeabi-v7a 10.0 MB、x86_64 10.9 MB、universal 17.2 MB。各包 versionCode 相同。
+- `verify:apk` 新增必填 `--abi`，要求原生库 ABI 集合一致且全部压缩（读 ZIP 中央目录）。`ci-changes.ts` 新增 `--reuse`：head 或被合入的分支头与 head 树一致且有成功的 push 运行时输出 `verified=true`，PR、合并到 `main` 与合并后同步 `dev` 跳过重复的 Android/官网测试（`main` 仍构建官网用于生产发布）。tag 发版拆到 `release.yml`，等待 `main` 上同一提交的 pipeline 成功后只构建签名包并发布。
+- 验证：新增 4 项仓库工具测试（ABI/压缩门禁、ZIP 中央目录解析、树一致复用、主线分叉不复用），先确认旧实现缺少导出而失败；四个本地 Release 包分别通过 APK 静态门禁，通用包只声明 arm64 时按预期报多余 ABI；actionlint 1.7.12 通过（本机无 shellcheck，未做 shell 静态检查）。
+- 原生库压缩后安装时需解压，属于安装方式变化；未在设备上验证。
+- [ ] 推送后核对 CI：dev 推送完整运行；dev→main PR 只跑仓库检查；合并到 `main` 跳过 Android 门禁与官网测试但完成生产发布；合并后同步 `dev` 整次跳过；tag 等待 `main` 运行后发布四个签名包。
+- [ ] 在 arm64 与 32 位设备（或模拟器）上安装对应 ABI 包，确认 ML Kit 原生库加载与自检正常，并验证不同 ABI 包之间覆盖安装。
+- [ ] 单独评估裁剪未使用的 ML Kit 模型（快速模式下 `contours.tfl`、`LMprec_600.emd`、`fssd_medium_*` 理论上不加载，约 2.5 MB 压缩体积），需真机自检确认。
+
 ## 官网本次验证（2026-10-20）
 
 - 根路径跳转：原 `index.astro` 依靠 meta refresh 跳转，浏览器会先渲染“进入 GazeKeep 官网”链接页。改为 `public/_redirects` 的 `/ /zh/ 302` 服务端跳转，兜底页加 `noindex`/`canonical` 并使用站点深色底。新增 1 项测试（缺少 `_redirects` 时先失败）；49 项官网 Node 测试、Astro 类型检查（0 错误）与 `build:site` 通过；本地 `wrangler pages dev dist` 中 `/` 返回 `302 Location: /zh/`，`/zh/`、`/en/` 返回 200。完整构建后已部署（预览 `https://4b331619.gazekeep.pages.dev`），线上 curl 复验 `https://gazekeep.pages.dev/` 返回 `302 location: /zh/`，`/zh/`、`/en/` 返回 200。未执行：真实浏览器观察跳转过程。

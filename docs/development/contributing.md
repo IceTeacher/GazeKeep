@@ -46,7 +46,7 @@ pnpm verify
 pnpm verify:docs
 pnpm verify:agent-assets
 pnpm verify:architecture
-pnpm verify:apk --apk apps/app/android/build/outputs/apk/debug/android-debug.apk
+pnpm verify:apk --apk apps/app/android/build/outputs/apk/debug/android-universal-debug.apk --abi arm64-v8a --abi armeabi-v7a --abi x86_64
 pnpm test:tools
 pnpm format:check
 ```
@@ -60,7 +60,7 @@ pnpm --filter @gazekeep/app exec ./gradlew :core:allTests
 pnpm --filter @gazekeep/app verify
 ```
 
-APK 位于 apps/app/android/build/outputs/apk/debug/。local.properties 和签名留在本地，不提交；IDE 打开 apps/app 作为 Gradle 工程。安装工具、安装 Hook、格式化直接调用 Node，不经过 Turbo。官网建立真实 package 后再注册其构建、开发与测试任务。
+APK 位于 apps/app/android/build/outputs/apk/debug/，按 ABI 拆分为 `arm64-v8a`、`armeabi-v7a`、`x86_64` 与通用包（`universal`）。local.properties 和签名留在本地，不提交；IDE 打开 apps/app 作为 Gradle 工程。安装工具、安装 Hook、格式化直接调用 Node，不经过 Turbo。官网建立真实 package 后再注册其构建、开发与测试任务。
 
 ## 提交与格式
 
@@ -84,7 +84,7 @@ oxfmt 与 oxlint 配置位于仓库根（`.oxfmtrc.json`、`.oxlintrc.json`）�
 
 ## 持续集成
 
-`.github/workflows/pipeline.yml` 在 PR、`dev`/`main` 推送、`v*.*.*` tag 和手动触发时运行，全部使用 GitHub 托管 runner，不使用自建 runner。公共安装步骤位于 `.github/actions/setup`；第三方 action 固定到提交 SHA，workflow 默认只授予 `contents: read`。job 按三层依赖：`changes` 与 `repo` 并行，二者通过后运行 `app` 与 `web`，发布 job 只依赖 `app` 与 `web`。仓库门禁失败时不再消耗长构建，任务图也不出现跨层连线。job 与 step 名称使用英文，便于在 Actions 页面阅读。
+`.github/workflows/pipeline.yml` 在 PR、`dev`/`main` 推送和手动触发时运行，`v*.*.*` tag 只触发 `.github/workflows/release.yml`；全部使用 GitHub 托管 runner，不使用自建 runner。公共安装步骤位于 `.github/actions/setup`；第三方 action 固定到提交 SHA，workflow 默认只授予 `contents: read`。job 依次为 `changes` → `repo` → `app`/`web` → 发布 job；`repo` 需要 `changes` 的复用判断，发布 job 只依赖 `app` 与 `web`。仓库门禁失败时不再消耗长构建，任务图也不出现跨层连线。job 与 step 名称使用英文，便于在 Actions 页面阅读。
 
 runner 固定为 `ubuntu-24.04`，避免 `ubuntu-latest` 迁移系统时 Android SDK、Docker 与 APK 工具随之变化。缓存策略：
 
@@ -92,11 +92,11 @@ runner 固定为 `ubuntu-24.04`，避免 `ubuntu-latest` 迁移系统时 Android
 - Gradle User Home 只在 `dev`、`main` 推送时写缓存，PR 只读。配置缓存不跨运行保存：setup-gradle 的项目状态缓存需要 Develocity 授权，而命中依赖缓存后配置阶段只需十几秒。
 - Kotlin/JS 与 Kotlin/Wasm 的测试工具目录（`~/.kotlin/kotlin-npm-tooling`）和 Yarn 下载缓存按 `kotlin-js-store` 锁文件与版本目录缓存，只在 job 成功时保存。
 
-- `changes`：`scripts/repo-tools/scripts/ci-changes.ts` 按差异判断 Android 与官网是否受影响。根配置、锁文件、`.github/` 或基线未知（tag、手动触发、首次推送或强推）时全量回归；官网同时受 `apps/app/shared`、Gradle 根配置、版本目录与 Kotlin/JS 锁文件影响。
-- `repo`：始终运行 Hook、文档、Agent 资产、架构、全仓格式、repo-tools lint 与测试，并对本次提交区间执行 commitlint 与 `git diff --check`。
-- `app`：受影响时运行 `pnpm --filter @gazekeep/app verify`；实机套件不进入 CI。
-- `web`：受影响时完整构建官网（含 KMP Showcase），再运行单元测试、容器内浏览器与截图测试（`test:browser:docker`）、lint 与 `astro check`，产物交给发布 job 复用。发布规则见[官网架构](../architecture/web/website.md#六当前构建与后续验收)，冒烟由 `check-web-deploy.ts` 执行。
-- `release-apk`：tag 必须等于 `v<versionName>` 且位于 `main`，并已提交发布说明 `docs/releases/<tag>.md`；在 `release` 环境中用正式签名构建压缩 Release，执行 APK 静态门禁，用 `apksigner` 核对证书指纹与登记值一致，然后创建 GitHub 预发布（附 APK 与 SHA-256 文件），APK 同时作为 artifact 保留 7 天。签名配置缺失或指纹不一致时失败，不产出 unsigned 版本。转为正式版由维护者在 GitHub 上手动操作。
+- `changes`：`scripts/repo-tools/scripts/ci-changes.ts` 按差异判断 Android 与官网是否受影响。根配置、锁文件、`.github/` 或基线未知（手动触发、首次推送或强推）时全量回归；官网同时受 `apps/app/shared`、Gradle 根配置、版本目录与 Kotlin/JS 锁文件影响。push 与 PR 还会判断这棵树是否已验证：head 本身，或合并提交中被合入的分支头与 head 树完全一致，且该提交有本流水线成功的 push 运行时输出 `verified=true`。它覆盖 dev 推送后开 PR、合并到 `main` 与合并后同步 `dev` 三种重复；`main` 在合并前被单独改动时树不一致，仍完整回归。手动触发不复用。
+- `repo`：已验证的 push 运行跳过（提交已在原运行中检查），PR 始终运行。包括 Hook、文档、Agent 资产、架构、全仓格式、repo-tools lint 与测试，并对本次提交区间执行 commitlint 与 `git diff --check`。
+- `app`：受影响且未验证时运行 `pnpm --filter @gazekeep/app verify`；实机套件不进入 CI。
+- `web`：受影响时完整构建官网（含 KMP Showcase），再运行单元测试、容器内浏览器与截图测试（`test:browser:docker`）、lint 与 `astro check`，产物交给发布 job 复用。已验证的树只在 `main` 推送时构建（供生产发布），跳过测试；其余场景整个 job 跳过，因此 dev→main 的 PR 不再单独部署 `pr-<编号>` 预览，以 `dev` 预览为准。发布规则见[官网架构](../architecture/web/website.md#六当前构建与后续验收)，冒烟由 `check-web-deploy.ts` 执行。
+- `release.yml`：tag 不重跑门禁。`gate` 要求 tag 等于 `v<versionName>`、位于 `main` 并已提交发布说明 `docs/releases/<tag>.md`，再等待 `main` 上同一提交的 pipeline 成功（运行中则轮询，失败、约 5 分钟仍无记录或约 55 分钟超时都不发版）。`release-apk` 在 `release` 环境中用正式签名构建压缩 Release，按 ABI 输出 `arm64-v8a`、`armeabi-v7a`、`x86_64` 与 `universal` 四个包，逐个执行 APK 静态门禁（含 ABI 检查），并用 `apksigner` 核对证书指纹与登记值一致，然后创建 GitHub 预发布（附各 APK、SHA-256 文件与体积表），APK 同时作为 artifact 保留 7 天。签名配置缺失或指纹不一致时失败，不产出 unsigned 版本。转为正式版由维护者在 GitHub 上手动操作。
 
 公开仓库的 workflow 不写明文地址、项目名或凭据，配置集中在三个 GitHub Environment：
 
@@ -106,10 +106,10 @@ runner 固定为 `ubuntu-24.04`，避免 `ubuntu-latest` 迁移系统时 Android
 | `web-production` | 仅 `main`             | `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`                                                      | `CLOUDFLARE_PAGES_PROJECT`、`GAZEKEEP_WEB_URL`（站点根） |
 | `release`        | 仅 `v*.*.*` tag       | `GAZEKEEP_KEYSTORE_BASE64`、`GAZEKEEP_STORE_PASSWORD`、`GAZEKEEP_KEY_ALIAS`、`GAZEKEEP_KEY_PASSWORD` | `GAZEKEEP_SIGNING_CERT_SHA256`                           |
 
-Cloudflare token 只授予 Account › Cloudflare Pages:Edit。fork PR 拿不到 secret，只运行门禁；PR 评论权限只授予预览 job，`contents: write` 只授予 `release-apk`。
+Cloudflare token 只授予 Account › Cloudflare Pages:Edit。fork PR 拿不到 secret，只运行门禁；PR 评论权限只授予预览 job，`changes` 与 `gate` 额外授予 `actions: read` 以查询流水线运行，`contents: write` 只授予 `release-apk`。
 
 ## APK 静态门禁
 
-`pnpm verify:apk --apk <APK路径> [--root <仓库路径>]` 检查实际 APK 的入口、版本、权限、反射类和品牌资源。依赖 PATH 中的 SDK `apkanalyzer` 与 ANDROID_HOME/ANDROID_SDK_ROOT 内稳定 build-tools 的 `aapt2`，不会自动安装工具。
+`pnpm verify:apk --apk <APK路径> --abi <ABI> [--abi <ABI>...] [--root <仓库路径>]` 检查实际 APK 的入口、版本、权限、反射类和品牌资源，并要求原生库的 ABI 集合与 `--abi` 完全一致、全部压缩存放（读 ZIP 中央目录）。依赖 PATH 中的 SDK `apkanalyzer` 与 ANDROID_HOME/ANDROID_SDK_ROOT 内稳定 build-tools 的 `aapt2`，不会自动安装工具。
 
 Debug 与压缩 Release 分别检查，不能用源码声明代替产物结果，也不能从静态检查推断框架或 ROM 验收通过。发布要求和当前候选版本见[发布门禁](release.md)，详细检查逻辑见 [check-apk.ts](../../scripts/repo-tools/scripts/check-apk.ts)。
