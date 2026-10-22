@@ -104,6 +104,11 @@ jobs:
             from="$(git merge-base origin/main "$to")"
           fi
           echo "commit range: $from..$to"
+          # WHY：main 上的 tag 或手动触发与主线共同祖先即自身，区间为空；这些提交已在分支推送时校验。
+          if [ "$from" = "$to" ]; then
+            echo "提交区间为空，跳过"
+            exit 0
+          fi
           pnpm verify:commits --from "$from" --to "$to"
           git diff --check "$from" "$to"
 
