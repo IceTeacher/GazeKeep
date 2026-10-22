@@ -44,7 +44,7 @@
 - 随后优化缓存：pnpm 本体按版本缓存并替代 `pnpm/action-setup`（本地确认 npm 安装 `pnpm@12.14.0` 可用）；Gradle 缓存在 `dev`/`main` 推送时写入；新增 Kotlin/JS 工具与 Yarn 缓存；runner 固定为 `ubuntu-24.04`。actionlint 与 shellcheck 通过；推送后首次运行（run 39713395454，冷缓存）通过并写入缓存，三层任务图与英文步骤名生效；第二次手动运行（run 39714436230）命中 pnpm、Gradle 与 Kotlin/JS 缓存，Android app 由约 9.7 分钟降至 1.5 分钟，Website 由约 6.8 分钟降至 3 分钟，整次运行约 3.8 分钟。输入未变的 Gradle 任务（含测试）从构建缓存复用，这是 Gradle 的增量语义，不代表重新执行。Gradle 配置缓存不跨运行复用：试过传入 `cache-encryption-key`，调试日志显示 setup-gradle v6.4.0 的项目状态缓存为 `not-enabled`（需隐藏开关与 Develocity 授权），且命中依赖缓存后配置阶段仅 11–15 秒，已撤销该配置并删除 secret。
 - [ ] 核对 PR 预览评论原地更新，以及 `main` 生产发布与冒烟。以上未在 CI 中执行，不计作通过。
 - 正式签名：已生成 RSA 4096 密钥库（证书 SHA-256 `bbf8c24e…7514d94f`），保存在维护者本机仓库外，CI 副本存于仅允许 `v*.*.*` tag 的 `release` 环境。`release-apk` 改为正式签名构建、核对证书指纹并创建 GitHub 预发布，发布说明取自 `docs/releases/<tag>.md`。本地正式签名构建通过 `apksigner verify` 与 APK 静态门禁；用开发签名 APK 确认指纹解析能区分不同证书。
-- [ ] 首个 `v1.1.2` tag：核对托管镜像上的签名构建、`apkanalyzer`/`aapt2` 门禁、指纹核对与预发布创建。
+- [ ] 首个 `v1.1.2` tag：核对托管镜像上的签名构建、`apkanalyzer`/`aapt2` 门禁、指纹核对与预发布创建。首次推送 `v1.1.2`（run 39740578287）在仓库门禁失败：tag 指向 `main` 的最新提交，与主线共同祖先相同，commitlint 拒绝起止相同的区间，签名构建未执行、未创建预发布。已改为区间为空时跳过提交检查，待合入 `main` 后重新触发。
 - [ ] 维护者离线备份正式签名密钥库与密码（本机 `~/.android/` 以外的位置）；丢失后无法覆盖升级。
 
 ## 官网本次验证（2026-10-20）
