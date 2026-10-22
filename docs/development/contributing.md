@@ -84,7 +84,7 @@ oxfmt 与 oxlint 配置位于仓库根（`.oxfmtrc.json`、`.oxlintrc.json`）�
 
 ## 持续集成
 
-`.github/workflows/pipeline.yml` 在 PR、`dev`/`main` 推送、`v*.*.*` tag 和手动触发时运行，全部使用 GitHub 托管 runner，不使用自建 runner。公共安装步骤位于 `.github/actions/setup`；第三方 action 固定到提交 SHA，workflow 默认只授予 `contents: read`。
+`.github/workflows/pipeline.yml` 在 PR、`dev`/`main` 推送、`v*.*.*` tag 和手动触发时运行，全部使用 GitHub 托管 runner，不使用自建 runner。公共安装步骤位于 `.github/actions/setup`；第三方 action 固定到提交 SHA，workflow 默认只授予 `contents: read`。job 按三层依赖：`changes` 与 `repo` 并行，二者通过后运行 `app` 与 `web`，发布 job 只依赖 `app` 与 `web`。仓库门禁失败时不再消耗长构建，任务图也不出现跨层连线。job 与 step 名称使用英文，便于在 Actions 页面阅读。
 
 - `changes`：`scripts/repo-tools/scripts/ci-changes.ts` 按差异判断 Android 与官网是否受影响。根配置、锁文件、`.github/` 或基线未知（tag、手动触发、首次推送或强推）时全量回归；官网同时受 `apps/app/shared`、Gradle 根配置、版本目录与 Kotlin/JS 锁文件影响。
 - `repo`：始终运行 Hook、文档、Agent 资产、架构、全仓格式、repo-tools lint 与测试，并对本次提交区间执行 commitlint 与 `git diff --check`。

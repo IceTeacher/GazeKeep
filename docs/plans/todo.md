@@ -40,6 +40,7 @@
 - 本地验证：36 项仓库工具测试、repo-tools lint、文档/Agent 资产/架构检查、全仓格式、`git diff --check`、actionlint 1.7.12（含 shellcheck 0.11.0）均通过，`main..dev` 区间 commitlint 通过；Wrangler 输出解析、版本提取与评论正文已用本地样本模拟。
 - 前两次 CI 运行暴露的干净环境问题已修复：Wasm `yarn.lock` 未跟踪且以空行结尾（提交锁文件，并用 `.gitattributes` 免除空白检查）；截图基线依赖本机字体（浏览器测试改在 Playwright v1.64.1-noble 镜像中运行并重录基线）；官网未声明 `vite` 依赖（新增 devDependency）；`:core:wasmJsBrowserTest` 找不到 `kotlin-web-helpers` 运行器（推测为冷缓存下 Yarn 1 并发安装，已用共享构建服务串行化，app job 失败时上传 Yarn 日志）。
 - 第三次 CI 运行（`dev` 推送，run 39710220826）全部通过：仓库门禁、改动范围判断、`app` 门禁（含 `:core:wasmJsBrowserTest`，约 8.5 分钟）、官网构建与容器内浏览器测试（约 7 分钟）、`dev` 预览上传（别名 `https://dev.gazekeep.pages.dev`）与冒烟。Yarn 串行化后未再复现，但原失败为偶发，单次通过只能说明未复现。预览 job 中 pnpm 自安装耗时 5 分钟，其余 job 约 2 秒，判断为 npm registry 偶发慢。
+- 之后 job 依赖改为三层（`app`、`web` 依赖 `changes` 与 `repo`，发布 job 只依赖 `app` 与 `web`），job 与 step 改用英文名，官网检查拆成独立 step；actionlint 1.7.12（含 shellcheck）通过，新任务图与命名尚待下一次 CI 运行确认。
 - [ ] 核对 PR 预览评论原地更新，以及 `main` 生产发布与冒烟。以上未在 CI 中执行，不计作通过。
 - [ ] 首个 `v*` tag 核对 unsigned Release 的 APK 门禁（托管镜像的 `apkanalyzer` 与 `aapt2`）；正式签名 secret 与 GitHub Release 自动化待授权后再接入。
 
