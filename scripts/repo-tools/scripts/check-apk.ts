@@ -17,11 +17,14 @@ export interface ApkSnapshot {
   files: string[];
   iconXml: Record<string, string>;
   brandedBitmaps: Record<string, boolean>;
+  /** 原生库路径 → 是否压缩存放。 */
+  nativeLibs: Record<string, boolean>;
 }
 export interface ApkExpectation {
   versionName: string;
   versionCode: string;
   description: string;
+  abis: readonly string[];
 }
 const list = (value: XmlNode): XmlNode[] => (value == null ? [] : Array.isArray(value) ? value : [value]);
 const lines = (value: string | undefined) =>
@@ -41,6 +44,28 @@ export function resourceTable(dump: string) {
     } else if (current) current.body += line + "\n";
   }
   return resources;
+}
+
+// apkanalyzer 不输出条目的压缩方式，直接读 ZIP 中央目录；APK 远小于 4 GiB，不处理 ZIP64。
+export function zipCompression(zip: Buffer) {
+  let end = -1;
+  for (let at = zip.length - 22; at >= Math.max(0, zip.length - 22 - 0xffff); at--) {
+    if (zip.readUInt32LE(at) === 0x06054b50) {
+      end = at;
+      break;
+    }
+  }
+  if (end < 0) throw new Error("APK 缺少 ZIP 目录尾记录");
+  const entries = new Map<string, boolean>();
+  let at = zip.readUInt32LE(end + 16);
+  for (let index = zip.readUInt16LE(end + 10); index > 0; index--) {
+    if (zip.readUInt32LE(at) !== 0x02014b50) throw new Error("APK 中央目录损坏");
+    const nameLength = zip.readUInt16LE(at + 28);
+    const name = zip.toString("utf8", at + 46, at + 46 + nameLength);
+    entries.set(name, zip.readUInt16LE(at + 10) !== 0);
+    at += 46 + nameLength + zip.readUInt16LE(at + 30) + zip.readUInt16LE(at + 32);
+  }
+  return entries;
 }
 
 export function validateApk(snapshot: ApkSnapshot, expected: ApkExpectation) {
@@ -162,6 +187,12 @@ export function validateApk(snapshot: ApkSnapshot, expected: ApkExpectation) {
       }
     }
   }
+  // 分 ABI 发布时每个包只能含对应 ABI；原生库压缩存放以减小下载体积。
+  const abis = new Set(Object.keys(snapshot.nativeLibs).map((path) => path.split("/")[1]));
+  for (const abi of expected.abis) if (!abis.has(abi)) errors.push(`缺少 ABI 原生库：${abi}`);
+  for (const abi of abis) if (!expected.abis.includes(abi)) errors.push(`APK 含多余 ABI：${abi}`);
+  for (const [path, compressed] of Object.entries(snapshot.nativeLibs))
+    if (!compressed) errors.push(`原生库未压缩：${path}`);
   return errors;
 }
 
@@ -208,6 +239,9 @@ export function inspectApk(root: string, apk: string): ApkSnapshot {
       }
     }
   }
+  const nativeLibs = Object.fromEntries(
+    [...zipCompression(readFileSync(apk))].filter(([name]) => /^lib\/[^/]+\/[^/]+\.so$/.test(name)),
+  );
   return {
     manifest: analyze(["manifest", "print"]),
     dex: analyze(["dex", "packages", "--defined-only"]),
@@ -216,13 +250,15 @@ export function inspectApk(root: string, apk: string): ApkSnapshot {
     files,
     iconXml,
     brandedBitmaps,
+    nativeLibs,
   };
 }
 
 if (isMain(import.meta.url))
   await cli(() => {
-    const { root, values } = context({ apk: { type: "string" } });
-    if (!values.apk) throw new Error("用法：verify:apk --apk <APK路径> [--root <仓库路径>]");
+    const { root, values } = context({ apk: { type: "string" }, abi: { type: "string", multiple: true } });
+    if (!values.apk || !values.abi?.length)
+      throw new Error("用法：verify:apk --apk <APK路径> --abi <ABI> [--abi <ABI>...] [--root <仓库路径>]");
     const apk = resolve(values.apk);
     const build = readFileSync(join(root, "apps/app/android/build.gradle.kts"), "utf8");
     const description = parser
@@ -232,7 +268,7 @@ if (isMain(import.meta.url))
     const versionCode = build.match(/versionCode\s*=\s*(\d+)/)?.[1];
     if (!versionName || !versionCode || !description) throw new Error("无法读取当前版本与简介配置");
     report(
-      validateApk(inspectApk(root, apk), { versionName, versionCode, description }),
+      validateApk(inspectApk(root, apk), { versionName, versionCode, description, abis: values.abi }),
       `APK 门禁通过：${apk}（静态产物检查，不代表实机通过）`,
     );
   });

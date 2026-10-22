@@ -10,7 +10,7 @@ APK 内 assets/THIRD_PARTY_NOTICES.txt 记录当前 Release 解析的外部运�
 
 ## Release 签名
 
-Release 启用 R8 与资源压缩。签名从 GAZEKEEP_STORE_FILE、GAZEKEEP_STORE_PASSWORD、GAZEKEEP_KEY_ALIAS、GAZEKEEP_KEY_PASSWORD 四个环境变量读取；配置必须完整。全部未配置时产生 unsigned APK，不视为可分发版本。密码、密钥与本地签名文件不提交。
+Release 启用 R8 与资源压缩，原生库压缩存放（`useLegacyPackaging`，安装时解压），并按 ABI 拆分为 `arm64-v8a`、`armeabi-v7a`、`x86_64` 与通用包；32 位 x86 不打包。各包共用同一 versionCode，可互相覆盖安装。签名从 GAZEKEEP_STORE_FILE、GAZEKEEP_STORE_PASSWORD、GAZEKEEP_KEY_ALIAS、GAZEKEEP_KEY_PASSWORD 四个环境变量读取；配置必须完整。全部未配置时产生 unsigned APK，不视为可分发版本。密码、密钥与本地签名文件不提交。
 
 正式签名自 1.1.2 起启用：RSA 4096 自签名证书（`CN=GazeKeep`），证书 SHA-256 为 `bbf8c24ed81ccf9856f290598a328e6046eff3a31c934423b4f51fe47514d94f`。密钥库与密码只保存在维护者本机仓库外并由维护者离线备份，CI 副本存于仅允许 `v*.*.*` tag 部署的 `release` 环境；指纹登记为该环境变量，发布时核对。丢失密钥库将无法覆盖升级已安装版本，轮换需另行规划。此前的 1.0.0、1.1.0 与 1.1.2 候选使用本地开发签名（证书 SHA-256 `767c4d84…bfc423c0`），与正式签名不兼容，升级须卸载重装并重新配置。
 
@@ -20,11 +20,11 @@ Release 启用 R8 与资源压缩。签名从 GAZEKEEP_STORE_FILE、GAZEKEEP_STO
 
 - 每次交付保持 versionCode 递增，避免同版本覆盖安装复用管理器图标缓存。
 - 核对七条不变量、完整实机矩阵和最新 APK；按 Android、ROM 与三后端能力记录实测范围。
-- 对 Debug 与压缩 Release 执行 `pnpm verify:apk --apk <APK路径>`：检查双登记与作用域、版本与中文简介、图标引用和位图、无参入口保留、禁止权限与 compileOnly 类未打包；另核对运行依赖。
+- 对 Debug 与压缩 Release 的每个 ABI 包执行 `pnpm verify:apk --apk <APK路径> --abi <ABI>`（通用包列出全部 ABI）：检查双登记与作用域、版本与中文简介、图标引用和位图、无参入口保留、禁止权限、compileOnly 类未打包、ABI 集合与原生库压缩；另核对运行依赖。
 - 记录代码/APK 标识、设备与 ROM、后端/框架版本、系统超时、实际命中候选和未执行项，不从主机测试推断硬件通过。
 - 每个 Release 附实测范围、未测声明、隐私三句话、Root/非 Root 启用步骤、已知限制及需要重启的入口更新。
 
-未授权发布时交付本地可审查结果，不创建下载链接或上传安装包。`v*.*.*` tag 须指向 `main` 上的提交，并先合入 `docs/releases/<tag>.md` 发布说明（包含上文要求的实测范围、未测声明、隐私三句话、启用步骤与已知限制）；流水线以正式签名构建 Release，通过 APK 静态门禁与证书指纹核对后创建 GitHub 预发布，附 APK、SHA-256 与构建信息。设备验收未完成前不转为正式版。规则见[持续集成](contributing.md#持续集成)。
+未授权发布时交付本地可审查结果，不创建下载链接或上传安装包。`v*.*.*` tag 须指向 `main` 上的提交，并先合入 `docs/releases/<tag>.md` 发布说明（包含上文要求的实测范围、未测声明、隐私三句话、启用步骤与已知限制）；流水线以正式签名构建 Release，确认 `main` 上同一提交的流水线已通过，各 ABI 包通过 APK 静态门禁与证书指纹核对后创建 GitHub 预发布，附各 APK、SHA-256、体积表与构建信息。设备验收未完成前不转为正式版。规则见[持续集成](contributing.md#持续集成)。
 
 ## API 102 版本验收条件
 

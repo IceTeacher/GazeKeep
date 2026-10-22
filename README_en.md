@@ -45,7 +45,7 @@ This app does not request Internet (`INTERNET`), storage/photos, installed packa
 
 ### 1. 4-Step Setup Flow
 
-1. Install APK and grant camera permission (notification permission is recommended on Android 13+ for error alerts).
+1. Download and install the APK from Releases (`arm64-v8a` for most phones, `armeabi-v7a` for older 32-bit devices, `universal` if unsure) and grant camera permission (notification permission is recommended on Android 13+ for error alerts).
 2. Complete the 2-step camera self-test: looking at screen recognizes as "Looking at screen", turning head or looking away recognizes as "Not looking" ("Unclear detection" does not count as passed).
 3. Keep app whitelist enabled, selecting reading or browser apps that need gaze-keep.
 4. Verify any backend is ready, then turn on the master switch on the home page.

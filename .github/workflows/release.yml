@@ -1,0 +1,237 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+# 打 tag 不再重跑门禁：同一提交在 main 上的 pipeline 已完成回归，这里只确认其结果后构建签名 APK。
+jobs:
+  gate:
+    name: Wait for main pipeline
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify tag, versionName and release notes
+        run: |
+          set -euo pipefail
+          version="$(sed -nE 's/^[[:space:]]*versionName = "([^"]+)".*/\1/p' apps/app/android/build.gradle.kts)"
+          test -n "$version"
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "tag $GITHUB_REF_NAME 与 versionName $version 不一致" >&2
+            exit 1
+          fi
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+          # 发布说明须在打 tag 前随代码评审合入，缺失时不发版。
+          test -s "docs/releases/$GITHUB_REF_NAME.md"
+      # WHY：通常合并后立即打 tag，main 的运行可能仍在进行；等待其结束，失败或缺失时不发版。
+      - name: Wait for pipeline success on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          query="repos/$GITHUB_REPOSITORY/actions/workflows/pipeline.yml/runs?head_sha=$GITHUB_SHA&branch=main"
+          for attempt in $(seq 1 110); do
+            runs="$(gh api "$query" --jq '[.workflow_runs[] | {id, status, conclusion}]')"
+            if jq -e 'any(.[]; .conclusion == "success")' <<<"$runs" >/dev/null; then
+              echo "main 流水线已通过：$(jq -c '[.[] | select(.conclusion == "success") | .id]' <<<"$runs")"
+              exit 0
+            fi
+            if jq -e 'length > 0 and all(.[]; .status == "completed")' <<<"$runs" >/dev/null; then
+              echo "main 上该提交的流水线未通过：$(jq -c . <<<"$runs")" >&2
+              exit 1
+            fi
+            # 推送 main 后运行可能稍晚登记，约 5 分钟仍无记录时视为缺失。
+            if [ "$attempt" -ge 10 ] && jq -e 'length == 0' <<<"$runs" >/dev/null; then
+              echo "未找到 main 上该提交的流水线运行" >&2
+              exit 1
+            fi
+            sleep 30
+          done
+          echo "等待 main 流水线超时" >&2
+          exit 1
+
+  release-apk:
+    name: Release APK
+    needs: gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    # 签名材料只放在仅允许 v*.*.* tag 部署的 release 环境；创建 GitHub Release 需要写权限。
+    environment:
+      name: release
+      url: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up workspace
+        uses: ./.github/actions/setup
+        with:
+          java: "true"
+          gradle: "true"
+      - name: Read version
+        id: version
+        run: |
+          set -euo pipefail
+          version="$(sed -nE 's/^[[:space:]]*versionName = "([^"]+)".*/\1/p' apps/app/android/build.gradle.kts)"
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+          echo "notes=docs/releases/$GITHUB_REF_NAME.md" >>"$GITHUB_OUTPUT"
+      - name: Prepare signing keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.GAZEKEEP_KEYSTORE_BASE64 }}
+          GAZEKEEP_STORE_PASSWORD: ${{ secrets.GAZEKEEP_STORE_PASSWORD }}
+          GAZEKEEP_KEY_ALIAS: ${{ secrets.GAZEKEEP_KEY_ALIAS }}
+          GAZEKEEP_KEY_PASSWORD: ${{ secrets.GAZEKEEP_KEY_PASSWORD }}
+          SIGNING_CERT_SHA256: ${{ vars.GAZEKEEP_SIGNING_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          for name in KEYSTORE_BASE64 GAZEKEEP_STORE_PASSWORD GAZEKEEP_KEY_ALIAS GAZEKEEP_KEY_PASSWORD SIGNING_CERT_SHA256; do
+            if [ -z "${!name:-}" ]; then
+              echo "release 环境缺少配置：$name" >&2
+              exit 1
+            fi
+          done
+          keystore="$RUNNER_TEMP/gazekeep-release.jks"
+          (umask 077 && base64 -d <<<"$KEYSTORE_BASE64" >"$keystore")
+          echo "GAZEKEEP_STORE_FILE=$keystore" >>"$GITHUB_ENV"
+      - name: Build signed Release APKs
+        env:
+          GAZEKEEP_STORE_PASSWORD: ${{ secrets.GAZEKEEP_STORE_PASSWORD }}
+          GAZEKEEP_KEY_ALIAS: ${{ secrets.GAZEKEEP_KEY_ALIAS }}
+          GAZEKEEP_KEY_PASSWORD: ${{ secrets.GAZEKEEP_KEY_PASSWORD }}
+        run: pnpm --filter @gazekeep/app exec ./gradlew :android:assembleRelease --console=plain
+      - name: Remove signing keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/gazekeep-release.jks"
+      # Gradle 按 ABI 拆分出各架构包与通用包；逐个执行静态门禁与证书核对，任一失败都不发布。
+      - name: Verify APKs and signing certificate
+        id: apk
+        env:
+          SIGNING_CERT_SHA256: ${{ vars.GAZEKEEP_SIGNING_CERT_SHA256 }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          out=apps/app/android/build/outputs/apk/release
+          abis=(arm64-v8a armeabi-v7a x86_64)
+          build_tools="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          expected="$(tr -d ':[:space:]' <<<"$SIGNING_CERT_SHA256" | tr '[:upper:]' '[:lower:]')"
+          dist="$RUNNER_TEMP/dist"
+          mkdir -p "$dist"
+          rows=()
+          test "$(jq '.elements | length' "$out/output-metadata.json")" -eq $((${#abis[@]} + 1))
+          for variant in "${abis[@]}" universal; do
+            if [ "$variant" = universal ]; then
+              file="$(jq -er '.elements[] | select(.type == "UNIVERSAL") | .outputFile' "$out/output-metadata.json")"
+              args=()
+              for abi in "${abis[@]}"; do args+=(--abi "$abi"); done
+            else
+              file="$(jq -er --arg abi "$variant" \
+                '.elements[] | select(any(.filters[]; .filterType == "ABI" and .value == $abi)) | .outputFile' \
+                "$out/output-metadata.json")"
+              args=(--abi "$variant")
+            fi
+            src="$out/$file"
+            PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH" pnpm verify:apk --apk "$src" "${args[@]}"
+            "$build_tools/apksigner" verify "$src"
+            # WHY：核对证书指纹，防止 secret 被换成其他密钥后发布出无法覆盖升级的 APK。
+            # 不同 build-tools 版本的输出前缀不同（"Signer #1" 或 "V2 Signer:"），只取摘要并要求唯一。
+            mapfile -t certs < <("$build_tools/apksigner" verify --print-certs "$src" |
+              sed -nE 's/^.*[Ss]igner.* certificate SHA-256 digest: ([0-9a-f]+)$/\1/p' | sort -u)
+            if [ "${#certs[@]}" -ne 1 ]; then
+              echo "$file 应恰有一个签名证书，实际 ${#certs[@]} 个" >&2
+              exit 1
+            fi
+            if [ "${certs[0]}" != "$expected" ]; then
+              echo "$file 签名证书指纹不一致：${certs[0]}" >&2
+              exit 1
+            fi
+            apk="$dist/gazekeep-$VERSION-$variant.apk"
+            cp "$src" "$apk"
+            sha="$(sha256sum "$apk" | cut -d' ' -f1)"
+            echo "$sha  $(basename "$apk")" >"$apk.sha256"
+            size="$(numfmt --to=iec-i --suffix=B --format='%.1f' "$(stat -c %s "$apk")")"
+            rows+=("| \`$(basename "$apk")\` | $variant | $size | \`$sha\` |")
+          done
+          table="$RUNNER_TEMP/apk-table.md"
+          {
+            echo "| APK | ABI | 大小 | SHA-256 |"
+            echo "| --- | --- | --- | --- |"
+            printf '%s\n' "${rows[@]}"
+          } >"$table"
+          {
+            echo "dist=$dist"
+            echo "table=$table"
+            echo "cert=$expected"
+          } >>"$GITHUB_OUTPUT"
+          {
+            echo "## Release APK"
+            cat "$table"
+            echo
+            echo "- 签名证书 SHA-256：\`$expected\`"
+            echo "- 静态门禁通过不代表实机验收。"
+          } >>"$GITHUB_STEP_SUMMARY"
+      - name: Upload Release APKs
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: gazekeep-${{ github.ref_name }}-apk
+          path: ${{ steps.apk.outputs.dist }}
+          if-no-files-found: error
+          retention-days: 7
+      # 设备验收未完成前只发预发布；转正式版由维护者在 GitHub 上手动操作。
+      - name: Publish GitHub pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DIST: ${{ steps.apk.outputs.dist }}
+          TABLE: ${{ steps.apk.outputs.table }}
+          CERT_SHA256: ${{ steps.apk.outputs.cert }}
+          NOTES: ${{ steps.version.outputs.notes }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          body="$RUNNER_TEMP/release-notes.md"
+          {
+            cat "$NOTES"
+            echo
+            echo "## 安装包"
+            echo
+            echo "多数手机选择 \`arm64-v8a\`；较旧的 32 位手机选择 \`armeabi-v7a\`；不确定设备架构时选择体积较大的 \`universal\`。各包签名与版本相同，可互相覆盖安装。"
+            echo
+            cat "$TABLE"
+            echo
+            echo "## 构建信息"
+            echo
+            echo "| 项目 | 内容 |"
+            echo "| --- | --- |"
+            echo "| 签名证书 SHA-256 | \`$CERT_SHA256\` |"
+            echo "| 提交 | \`$GITHUB_SHA\` |"
+            echo
+            echo "APK 由 CI 构建并通过静态门禁（权限、入口登记、保留规则、ABI 与签名），不代表实机验收。"
+          } >"$body"
+          shopt -s nullglob
+          assets=("$DIST"/*.apk "$DIST"/*.apk.sha256)
+          # 重跑时更新已有 Release，而不是因重复创建失败。
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --prerelease --notes-file "$body"
+            gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "${assets[@]}" --repo "$GITHUB_REPOSITORY" \
+              --verify-tag --prerelease --title "GazeKeep $VERSION" --notes-file "$body"
+          fi

@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
-import test from "node:test";
-import { classifyChanges } from "../scripts/ci-changes.ts";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import test, { type TestContext } from "node:test";
+import { classifyChanges, verifiedSource } from "../scripts/ci-changes.ts";
+import { run } from "../scripts/common.ts";
 import { checkWebDeploy } from "../scripts/check-web-deploy.ts";
 
 test("改动范围按工程归类，官网随 shared 与 Gradle 根配置重建", () => {
@@ -104,4 +108,46 @@ test("新部署传播期间按次数重试，网络错误计入失败", async ()
     (await checkWebDeploy("https://a.example", { fetcher: down, attempts: 2, delayMs: 0 })).join("\n"),
     /connection reset/,
   );
+});
+
+// 主线 A；dev 在 A 上提交 B；main 以 --no-ff 合并 B 得到 M，M 与 B 的树一致。
+function mergeFixture(t: TestContext, diverged = false) {
+  const root = mkdtempSync(join(tmpdir(), "gazekeep 复用验证 "));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const git = (...args: string[]) => run("git", args, { cwd: root, capture: true }).stdout.trim();
+  git("init", "--quiet", "--initial-branch=main");
+  git("config", "user.name", "CI Test");
+  git("config", "user.email", "ci-test@example.invalid");
+  git("config", "commit.gpgsign", "false");
+  const commit = (file: string, message: string) => {
+    writeFileSync(join(root, file), message);
+    git("add", "--", file);
+    git("commit", "--quiet", "-m", message);
+    return git("rev-parse", "HEAD");
+  };
+  commit("a.txt", "A");
+  git("switch", "--quiet", "-c", "dev");
+  const dev = commit("b.txt", "B");
+  git("switch", "--quiet", "main");
+  if (diverged) commit("c.txt", "C");
+  git("merge", "--quiet", "--no-ff", "-m", "merge", "dev");
+  return { root, dev, merge: git("rev-parse", "HEAD") };
+}
+
+test("同一棵树已由成功的 push 运行验证时复用结果", async (t) => {
+  const { root, dev, merge } = mergeFixture(t);
+  const asked: string[] = [];
+  const passedDev = async (sha: string) => (asked.push(sha), sha === dev);
+  assert.equal(await verifiedSource(root, merge, passedDev), dev);
+  assert.deepEqual(asked, [merge, dev]);
+  assert.equal(await verifiedSource(root, merge, async (sha) => sha === merge), merge);
+  assert.equal(await verifiedSource(root, dev, async (sha) => sha === dev), dev);
+  assert.equal(await verifiedSource(root, merge, async () => false), undefined);
+});
+
+test("主线分叉导致合并结果与已验证提交不同时不复用", async (t) => {
+  const { root, dev, merge } = mergeFixture(t, true);
+  const asked: string[] = [];
+  assert.equal(await verifiedSource(root, merge, async (sha) => (asked.push(sha), sha === dev)), undefined);
+  assert.deepEqual(asked, [merge]);
 });
