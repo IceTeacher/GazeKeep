@@ -23,6 +23,6 @@ Consult these guides before working on related tasks:
 
 ## 官网工程
 
-继承根目录规则。官网使用纯 Astro/TypeScript 与双语数据源，不添加 React 或统计服务。KMP 生成资源通过 `pnpm --filter web build` 同步，禁止提交生成物；保留 Gradle 的依赖锁文件。产品事实、隐私三句以产品文档和 Compose 资源为准。
+继承根目录规则。官网使用纯 Astro/TypeScript 与双语数据源，不添加 React；统计只用经 `functions/stats` 同站代理的自建 Umami 与 Cloudflare Web Analytics，不接其他统计服务，统计只针对官网，App 的无统计承诺不变。KMP 生成资源通过 `pnpm --filter web build` 同步，禁止提交生成物；保留 Gradle 的依赖锁文件。产品事实、隐私三句以产品文档和 Compose 资源为准。
 
 测试使用 Vitest 的 `unit` 与 `browser` 两个 project，`tests/` 镜像 `src/` 与 `scripts/`，整页旅程放 `tests/scenarios/`，布局由 `tests/architecture/` 守卫，规则见 [testing-unit](../../.agents/skills/testing-unit/SKILL.md) 与 [testing-ui](../../.agents/skills/testing-ui/SKILL.md)。改动后运行 `pnpm --filter web test:unit`、`pnpm --filter web test:browser:docker`（截图基线只在该容器入口中校验）、`pnpm --filter web lint`、`pnpm --filter web check`、完整构建及受影响的浏览器场景。相关设计见 [官网架构](../../docs/architecture/web/website.md)。

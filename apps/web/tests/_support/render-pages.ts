@@ -3,8 +3,13 @@ import { createServer } from "node:net";
 import { fileURLToPath } from "node:url";
 import type { TestProject } from "vitest/node";
 
-/** meta 为头部 `<meta>` 的 property/name → content 映射，供分享元数据断言。 */
-export type RenderedPage = { lang: string; body: string; meta: Record<string, string> };
+/** meta 为头部 `<meta>` 的 property/name → content 映射，供分享元数据断言；scripts 为头部外链脚本的属性表。 */
+export type RenderedPage = {
+  lang: string;
+  body: string;
+  meta: Record<string, string>;
+  scripts: Record<string, string>[];
+};
 
 declare module "vitest" {
   export interface ProvidedContext {
@@ -69,10 +74,16 @@ export default async function setup(project: TestProject) {
         const content = /\bcontent="([^"]*)"/.exec(tag)?.[1];
         if (key && content !== undefined && !(key in meta)) meta[key] = content;
       }
+      const scripts = [...head.matchAll(/<script\b([^>]*\bsrc=[^>]*)>/g)].map(([, attributes]) =>
+        Object.fromEntries(
+          [...attributes.matchAll(/([\w-]+)(?:="([^"]*)")?/g)].map(([, name, value]) => [name, value ?? ""]),
+        ),
+      );
       // 去掉页面模块脚本与开发工具栏，保留 JSON 数据脚本。
       return {
         lang,
         meta,
+        scripts,
         body: body
           .replace(/<script(?![^>]*application\/json)[\s\S]*?<\/script>/g, "")
           .replace(/<astro-dev-toolbar[\s\S]*?<\/astro-dev-toolbar>/g, ""),

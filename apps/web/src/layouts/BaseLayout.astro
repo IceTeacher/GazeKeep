@@ -63,6 +63,15 @@ const ogLocale = { zh: "zh_CN", en: "en_US" } as const;
         if (document.documentElement.dataset.phone === "pending") document.documentElement.dataset.phone = "ready";
       }, 4000);
     </script>
+    <!-- 统计只计生产域名；会话录制不支持域名过滤，预览部署也会录制。 -->
+    <script
+      is:inline
+      defer
+      src="/stats/script.js"
+      data-website-id={site.umamiWebsiteId}
+      data-domains={new URL(site.url).hostname}
+    ></script>
+    <script is:inline defer src="/stats/recorder.js" data-website-id={site.umamiWebsiteId}></script>
   </head>
   <body>
     <slot />

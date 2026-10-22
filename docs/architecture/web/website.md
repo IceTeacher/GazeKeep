@@ -11,7 +11,7 @@
 
 ### 当前落地约定
 
-官网保留 Astro 静态双语输出，在 `core/shared` 增加 Wasm 与 JS 浏览器目标；展示入口位于 shared 的 Web source set，复用真实页面与 controller/platform 契约，不连接相机或后端。桥接导出 `setScreen`、`setDemoStatus`、`setLocaleAndTheme`，首帧挂载后发送 `gazekeep:ready`，前端重放最新状态。构建按 KMP → 资源同步 → Astro 执行，生成资源忽略提交。默认无统计服务，不启用 Partytown。本轮只本地预览。性能数字为测量目标，文案以产品定义与隐私真源为准。
+官网保留 Astro 静态双语输出，在 `core/shared` 增加 Wasm 与 JS 浏览器目标；展示入口位于 shared 的 Web source set，复用真实页面与 controller/platform 契约，不连接相机或后端。桥接导出 `setScreen`、`setDemoStatus`、`setLocaleAndTheme`，首帧挂载后发送 `gazekeep:ready`，前端重放最新状态。构建按 KMP → 资源同步 → Astro 执行，生成资源忽略提交。站点统计见第六节，不启用 Partytown。本轮只本地预览。性能数字为测量目标，文案以产品定义与隐私真源为准。
 
 内屏使用同源 iframe 隔离 KMP Wasm/JS 加载与生命周期，内部保持单 Canvas，前端只挂载一个 iframe。Wasm 能力不足或启动失败时选择 JS，最终失败提供重试；`load` 事件只表示文档加载，实际就绪以 Compose 首帧与字体加载完成后的通知为准。浏览器语言设置仅作用于展示 iframe。手机外壳与叙事使用同一实例。机身为 Three.js 实体模型（初始 416×872×40），屏幕为 392×848 的统一逻辑画布，包含顶部 40、应用 392×784 与底部 24；状态栏、挖孔和横条随整个画布等比缩放。单 DOM 内屏依据同一相机投影屏幕四角，与机身共享姿态。设备在首帧就绪前隐藏且不改变布局：实体机身按首屏倾斜姿态完成首次绘制，或确认降级后，才短暂淡入（减少动态时直接显示），脚本未运行时 4 秒后限时显示，避免闪出未投影的平铺内屏或正面降级外壳。WebGL 不可用时降级为正面 CSS 设备。桌面与常规移动端使用局部 sticky 跟随；移动端上图下文，紧凑模式随正文展示。
 
@@ -21,7 +21,7 @@
 
 视觉采用墨黑/暖白与旧版绿色。颜色令牌集中在 `src/styles/tokens.css`，组件与脚本只引用变量：品牌色（主题绿 #14795e、按钮文字白色、手部肤色 #ed9da0）明暗共用，切换主题只改变背景、文字、面板、分隔、阴影、Shader 底色与内屏底色等表面色。深色底上主题绿对比度约 3.6:1，大字与图标可读，小号绿色文字低于 4.5:1，暂按产品要求保留。持机场景使用用户提供的粉色 SVG 手部，不显示摄影人物；掌部、拇指和指尖分层围绕真实设备。首屏恢复旧版三轴倾斜，滚出后回正。首屏 Shader 随主题更新颜色，叠加流动折射光带、噪声及指针响应；功能区收敛为低强度环境光，隐私区为静态底色。CSS 提供同主题降级，离屏、后台和减少动态时暂停。正文采用去线留白：各区段与列表不使用分隔线、底色区块或边框面板，直接置于页面底色上，以留白、字号层级和极淡强调色图标底组织。运行方式为带指示竖线的三行选项，LSPosed 与 Shizuku 使用各自开源项目的真实图标、无障碍使用主题绿圆底人形，未选中项去饱和；专注范围的应用列表只由手机内屏展示，文案下仅保留保护上限卡片（半圈刻度环、数值与设置入口，极淡强调色底）；隐私为居中标题与三项承诺，图标置于描边圆环中（参考 AndroMeld 连接方式区块的图标样式），三项之间只靠列距分组，不加连线与光晕，保留隐私真源三句与次级权限源码入口；开始使用以大号浅色序号 01–03 为锚点，常见问题为左侧停留标题与右侧问题列表，结尾区与页脚不加分隔线。公开视觉参考为 Apple iPhone Air、Linear 与 Signal，Mobbin 付费权限不可用。
 
-Web 字体使用带 OFL 许可的 Noto CJK 字符子集，位于 showcaseMain，仅用于网页展示。官网构建过滤 source map；KMP 生成目录排除在 Astro 类型检查之外。
+Web 字体使用带 OFL 许可的 Noto CJK 字符子集，位于 showcaseMain，仅用于网页展示。官网构建过滤 source map；KMP 生成目录排除在 Astro 类型检查之外。shared 的 `webpack.config.d/public-path.js` 把 webpack `publicPath` 固定为 `./`：展示入口以 module 脚本加载，取不到 `currentScript`，自动推断会改用页面最后一个 http(s) 脚本的地址，托管方在页尾注入的脚本（如 Cloudflare Web Analytics 的 beacon）会把 `.wasm` 请求引到外站；`scripts/build.ts` 发现入口仍含自动推断运行时即中止构建。
 
 首屏加载：`shaders/js` 的 `createShader` 会注册整个组件库，构建插件（`scripts/build-performance.ts`）在打包时把注册表裁到首屏实际使用的组件，保留列表与页面创建的图层同源于 `src/scripts/hero-shader.ts`；shaders 版本固定，升级后注册表结构变化会让构建直接失败，而不是退回全量打包。构建完成后为 Three.js 分块注入 `modulepreload`，与入口脚本并行下载，以缩短机身首帧等待；样式内联，不再单独发出阻塞渲染的请求。页面内图标使用 192px WebP，favicon 使用 32px PNG。分享元数据由 `layouts/BaseLayout.astro` 输出：生产域名在 `site.config.ts`（同时作为 Astro `site`），`canonical` 与 `og:url` 指向各语言页，`og:site_name`、`og:locale` 与 `og:locale:alternate` 齐全，Twitter 使用 `summary_large_image`；分享图为 `public/og/og-<语言>.png`（1200×630，深色主题首屏截图，约 440 KB），替代文本在双语数据的 `ogImageAlt`。首屏改版后需重新截取分享图。KMP 内屏的 Wasm 体积取决于托管端压缩：上线托管需对 `.wasm`/`.js` 启用 Brotli 或 gzip，带哈希的资源设为长期不可变缓存，无哈希的 KMP 入口用协商缓存。
 
@@ -144,7 +144,9 @@ Web 字体使用带 OFL 许可的 Noto CJK 字符子集，位于 showcaseMain，
 
 本轮已完成双语数据、七模块页面、Three.js 实体设备、Shader/连续滚动调度、真实 miuix Wasm/JS 展示壳、语言/主题桥接、隐私资源校验和加载失败恢复。构建与维护命令见 [官网 README](../../../apps/web/README.md)，对应环境和验收结果见[任务清单](../../plans/todo.md#官网本次验证2026-10-20)。
 
-官网部署到 Cloudflare Pages 项目 `gazekeep`，生产分支为 `main`，自定义域名与优选 IP 在 Cloudflare 与 DNS 侧维护，流水线不改动。完整构建依赖 JDK、Android SDK 与 Gradle，因此由 GitHub Actions 托管 runner 完成完整构建与门禁后，再通过 Wrangler Direct Upload 发布同一份 `dist/`：`dev` 推送发布到 `dev` 分支别名，同仓库 PR 发布到 `pr-<编号>` 别名并原地更新一条 PR 评论（PR 头提交已由成功的 push 运行验证时整次跳过，如 `dev`→`main`，以 `dev` 别名为准），`main` 推送发布生产；fork PR 只跑门禁。发布后冒烟检查根路径 302 到 `/zh/`、`/zh/` 与 `/en/` 以及两个 KMP Showcase 目录返回 200，失败只标红不自动回滚，回滚在 Cloudflare 面板对上一个部署执行 Rollback。本地 `deploy` 脚本仅作应急。根路径由 `public/_redirects` 在服务端 302 跳转到 `/zh/`，不渲染中间页；用 302 而非 301，便于以后按浏览器语言分流；`src/pages/index.astro` 只作为 `astro preview` 等不读取 `_redirects` 环境的兜底跳转页。Direct Upload 项目不能原地切换为 Git 集成；Cloudflare 构建镜像也缺少 Android SDK，所以保留 Direct Upload，由 CI 承担构建。后续验证集中于 WebGPU 实际渲染、120Hz 硬件表现、跨浏览器矩阵和 KMP 资源体积；官网完成后再评估是否接入统计脚本及其隐私要求。本轮不集成统计脚本或 Partytown。
+官网部署到 Cloudflare Pages 项目 `gazekeep`，生产分支为 `main`，自定义域名与优选 IP 在 Cloudflare 与 DNS 侧维护，流水线不改动。完整构建依赖 JDK、Android SDK 与 Gradle，因此由 GitHub Actions 托管 runner 完成完整构建与门禁后，再通过 Wrangler Direct Upload 发布同一份 `dist/`：`dev` 推送发布到 `dev` 分支别名，同仓库 PR 发布到 `pr-<编号>` 别名并原地更新一条 PR 评论（PR 头提交已由成功的 push 运行验证时整次跳过，如 `dev`→`main`，以 `dev` 别名为准），`main` 推送发布生产；fork PR 只跑门禁。发布后冒烟检查根路径 302 到 `/zh/`、`/zh/` 与 `/en/` 以及两个 KMP Showcase 目录返回 200，失败只标红不自动回滚，回滚在 Cloudflare 面板对上一个部署执行 Rollback。本地 `deploy` 脚本仅作应急。根路径由 `public/_redirects` 在服务端 302 跳转到 `/zh/`，不渲染中间页；用 302 而非 301，便于以后按浏览器语言分流；`src/pages/index.astro` 只作为 `astro preview` 等不读取 `_redirects` 环境的兜底跳转页。Direct Upload 项目不能原地切换为 Git 集成；Cloudflare 构建镜像也缺少 Android SDK，所以保留 Direct Upload，由 CI 承担构建。后续验证集中于 WebGPU 实际渲染、120Hz 硬件表现、跨浏览器矩阵和 KMP 资源体积。
+
+站点统计只针对官网，App 不联网、不接统计 SDK 的承诺不受影响，因此不另写隐私说明。`layouts/BaseLayout.astro` 在 `/zh/`、`/en/` 头部以 `defer` 加载自建 Umami 的 `/stats/script.js`（`data-domains` 为生产域名，预览与本地不计入）与会话录制 `/stats/recorder.js`（不支持域名过滤，预览部署也会录制）；站点 ID 在 `site.config.ts`，KMP 展示 iframe 不加载。Pages 的 `_redirects` 只能代理本站路径，不能像 Vercel `rewrites` 那样转发到外部域名，所以 `/stats/*` 由 Pages Function `functions/stats/[[path]].ts` 转发到 `https://umami.rainafter.cn`：保留方法、请求体与查询参数，只转发 Umami 所需请求头（不带官网 Cookie），并把访客 `CF-Connecting-IP` 写入 `X-Forwarded-For`；脚本默认把上报发往脚本所在目录，无需 `data-host-url`。Wrangler 从 `apps/web` 发布时自动打包 `functions/`，每次统计请求计入 Functions 调用额度。Pages 面板同时开启 Web Analytics，Cloudflare 会向所有 HTML（包括 KMP iframe）注入 beacon，iframe 也计一次浏览，无法按路径排除。不启用 Partytown。
 
 ### 第三轮设备与动效修订
 

@@ -33,6 +33,20 @@
 - `packageManager` 由 pnpm 11.7.0 升至 12.14.0（当时 `latest`，发布 7 天）；本机 11.7.0 自动切换到锁定版本，未修改全局安装。锁文件只新增首段 pnpm 自身二进制的完整性记录，依赖解析不变；`--no-frozen-lockfile` 重解析无变化。已核对 12.0.0 不兼容变更：仓库无 git 依赖，`--frozen-lockfile` 不带值使用，工作区设置均被识别。
 - 验证：冻结安装与供应链策略检查、Hook 自检、31 项仓库工具测试、文档/Agent 资产/架构检查、全仓格式与 lint、官网 64 项测试、lint、类型检查与 `build:site`、`pnpm --filter @gazekeep/app verify` 均通过。未执行：其他平台与 CI 环境。
 
+## 官网 KMP 内屏线上加载失败（2026-10-23）
+
+- 现象：生产站 `/zh/` 内屏不显示，控制台报 `static.cloudflareinsights.com/<哈希>.wasm` CORS 与 522。原因：Cloudflare Pages 项目开启了 Web Analytics，在展示 iframe 的 HTML 末尾注入 `beacon.min.js`；webpack 自动 publicPath 在 module 脚本中取不到 `currentScript`，回退到页面最后一个 http(s) 脚本，Wasm 与 JS 两个运行时的 `.wasm` 都去 beacon 的源加载，降级同样失败。重跑 CI 不能修复（注入发生在响应阶段）。
+- 修复：shared 新增 `webpack.config.d/public-path.js` 固定 `publicPath: "./"`；`scripts/build.ts` 检查两个入口不再含自动推断运行时，否则中止构建（`tests/scripts/kmp-showcase.test.ts`，先确认模块缺失时失败）。
+- 验证：本地以 Playwright 在所有 HTML 页尾注入跨源脚本复现，修复前 Wasm/JS 入口都向注入脚本的源请求 `.wasm`；完整构建后 `.wasm` 均从 `/kmp-showcase/<运行时>/` 加载，`/zh/` 内屏 `data-ready=true` 且无页面错误。官网 64+1 项 unit、lint、类型检查、完整构建与 `git diff --check` 通过。未执行：浏览器 project 容器基线（未改页面外观）、合入后线上复验。
+- [ ] 合入 `main` 发布后在生产站复验内屏加载。
+- Cloudflare Web Analytics 保留：统计只针对官网，App 隐私承诺不变，无需补充隐私说明。
+
+## 官网接入 Umami 统计（2026-10-23）
+
+- `/zh/`、`/en/` 头部加载自建 Umami 的 `/stats/script.js`（`data-domains` 限生产域名）与 `/stats/recorder.js`；Pages `_redirects` 不能代理外部域名，新增 Pages Function `functions/stats/[[path]].ts` 转发到 `https://umami.rainafter.cn`，以访客 IP 写入 `X-Forwarded-For`，不转发官网 Cookie。
+- 测试先行：Function 3 项（路径与查询、方法/请求体/请求头、非 `/stats` 路径）与页面脚本 2 项均先确认失败；架构测试的镜像目录加入 `functions`，页面渲染工具新增头部外链脚本属性。`wrangler pages dev dist` 实测 `/stats/script.js`、`/stats/recorder.js` 与录制配置接口经代理返回 200，`/` 302、`/zh/` 与 KMP 目录 200。未经代理发送真实上报，避免污染生产统计。
+- [ ] 推送 `dev` 后在预览站确认 `/stats/*` 转发，且预览不计入页面统计；合入 `main` 后确认 Umami 后台的访问、地区与会话录制。地区若全部相同，需在 Umami 设置 `CLIENT_IP_HEADER=x-forwarded-for`（仓库外配置）。
+
 ## CI 流水线（2026-10-22）
 
 - 新增 GitHub Actions 流水线，使用托管 runner：改动范围判断、仓库门禁、Android 主机门禁、官网完整构建，以及官网 Pages 预览与生产发布（含冒烟和 PR 评论）、tag 的 Release APK 门禁。官网仍用 Cloudflare Pages Direct Upload；k3s 与 GitOps 仓库不接入（当前没有服务端负载）。已用 `gh` 创建 Environment `web-preview` 与 `web-production`（后者仅允许 `main`），写入项目名、站点地址、账号 ID 与 Pages API token。
