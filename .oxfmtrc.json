@@ -4,7 +4,7 @@
   "proseWrap": "preserve",
   "sortPackageJson": false,
   "astro": true,
-  "sortTailwindcss": { "stylesheet": "apps/web/src/styles/global.css" },
+  "sortTailwindcss": { "stylesheet": "apps/web/src/styles/tailwind.css" },
   "ignorePatterns": [
     "**/build/",
     ".gradle/",

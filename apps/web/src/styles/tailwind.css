@@ -1,0 +1,2 @@
+/* Tailwind 入口单独成文件：oxfmt 的类名排序只读取它，不依赖各区块样式，Hook 测试也只需复制这一个文件。 */
+@import "tailwindcss";

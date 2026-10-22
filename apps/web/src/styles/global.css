@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import "./tailwind.css";
 /* 样式入口：令牌与基础样式在前，区块按页面顺序排列，滚动吸附最后覆盖。 */
 @import "./tokens.css";
 @import "./base.css";
