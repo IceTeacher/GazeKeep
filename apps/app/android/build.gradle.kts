@@ -60,6 +60,21 @@ android {
     resources {
       excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }
+    jniLibs {
+      // 32 位 x86 只剩旧模拟器，通用包也不携带。
+      excludes += "lib/x86/**"
+      // WHY：AGP 默认不压缩 .so，ML Kit 原生库让下载体积成倍增加；改为压缩存放，安装时解压。
+      useLegacyPackaging = true
+    }
+  }
+  // 按 ABI 拆分分发包，另保留通用包给不确定设备架构的用户；各包共用同一 versionCode，可互相覆盖安装。
+  splits {
+    abi {
+      isEnable = true
+      reset()
+      include("arm64-v8a", "armeabi-v7a", "x86_64")
+      isUniversalApk = true
+    }
   }
   val signingValues = listOf(
     "GAZEKEEP_STORE_FILE",

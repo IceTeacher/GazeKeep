@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { type ApkSnapshot, validateApk } from "../scripts/check-apk.ts";
+import { type ApkSnapshot, validateApk, zipCompression } from "../scripts/check-apk.ts";
 
 const PREFIX = "cn.rainafter.app.gazekeep.xposed.entry.";
 const description = "注视屏幕时延后熄屏；看不清或离开时按系统超时熄屏。";
@@ -20,10 +20,11 @@ function fixture(): ApkSnapshot {
         '<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android"><foreground android:drawable="@ref/0x7f010002"/><background android:drawable="@ref/0x7f040001"/></adaptive-icon>',
     },
     brandedBitmaps: { "res/foreground.png": true },
+    nativeLibs: { "lib/arm64-v8a/libface.so": true, "lib/arm64-v8a/libutil.so": true },
     dex: `C d 1 1 1 ${PREFIX}ModernEntry\nM d 1 1 1 ${PREFIX}ModernEntry <init>()\nC d 1 1 1 ${PREFIX}LegacyEntry\nM d 1 1 1 ${PREFIX}LegacyEntry <init>()\n${["BeforeHooker", "AfterHooker"].map((name) => `C d 1 1 1 ${PREFIX}ModernHookFacade$${name}\nM d 1 1 1 ${PREFIX}ModernHookFacade$${name} java.lang.Object intercept(io.github.libxposed.api.XposedInterface$Chain)\n`).join("")}`,
   };
 }
-const expected = { versionName: "1.1.0", versionCode: "2", description };
+const expected = { versionName: "1.1.0", versionCode: "2", description, abis: ["arm64-v8a"] };
 
 test("现代框架调用的前后置拦截器必须保留完整回调签名", () => {
   for (const hooker of ["BeforeHooker", "AfterHooker"]) {
@@ -160,4 +161,55 @@ test("Manifest 反射登记的 ML Kit 注册器必须保留无参构造器", () 
   assert.deepEqual(validateApk(data, expected), []);
   data.dex = data.dex.replace(`C d 1 1 1 ${name}\n`, "");
   assert.match(validateApk(data, expected).join("\n"), /注册器.*类/);
+});
+
+test("原生库 ABI 必须与预期拆分一致且压缩存放", () => {
+  const universal = { ...expected, abis: ["arm64-v8a", "armeabi-v7a"] };
+  const data = fixture();
+  data.nativeLibs["lib/armeabi-v7a/libface.so"] = true;
+  assert.deepEqual(validateApk(data, universal), []);
+  assert.match(validateApk(data, expected).join("\n"), /多余 ABI.*armeabi-v7a/);
+  assert.match(validateApk(fixture(), universal).join("\n"), /缺少 ABI.*armeabi-v7a/);
+  const stored = fixture();
+  stored.nativeLibs["lib/arm64-v8a/libface.so"] = false;
+  assert.match(validateApk(stored, expected).join("\n"), /未压缩.*libface\.so/);
+  const empty = fixture();
+  empty.nativeLibs = {};
+  assert.match(validateApk(empty, expected).join("\n"), /缺少 ABI.*arm64-v8a/);
+});
+
+// 只构造中央目录与目录尾记录，足以覆盖按中央目录读取压缩方式的逻辑。
+function centralDirectoryZip(entries: [string, number][]) {
+  const records = entries.map(([name, method]) => {
+    const bytes = Buffer.from(name, "utf8");
+    const record = Buffer.alloc(46 + bytes.length);
+    record.writeUInt32LE(0x02014b50, 0);
+    record.writeUInt16LE(method, 10);
+    record.writeUInt16LE(bytes.length, 28);
+    bytes.copy(record, 46);
+    return record;
+  });
+  const directory = Buffer.concat(records);
+  const prefix = Buffer.alloc(16, 0xaa);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(entries.length, 8);
+  end.writeUInt16LE(entries.length, 10);
+  end.writeUInt32LE(directory.length, 12);
+  end.writeUInt32LE(prefix.length, 16);
+  return Buffer.concat([prefix, directory, end]);
+}
+
+test("从 ZIP 中央目录读取各条目的压缩方式", () => {
+  const zip = centralDirectoryZip([
+    ["lib/arm64-v8a/libface.so", 8],
+    ["lib/arm64-v8a/libutil.so", 0],
+    ["classes.dex", 8],
+  ]);
+  assert.deepEqual(Object.fromEntries(zipCompression(zip)), {
+    "lib/arm64-v8a/libface.so": true,
+    "lib/arm64-v8a/libutil.so": false,
+    "classes.dex": true,
+  });
+  assert.throws(() => zipCompression(Buffer.alloc(30)), /ZIP 目录尾/);
 });
