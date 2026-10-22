@@ -23,6 +23,24 @@ export function violations(root: string) {
         .filter(existsSync)
     : [];
   if (!skills.length) errors.push("缺少仓库 skills");
+  const adapterDir = join(root, ".claude/skills");
+  const canonicalNames = new Set(skills.map((skill) => skill.split("/").at(-2)));
+  for (const skill of skills) {
+    const name = skill.split("/").at(-2);
+    if (!name) continue;
+    const adapter = join(adapterDir, name, "SKILL.md");
+    if (!existsSync(adapter)) {
+      errors.push(`缺少 Claude Code Skill 适配层：.claude/skills/${name}/SKILL.md`);
+      continue;
+    }
+    if (readFileSync(adapter, "utf8") !== readFileSync(skill, "utf8"))
+      errors.push(`Claude Code Skill 适配层与真源不一致：.claude/skills/${name}/SKILL.md`);
+  }
+  if (existsSync(adapterDir)) {
+    for (const name of readdirSync(adapterDir)) {
+      if (!canonicalNames.has(name)) errors.push(`存在未登记的 Claude Code Skill 适配层：.claude/skills/${name}`);
+    }
+  }
   const names = new Set();
   for (const skill of skills) {
     const content = readFileSync(skill, "utf8");

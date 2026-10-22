@@ -99,6 +99,22 @@ test("检查移动后的模块规则和重复 skill name", (t) => {
   assert.match(f.check("check-agent-assets.ts").stderr, /重复/);
 });
 
+test("检查 Claude Code Skill 适配层与真源同步", (t) => {
+  const f = fixture(t);
+  f.write("apps/app/settings.gradle.kts", 'include(":core")\n');
+  f.write("AGENTS.md", "# 根规则\n");
+  for (const name of ["apps/app", "apps/web", "scripts/repo-tools", "apps/app/core"])
+    f.write(`${name}/AGENTS.md`, "# 模块规则\n");
+  const skill = "---\nname: sample\ndescription: 有效的技能描述\n---\n\n# 技能\n";
+  f.write(".agents/skills/sample/SKILL.md", skill);
+  f.write(".claude/skills/sample/SKILL.md", skill);
+  assert.equal(f.check("check-agent-assets.ts").status, 0);
+  f.write(".claude/skills/sample/SKILL.md", `${skill}\n漂移\n`);
+  assert.match(f.check("check-agent-assets.ts").stderr, /适配层与真源不一致/);
+  f.write(".claude/skills/extra/SKILL.md", skill.replace("sample", "extra"));
+  assert.match(f.check("check-agent-assets.ts").stderr, /未登记/);
+});
+
 test("架构检查阻断模块变动、非法依赖与源码目录错误", (t) => {
   const f = fixture(t);
   const modules = [
