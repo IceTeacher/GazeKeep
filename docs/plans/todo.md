@@ -38,9 +38,9 @@
 - 新增 GitHub Actions 流水线，使用托管 runner：改动范围判断、仓库门禁、Android 主机门禁、官网完整构建，以及官网 Pages 预览与生产发布（含冒烟和 PR 评论）、tag 的 Release APK 门禁。官网仍用 Cloudflare Pages Direct Upload；k3s 与 GitOps 仓库不接入（当前没有服务端负载）。已用 `gh` 创建 Environment `web-preview` 与 `web-production`（后者仅允许 `main`），写入项目名、站点地址、账号 ID 与 Pages API token。
 - 新增 `ci-changes.ts`、`check-web-deploy.ts` 及 5 项测试，先确认模块缺失时失败。冒烟脚本对现网 `https://gazekeep.rainafter.cn` 通过；实测发现 Pages 会把 `index.html` 308 跳到目录地址，因此探测改为目录地址。
 - 本地验证：36 项仓库工具测试、repo-tools lint、文档/Agent 资产/架构检查、全仓格式、`git diff --check`、actionlint 1.7.12（含 shellcheck 0.11.0）均通过，`main..dev` 区间 commitlint 通过；Wrangler 输出解析、版本提取与评论正文已用本地样本模拟。
-- 首次 CI 运行（`dev` 推送）：仓库门禁与改动范围判断通过，暴露两个已有问题，均已修复，待下一次运行复核。① Wasm 锁文件未被跟踪，`kotlinWasmRestoreYarnLock` 被跳过，干净环境中 `:kotlinWasmStoreYarnLock` 找不到 `build/wasm/yarn.lock` 而失败；本机残留旧生成物掩盖了问题。现已提交 `kotlin-js-store/wasm/yarn.lock`，本地清空 `build/wasm` 后恢复、安装与存储通过。② 官网 3 张截图基线是在本机命中微软雅黑时录制的，Ubuntu runner 上有 3%–5% 像素差异。浏览器测试改为在锁定版本的 Playwright 镜像（v1.64.1-noble，文泉驿正黑）中运行，新增 `test:browser:docker`；先确认旧基线在容器内失败 3 项、其余 12 项通过，用 `--update` 重录后连续 2 次 15 项全部通过，3 张基线已逐张目视核对。
-- 第二次 CI 运行：Wasm 锁文件存储与容器内浏览器/截图测试通过，又暴露三个干净环境问题。① 新提交的 Wasm `yarn.lock` 以空行结尾，区间 `git diff --check` 失败；新增 `.gitattributes` 免除 Kotlin/JS 锁文件的空白检查，复跑该区间检查通过。② `vitest.config.ts` 引用 `vite` 类型，但官网未声明该依赖，本机靠旧安装残留的真实目录通过；删除残留后 `astro check` 复现 5 个错误，新增 devDependency `vite@8.3.4`（与锁文件已解析版本一致）后 0 错误。③ `:core:wasmJsBrowserTest` 找不到 Wasm 测试工具目录中的 `kotlin-web-helpers` 运行器；两次失败都发生在 JS 依赖安装与 Wasm 工具安装并行启动 Yarn 1、缓存为冷的情况下。本机冷缓存并行 3 次未复现，无代理的容器无法联网，未能获得 Yarn 原始输出，因此按并发写缓存的假设处理：用共享构建服务串行化这些 Yarn 任务，并在 app job 失败时上传 Yarn 错误日志。该修复待 CI 验证，不计作通过。
-- [ ] 推送后核对首次真实运行：托管 runner 上的 Android SDK 37 平台自动安装、`app` 门禁与官网 KMP 构建耗时、Playwright 浏览器测试、`dev` 预览、PR 评论原地更新，以及 `main` 生产发布与冒烟。以上均未在 CI 中执行，不计作通过。
+- 前两次 CI 运行暴露的干净环境问题已修复：Wasm `yarn.lock` 未跟踪且以空行结尾（提交锁文件，并用 `.gitattributes` 免除空白检查）；截图基线依赖本机字体（浏览器测试改在 Playwright v1.64.1-noble 镜像中运行并重录基线）；官网未声明 `vite` 依赖（新增 devDependency）；`:core:wasmJsBrowserTest` 找不到 `kotlin-web-helpers` 运行器（推测为冷缓存下 Yarn 1 并发安装，已用共享构建服务串行化，app job 失败时上传 Yarn 日志）。
+- 第三次 CI 运行（`dev` 推送，run 39710220826）全部通过：仓库门禁、改动范围判断、`app` 门禁（含 `:core:wasmJsBrowserTest`，约 8.5 分钟）、官网构建与容器内浏览器测试（约 7 分钟）、`dev` 预览上传（别名 `https://dev.gazekeep.pages.dev`）与冒烟。Yarn 串行化后未再复现，但原失败为偶发，单次通过只能说明未复现。预览 job 中 pnpm 自安装耗时 5 分钟，其余 job 约 2 秒，判断为 npm registry 偶发慢。
+- [ ] 核对 PR 预览评论原地更新，以及 `main` 生产发布与冒烟。以上未在 CI 中执行，不计作通过。
 - [ ] 首个 `v*` tag 核对 unsigned Release 的 APK 门禁（托管镜像的 `apkanalyzer` 与 `aapt2`）；正式签名 secret 与 GitHub Release 自动化待授权后再接入。
 
 ## 官网本次验证（2026-10-20）
