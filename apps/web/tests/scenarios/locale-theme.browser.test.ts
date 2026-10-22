@@ -52,11 +52,13 @@ test("主题按钮按 跟随系统 → 浅色 → 深色 → 跟随系统 循环
   ] as const;
   for (const step of steps) {
     await toggle().click();
-    await expect.poll(() => root.dataset.themePreference).toBe(step.preference);
-    expect(root.dataset.theme).toBe(step.theme);
+    // 偏好与存储在点击时立即更新，明暗与内屏换肤随视图过渡应用。
+    expect(root.dataset.themePreference).toBe(step.preference);
     expect(localStorage.getItem("gazekeep-theme")).toBe(step.stored);
+    await expect.poll(() => root.dataset.theme, { timeout: 5_000 }).toBe(step.theme);
     await expect.element(toggle()).toHaveAccessibleName(`切换主题（${step.label}）`);
-    expect(lastAppearance()).toEqual(["setLocaleAndTheme", "zh", step.theme === "dark"]);
+    await expect.poll(lastAppearance).toEqual(["setLocaleAndTheme", "zh", step.theme === "dark"]);
+    await expect.poll(() => root.dataset.themeTransition, { timeout: 5_000 }).toBeUndefined();
   }
 });
 

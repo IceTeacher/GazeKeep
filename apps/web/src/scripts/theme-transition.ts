@@ -15,6 +15,8 @@ export function shouldReveal(options: { from: Theme; to: Theme; reducedMotion: b
 
 const REVEAL_DURATION = 480;
 const SETTLE_TIMEOUT = 160;
+/** 视图过渡的回调要等下一次渲染机会；页面繁忙或在后台时可能长时间不执行，超时后直接应用，主题不随动画卡住。 */
+const APPLY_TIMEOUT = 1000;
 
 /** 等待内嵌展示页完成两帧绘制，使截取的新快照包含已换肤的手机内屏；超时后不再等待。 */
 function settleFrame(frame: HTMLIFrameElement | null) {
@@ -44,8 +46,16 @@ export async function transitionTheme(options: {
   }
   const root = document.documentElement;
   root.dataset.themeTransition = "true";
-  const transition = document.startViewTransition(async () => {
+  let applied = false;
+  const apply = () => {
+    if (applied) return;
+    applied = true;
     options.apply();
+  };
+  const fallback = setTimeout(apply, APPLY_TIMEOUT);
+  const transition = document.startViewTransition(async () => {
+    clearTimeout(fallback);
+    apply();
     await settleFrame(options.frame ?? null);
   });
   try {
@@ -64,6 +74,8 @@ export async function transitionTheme(options: {
   } catch {
     /* 过渡被跳过时主题已在回调中应用。 */
   } finally {
+    clearTimeout(fallback);
+    apply();
     delete root.dataset.themeTransition;
   }
 }

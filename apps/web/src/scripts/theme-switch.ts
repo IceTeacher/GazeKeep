@@ -46,6 +46,10 @@ export function initThemeSwitch(options: { onChange: () => void; frame?: HTMLIFr
 
   const onClick = (event: MouseEvent) => {
     const next = nextPreference(preference);
+    const from = current();
+    // 偏好立即生效，连续点击按最新偏好循环；明暗与内屏换肤随过渡应用。
+    preference = next;
+    root.dataset.themePreference = next;
     writePreference(storage(), next);
     // 键盘触发的点击没有指针坐标，从按钮中心扩散。
     const box = button.getBoundingClientRect();
@@ -55,7 +59,7 @@ export function initThemeSwitch(options: { onChange: () => void; frame?: HTMLIFr
         : { x: box.left + box.width / 2, y: box.top + box.height / 2 };
     void transitionTheme({
       origin,
-      from: current(),
+      from,
       to: resolveTheme(next, system.matches),
       reducedMotion: reduce.matches,
       apply: () => apply(next),
