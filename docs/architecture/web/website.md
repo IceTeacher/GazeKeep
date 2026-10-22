@@ -15,7 +15,7 @@
 
 内屏使用同源 iframe 隔离 KMP Wasm/JS 加载与生命周期，内部保持单 Canvas，前端只挂载一个 iframe。Wasm 能力不足或启动失败时选择 JS，最终失败提供重试；`load` 事件只表示文档加载，实际就绪以 Compose 首帧与字体加载完成后的通知为准。浏览器语言设置仅作用于展示 iframe。手机外壳与叙事使用同一实例。机身为 Three.js 实体模型（初始 416×872×40），屏幕为 392×848 的统一逻辑画布，包含顶部 40、应用 392×784 与底部 24；状态栏、挖孔和横条随整个画布等比缩放。单 DOM 内屏依据同一相机投影屏幕四角，与机身共享姿态。设备在首帧就绪前隐藏且不改变布局：实体机身按首屏倾斜姿态完成首次绘制，或确认降级后，才短暂淡入（减少动态时直接显示），脚本未运行时 4 秒后限时显示，避免闪出未投影的平铺内屏或正面降级外壳。WebGL 不可用时降级为正面 CSS 设备。桌面与常规移动端使用局部 sticky 跟随；移动端上图下文，紧凑模式随正文展示。
 
-展示状态只通过真实页面、外壳光效与机外说明表达，不额外在 App 上方插入状态文字栏。状态栏采用同主题前景色，依次显示时钟、Wi-Fi、移动信号和电池（Lucide 图标）；摄像头采样环按顺时针先慢后快旋转。演示应用列表只使用开源应用与 AOSP 系统应用（GazeKeep、LSPosed、Magisk、Shizuku、SIM Toolkit、Vector），按标签排序，GazeKeep 与 LSPosed 为选中项；图标从模拟器中 GazeKeep 应用列表的实际渲染导出（明暗两次截取求透明度），LSPosed 按其开源仓库的自适应图标矢量与 Android 12+ 动态底色渲染，存于 `showcaseMain/composeResources/files/apps/<包名>.webp`，Web 适配层按 Android 端的圆角容器绘制。主页应用版本显示真实版本号：`:shared:generateShowcaseVersion` 从 `android/build.gradle.kts` 的 `versionName` 生成常量（与发布门禁读取同一来源），Android 版本与设备信息仍为演示值。内屏边缘通过同色底、裁剪与独立合成处理，避免 3D 倾斜时出现矩形接缝。
+展示状态只通过真实页面、外壳光效与机外说明表达，不额外在 App 上方插入状态文字栏。状态栏采用同主题前景色，依次显示时钟、Wi-Fi、移动信号和电池，图标为仿 Android 原生的实心样式（属于机身仿真，不使用 Lucide）；摄像头采样环按顺时针先慢后快旋转。演示应用列表只使用开源应用与 AOSP 系统应用（GazeKeep、LSPosed、Magisk、Shizuku、SIM Toolkit、Vector），按标签排序，GazeKeep 与 LSPosed 为选中项；图标从模拟器中 GazeKeep 应用列表的实际渲染导出（明暗两次截取求透明度），LSPosed 按其开源仓库的自适应图标矢量与 Android 12+ 动态底色渲染，存于 `showcaseMain/composeResources/files/apps/<包名>.webp`，Web 适配层按 Android 端的圆角容器绘制。主页应用版本显示真实版本号：`:shared:generateShowcaseVersion` 从 `android/build.gradle.kts` 的 `versionName` 生成常量（与发布门禁读取同一来源），Android 版本与设备信息仍为演示值。内屏边缘通过同色底、裁剪与独立合成处理，避免 3D 倾斜时出现矩形接缝。
 
 滚动采用浏览器原生滚动与局部 sticky 场景，不拦截滚轮、触摸或方向键。桌面非紧凑布局以 CSS Scroll Snap（`mandatory`）一次停靠一屏：首屏、工作流标题、三幕文案、运行方式与专注范围的文案整体为强制停靠点（`scroll-snap-stop: always`），三幕文案居中使场景进度落在整数幕；运行方式与专注范围的停靠间距与三幕相近（约一屏）。隐私至结尾区包在同一个吸附区域内，外边距向下覆盖页脚，区域高于视口时其中任意位置都是合法停靠，因此隐私及之后为普通连续滚动，也不会被强制吸附拉回展示区。吸附只决定停靠位置，姿态与内屏仍由实际滚动位置驱动；文案整体高于视口时浏览器在其内部放开自由滚动，矮视口仍能读完。吸附目标的祖先不得建立滚动容器（隐私区用 `overflow: clip`）。移动端非紧凑布局只对三幕逐幕强制吸附：三幕文案位于 sticky 面板内不能作为吸附目标，由三幕区内三个零高标记承担，脚本按实际视口高度定位到进度恰为 1、2、3 的位置；视口跨两个吸附区域不是合法停靠，因此首屏区域向下延伸到三幕区顶部（含工作流标题），运行方式区域向下覆盖到页尾，三幕之外仍为连续滚动。紧凑模式与减少动态均保持连续滚动。单手机实例贯穿首屏、三幕工作流、后端与白名单，在隐私区前释放。统一位置进度驱动三轴手机姿态、人物透明度、文案与内屏阶段，正反方向使用同一映射；阶段变化时才同步桥接。第一幕手机左移持机、文案右侧；隐私页绘制完成后手部渐隐，第二幕手机回正；第三幕手机右移并全黑，随后在后端区黑屏换页并随滚动渐亮，桌面手机固定在右侧贯穿后端区、左侧内容滚动；随后以第二幕到第三幕的镜像姿态移到专注范围左侧，范围内容靠右：横移区间从运行方式列表离开设备所在高度开始、在范围文案停靠点结束，落在吸附动画减速段；范围文案按手机实际横向位置在越过中线后淡入，手机掠过时不压住清晰文字。桌面横移以两端零速的五次缓动过渡，过程中朝运动方向侧转 18°、侧倾 4° 并缩小 4%，两端回正。移动端采用同一局部固定容器内的上图下文。减少动态、短视口或内容容纳不足时使用静态紧凑布局，保留内容与操作。
 
@@ -23,7 +23,7 @@
 
 Web 字体使用带 OFL 许可的 Noto CJK 字符子集，位于 showcaseMain，仅用于网页展示。官网构建过滤 source map；KMP 生成目录排除在 Astro 类型检查之外。
 
-首屏加载：`shaders/js` 的 `createShader` 会注册整个组件库，构建插件（`scripts/build-performance.ts`）在打包时把注册表裁到首屏实际使用的组件，保留列表与页面创建的图层同源于 `src/scripts/hero-shader.ts`；shaders 版本固定，升级后注册表结构变化会让构建直接失败，而不是退回全量打包。构建完成后为 Three.js 分块注入 `modulepreload`，与入口脚本并行下载，以缩短机身首帧等待；样式内联，不再单独发出阻塞渲染的请求。页面内图标使用 192px WebP，favicon 使用 32px PNG，512px PNG 只作为 `og:image`。KMP 内屏的 Wasm 体积取决于托管端压缩：上线托管需对 `.wasm`/`.js` 启用 Brotli 或 gzip，带哈希的资源设为长期不可变缓存，无哈希的 KMP 入口用协商缓存。
+首屏加载：`shaders/js` 的 `createShader` 会注册整个组件库，构建插件（`scripts/build-performance.ts`）在打包时把注册表裁到首屏实际使用的组件，保留列表与页面创建的图层同源于 `src/scripts/hero-shader.ts`；shaders 版本固定，升级后注册表结构变化会让构建直接失败，而不是退回全量打包。构建完成后为 Three.js 分块注入 `modulepreload`，与入口脚本并行下载，以缩短机身首帧等待；样式内联，不再单独发出阻塞渲染的请求。页面内图标使用 192px WebP，favicon 使用 32px PNG。分享元数据由 `layouts/BaseLayout.astro` 输出：生产域名在 `site.config.ts`（同时作为 Astro `site`），`canonical` 与 `og:url` 指向各语言页，`og:site_name`、`og:locale` 与 `og:locale:alternate` 齐全，Twitter 使用 `summary_large_image`；分享图为 `public/og/og-<语言>.png`（1200×630，深色主题首屏截图，约 440 KB），替代文本在双语数据的 `ogImageAlt`。首屏改版后需重新截取分享图。KMP 内屏的 Wasm 体积取决于托管端压缩：上线托管需对 `.wasm`/`.js` 启用 Brotli 或 gzip，带哈希的资源设为长期不可变缓存，无哈希的 KMP 入口用协商缓存。
 
 ### 1.1 核心定位
 
@@ -128,7 +128,7 @@ Web 字体使用带 OFL 许可的 Noto CJK 字符子集，位于 showcaseMain，
 
 ### 4.1 当前目录与数据流
 
-`apps/web/src/components/Website.astro` 只组合页面：`layouts/BaseLayout.astro` 负责文档头与首帧主题脚本，`components/site/` 为导航、主题按钮与页脚，`components/sections/` 按页面顺序各一个区块组件，`components/device/` 为手机舞台与握持层；图标统一使用 `@lucide/astro`，构建期内联为 SVG。`src/data/schema.ts` 约束 `zh.ts`、`en.ts` 的内容（区块眉题等零散文案在 `ui` 字段）及演示路由。`src/styles/global.css` 是样式入口，按令牌（`tokens.css`）、基础（`base.css`）、`sections/` 下各区块、滚动吸附（`scroll-snap.css`）与动效（`motion.css`）的顺序导入。`src/scripts/orchestrator.ts` 组合各模块并管理 KMP 桥接，`theme.ts`/`theme-switch.ts`/`theme-transition.ts` 管理主题偏好、按钮与揭示动画，`hero-backdrop.ts` 管理首屏 Shader，`site-chrome.ts` 管理导航、菜单、常见问题与重试命中层，`scroll-reveal.ts` 管理滚动显现；`story-scroll.ts` 与 `story-motion.ts` 管理原生滚动位置、统一姿态和内屏阶段；`phone-display.ts` 管理实体机身与 DOM 屏幕投影，`phone-geometry.ts` 维护统一尺寸与投影变换，`grip-geometry.ts` 维护握持坐标与前后 SVG 层的统一投影。`scripts/build.ts` 先构建 shared 的 Wasm/JS 展示资源，`sync-kmp-strings.ts` 从 Compose 资源生成双语隐私文案，随后 Astro 静态构建；`dev` 和 `check` 也先同步隐私文案。
+`apps/web/src/components/Website.astro` 只组合页面：`layouts/BaseLayout.astro` 负责文档头与首帧主题脚本，`components/site/` 为导航、主题按钮与页脚，`components/sections/` 按页面顺序各一个区块组件，`components/device/` 为手机舞台与握持层；界面图标统一使用 `@lucide/astro`，构建期内联为 SVG；手机状态栏的仿原生图标例外。`src/data/schema.ts` 约束 `zh.ts`、`en.ts` 的内容（区块眉题等零散文案在 `ui` 字段）及演示路由。`src/styles/global.css` 是样式入口，按令牌（`tokens.css`）、基础（`base.css`）、`sections/` 下各区块、滚动吸附（`scroll-snap.css`）与动效（`motion.css`）的顺序导入。`src/scripts/orchestrator.ts` 组合各模块并管理 KMP 桥接，`theme.ts`/`theme-switch.ts`/`theme-transition.ts` 管理主题偏好、按钮与揭示动画，`hero-backdrop.ts` 管理首屏 Shader，`site-chrome.ts` 管理导航、菜单、常见问题与重试命中层，`scroll-reveal.ts` 管理滚动显现；`story-scroll.ts` 与 `story-motion.ts` 管理原生滚动位置、统一姿态和内屏阶段；`phone-display.ts` 管理实体机身与 DOM 屏幕投影，`phone-geometry.ts` 维护统一尺寸与投影变换，`grip-geometry.ts` 维护握持坐标与前后 SVG 层的统一投影。`scripts/build.ts` 先构建 shared 的 Wasm/JS 展示资源，`sync-kmp-strings.ts` 从 Compose 资源生成双语隐私文案，随后 Astro 静态构建；`dev` 和 `check` 也先同步隐私文案。
 
 ### 4.2 KMP 展示桥接
 
@@ -158,7 +158,7 @@ Web 字体使用带 OFL 许可的 Noto CJK 字符子集，位于 showcaseMain，
 
 ## 入场与滚动动效
 
-首屏文案由页面头部脚本设置 `data-intro` 后纯 CSS 错峰浮现；隐私、开始使用、常见问题、结尾与保护上限等带 `data-reveal` 的元素由 `scroll-reveal.ts` 在首次进入视口时显现，只有该模块运行时才隐藏未显现元素，脚本失败不会让内容消失。动画只用 `backwards` 填充，结束后回到样式表的值，不覆盖悬停过渡；三幕、运行方式与专注范围文案由滚动脚本控制透明度，不叠加显现动画。微交互包括主题图标旋入、链接箭头前移、导航下划线与常见问题答案淡入。减少动态时不隐藏也不播放。
+首屏文案由页面头部脚本设置 `data-intro` 后纯 CSS 错峰浮现；隐私、开始使用、常见问题、结尾与保护上限等带 `data-reveal` 的元素由 `scroll-reveal.ts` 在首次进入视口时显现，只有该模块运行时才隐藏未显现元素，脚本失败不会让内容消失。动画只用 `backwards` 填充，结束后回到样式表的值，不覆盖悬停过渡；三幕、运行方式与专注范围文案由滚动脚本控制透明度，不叠加显现动画。悬停与按压细节集中在 `styles/interactions.css`，只在精确指针设备上生效（避免触屏残留悬停态），键盘聚焦复用位移提示：主按钮上浮并投出主题绿柔光、按下轻微下沉；下载图标托盘不动、箭头循环下落；外链箭头朝右上探出；文字链接、页脚、常见问题与权限清单入口变为主题绿；导航图标按钮与语言切换出现圆形底色；探索入口的滚轮点循环下滑。其余微交互包括主题图标旋入、导航下划线与常见问题答案淡入。减少动态时不隐藏也不播放。
 
 ## 连续场景与移动阅读布局
 
