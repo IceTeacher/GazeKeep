@@ -62,7 +62,7 @@
 
 ## 当前状态与开发入口
 
-- **兼容范围与进度**：端上检测、三种后端、UI 界面、参数配置与两步自检均已实现。Android 8.0（API 26）为安装下限，实际表现取决于系统版本、ROM 电源管理与所选后端能力，需按目标设备实测。传感器门控已接入，当前版本的完整实机回归与正式签名发布仍待完成，详见[产品定义](docs/product/overview.md)与[任务清单](docs/plans/todo.md)。
+- **兼容范围与进度**：端上检测、三种后端、UI 界面、参数配置与两步自检均已实现。Android 8.0（API 26）为安装下限，实际表现取决于系统版本、ROM 电源管理与所选后端能力，需按目标设备实测。传感器门控已接入，正式签名 APK 以 GitHub 预发布提供，当前版本的完整实机回归仍待完成，详见[产品定义](docs/product/overview.md)与[任务清单](docs/plans/todo.md)。
 - **源码构建**：当前可从源码构建 Debug APK（产物位于 `apps/app/android/build/outputs/apk/debug/`）：
 
 ```bash

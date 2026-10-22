@@ -13,7 +13,7 @@
 | `../docs/development/contributing.md` | 开发流程   | 修改工具链（含 pnpm 版本）、格式、构建、Kotlin/JS 依赖安装与锁文件、Hook、CI 流水线的 job 依赖、步骤与缓存或工作区目录时 | 持续维护 | 2026-10-22 |
 | `../docs/development/testing.md`      | 测试规范   | 选择测试分层、门禁、测试依赖、实机套件、容器截图基线与验收矩阵时                                                         | 持续维护 | 2026-10-22 |
 | `../docs/product/privacy-security.md` | 隐私与安全 | 修改帧、权限、日志、系统设置或隐私文案时                                                                                 | 持续维护 | 2026-10-18 |
-| `../docs/development/release.md`      | 发布规范   | 准备签名、Release、tag 构建、APK 权限与分发验收时                                                                        | 持续维护 | 2026-10-22 |
+| `../docs/development/release.md`      | 发布规范   | 准备签名、Release、tag 构建、发布说明、APK 权限与分发验收时                                                              | 持续维护 | 2026-10-22 |
 
 ## 产品与使用
 
@@ -35,6 +35,12 @@
 | `../docs/architecture/backends/a11y.md`          | 后端架构 | 修改无障碍事件、Hold 或空闲时钟时                                                                                                                          | 持续维护 | 2026-10-13 |
 | `../docs/architecture/backends/shizuku.md`       | 后端架构 | 修改 shell Binder、独立前台来源或同步超时恢复时                                                                                                            | 持续维护 | 2026-10-08 |
 | `../docs/architecture/backends/lsposed.md`       | 后端架构 | 修改系统候选、入口兼容、前台来源、seq、指示器或打包时                                                                                                      | 持续维护 | 2026-10-16 |
+
+## 发布说明
+
+| 文档                         | 类型     | 加载时机                      | 维护状态     | 最后复核   |
+| ---------------------------- | -------- | ----------------------------- | ------------ | ---------- |
+| `../docs/releases/v1.1.2.md` | 发布说明 | 发布或核对 1.1.2 预发布内容时 | 已发布后冻结 | 2026-10-22 |
 
 ## 任务与计划
 

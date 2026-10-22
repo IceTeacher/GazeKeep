@@ -343,6 +343,15 @@ jobs:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    # 签名材料只放在仅允许 v*.*.* tag 部署的 release 环境；创建 GitHub Release 需要写权限。
+    environment:
+      name: release
+      url: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}
+    permissions:
+      contents: write
+    concurrency:
+      group: release-${{ github.ref_name }}
+      cancel-in-progress: false
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -354,7 +363,8 @@ jobs:
         with:
           java: "true"
           gradle: "true"
-      - name: Verify tag matches versionName
+      - name: Verify tag, versionName and release notes
+        id: version
         run: |
           set -euo pipefail
           version="$(sed -nE 's/^[[:space:]]*versionName = "([^"]+)".*/\1/p' apps/app/android/build.gradle.kts)"
@@ -364,26 +374,122 @@ jobs:
             exit 1
           fi
           git merge-base --is-ancestor "$GITHUB_SHA" origin/main
-      # 未配置正式签名 secret 时产出 unsigned APK，只供静态门禁与评审，不可分发。
-      - name: Build Release APK and run APK checks
-        id: apk
+          # 发布说明须在打 tag 前随代码评审合入，缺失时不发版。
+          notes="docs/releases/$GITHUB_REF_NAME.md"
+          test -s "$notes"
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+          echo "notes=$notes" >>"$GITHUB_OUTPUT"
+      - name: Prepare signing keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.GAZEKEEP_KEYSTORE_BASE64 }}
+          GAZEKEEP_STORE_PASSWORD: ${{ secrets.GAZEKEEP_STORE_PASSWORD }}
+          GAZEKEEP_KEY_ALIAS: ${{ secrets.GAZEKEEP_KEY_ALIAS }}
+          GAZEKEEP_KEY_PASSWORD: ${{ secrets.GAZEKEEP_KEY_PASSWORD }}
+          SIGNING_CERT_SHA256: ${{ vars.GAZEKEEP_SIGNING_CERT_SHA256 }}
         run: |
           set -euo pipefail
-          pnpm --filter @gazekeep/app exec ./gradlew :android:assembleRelease --console=plain
+          for name in KEYSTORE_BASE64 GAZEKEEP_STORE_PASSWORD GAZEKEEP_KEY_ALIAS GAZEKEEP_KEY_PASSWORD SIGNING_CERT_SHA256; do
+            if [ -z "${!name:-}" ]; then
+              echo "release 环境缺少配置：$name" >&2
+              exit 1
+            fi
+          done
+          keystore="$RUNNER_TEMP/gazekeep-release.jks"
+          (umask 077 && base64 -d <<<"$KEYSTORE_BASE64" >"$keystore")
+          echo "GAZEKEEP_STORE_FILE=$keystore" >>"$GITHUB_ENV"
+      - name: Build signed Release APK
+        env:
+          GAZEKEEP_STORE_PASSWORD: ${{ secrets.GAZEKEEP_STORE_PASSWORD }}
+          GAZEKEEP_KEY_ALIAS: ${{ secrets.GAZEKEEP_KEY_ALIAS }}
+          GAZEKEEP_KEY_PASSWORD: ${{ secrets.GAZEKEEP_KEY_PASSWORD }}
+        run: pnpm --filter @gazekeep/app exec ./gradlew :android:assembleRelease --console=plain
+      - name: Remove signing keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/gazekeep-release.jks"
+      - name: Verify APK and signing certificate
+        id: apk
+        env:
+          SIGNING_CERT_SHA256: ${{ vars.GAZEKEEP_SIGNING_CERT_SHA256 }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
           mapfile -t apks < <(find apps/app/android/build/outputs/apk/release -maxdepth 1 -name '*.apk')
           test "${#apks[@]}" -eq 1
           PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH" pnpm verify:apk --apk "${apks[0]}"
-          echo "path=${apks[0]}" >>"$GITHUB_OUTPUT"
+          build_tools="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          "$build_tools/apksigner" verify "${apks[0]}"
+          # WHY：核对证书指纹，防止 secret 被换成其他密钥后发布出无法覆盖升级的 APK。
+          # 不同 build-tools 版本的输出前缀不同（"Signer #1" 或 "V2 Signer:"），只取摘要并要求唯一。
+          mapfile -t certs < <("$build_tools/apksigner" verify --print-certs "${apks[0]}" |
+            sed -nE 's/^.*[Ss]igner.* certificate SHA-256 digest: ([0-9a-f]+)$/\1/p' | sort -u)
+          if [ "${#certs[@]}" -ne 1 ]; then
+            echo "应恰有一个签名证书，实际 ${#certs[@]} 个" >&2
+            exit 1
+          fi
+          actual="${certs[0]}"
+          expected="$(tr -d ':[:space:]' <<<"$SIGNING_CERT_SHA256" | tr '[:upper:]' '[:lower:]')"
+          if [ "$actual" != "$expected" ]; then
+            echo "签名证书指纹不一致：$actual" >&2
+            exit 1
+          fi
+          dist="$RUNNER_TEMP/dist"
+          mkdir -p "$dist"
+          apk="$dist/gazekeep-$VERSION.apk"
+          cp "${apks[0]}" "$apk"
+          sha="$(sha256sum "$apk" | cut -d' ' -f1)"
+          echo "$sha  $(basename "$apk")" >"$apk.sha256"
+          {
+            echo "apk=$apk"
+            echo "sha256=$sha"
+            echo "cert=$actual"
+          } >>"$GITHUB_OUTPUT"
           {
             echo "## Release APK"
-            echo "- 文件：\`$(basename "${apks[0]}")\`"
-            echo "- SHA-256：\`$(sha256sum "${apks[0]}" | cut -d' ' -f1)\`"
-            echo "- 签名：未配置正式签名，不可分发；静态门禁通过不代表实机验收。"
+            echo "- 文件：\`$(basename "$apk")\`"
+            echo "- SHA-256：\`$sha\`"
+            echo "- 签名证书 SHA-256：\`$actual\`"
+            echo "- 静态门禁通过不代表实机验收。"
           } >>"$GITHUB_STEP_SUMMARY"
       - name: Upload Release APK
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: gazekeep-${{ github.ref_name }}-apk
-          path: ${{ steps.apk.outputs.path }}
+          path: |
+            ${{ steps.apk.outputs.apk }}
+            ${{ steps.apk.outputs.apk }}.sha256
           if-no-files-found: error
           retention-days: 7
+      # 设备验收未完成前只发预发布；转正式版由维护者在 GitHub 上手动操作。
+      - name: Publish GitHub pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APK: ${{ steps.apk.outputs.apk }}
+          APK_SHA256: ${{ steps.apk.outputs.sha256 }}
+          CERT_SHA256: ${{ steps.apk.outputs.cert }}
+          NOTES: ${{ steps.version.outputs.notes }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          body="$RUNNER_TEMP/release-notes.md"
+          {
+            cat "$NOTES"
+            echo
+            echo "## 构建信息"
+            echo
+            echo "| 项目 | 内容 |"
+            echo "| --- | --- |"
+            echo "| APK | \`$(basename "$APK")\` |"
+            echo "| APK SHA-256 | \`$APK_SHA256\` |"
+            echo "| 签名证书 SHA-256 | \`$CERT_SHA256\` |"
+            echo "| 提交 | \`$GITHUB_SHA\` |"
+            echo
+            echo "APK 由 CI 构建并通过静态门禁（权限、入口登记、保留规则与签名），不代表实机验收。"
+          } >"$body"
+          # 重跑时更新已有 Release，而不是因重复创建失败。
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --prerelease --notes-file "$body"
+            gh release upload "$GITHUB_REF_NAME" "$APK" "$APK.sha256" --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "$APK" "$APK.sha256" --repo "$GITHUB_REPOSITORY" \
+              --verify-tag --prerelease --title "GazeKeep $VERSION" --notes-file "$body"
+          fi

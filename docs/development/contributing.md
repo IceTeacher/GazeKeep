@@ -96,16 +96,17 @@ runner 固定为 `ubuntu-24.04`，避免 `ubuntu-latest` 迁移系统时 Android
 - `repo`：始终运行 Hook、文档、Agent 资产、架构、全仓格式、repo-tools lint 与测试，并对本次提交区间执行 commitlint 与 `git diff --check`。
 - `app`：受影响时运行 `pnpm --filter @gazekeep/app verify`；实机套件不进入 CI。
 - `web`：受影响时完整构建官网（含 KMP Showcase），再运行单元测试、容器内浏览器与截图测试（`test:browser:docker`）、lint 与 `astro check`，产物交给发布 job 复用。发布规则见[官网架构](../architecture/web/website.md#六当前构建与后续验收)，冒烟由 `check-web-deploy.ts` 执行。
-- `release-apk`：tag 必须等于 `v<versionName>` 且位于 `main`；构建压缩 Release、执行 APK 静态门禁，并作为 artifact 保留 7 天。不创建 GitHub Release。未配置正式签名时产物为 unsigned，不可分发。
+- `release-apk`：tag 必须等于 `v<versionName>` 且位于 `main`，并已提交发布说明 `docs/releases/<tag>.md`；在 `release` 环境中用正式签名构建压缩 Release，执行 APK 静态门禁，用 `apksigner` 核对证书指纹与登记值一致，然后创建 GitHub 预发布（附 APK 与 SHA-256 文件），APK 同时作为 artifact 保留 7 天。签名配置缺失或指纹不一致时失败，不产出 unsigned 版本。转为正式版由维护者在 GitHub 上手动操作。
 
-公开仓库的 workflow 不写明文地址、项目名或凭据，配置集中在两个 GitHub Environment：
+公开仓库的 workflow 不写明文地址、项目名或凭据，配置集中在三个 GitHub Environment：
 
-| Environment      | 部署来源              | secret                                          | variable                                                 |
-| ---------------- | --------------------- | ----------------------------------------------- | -------------------------------------------------------- |
-| `web-preview`    | `dev` 推送、同仓库 PR | `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID` | `CLOUDFLARE_PAGES_PROJECT`                               |
-| `web-production` | 仅 `main`             | `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID` | `CLOUDFLARE_PAGES_PROJECT`、`GAZEKEEP_WEB_URL`（站点根） |
+| Environment      | 部署来源              | secret                                                                                               | variable                                                 |
+| ---------------- | --------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `web-preview`    | `dev` 推送、同仓库 PR | `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`                                                      | `CLOUDFLARE_PAGES_PROJECT`                               |
+| `web-production` | 仅 `main`             | `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`                                                      | `CLOUDFLARE_PAGES_PROJECT`、`GAZEKEEP_WEB_URL`（站点根） |
+| `release`        | 仅 `v*.*.*` tag       | `GAZEKEEP_KEYSTORE_BASE64`、`GAZEKEEP_STORE_PASSWORD`、`GAZEKEEP_KEY_ALIAS`、`GAZEKEEP_KEY_PASSWORD` | `GAZEKEEP_SIGNING_CERT_SHA256`                           |
 
-Cloudflare token 只授予 Account › Cloudflare Pages:Edit。fork PR 拿不到 secret，只运行门禁；PR 评论权限只授予预览 job。
+Cloudflare token 只授予 Account › Cloudflare Pages:Edit。fork PR 拿不到 secret，只运行门禁；PR 评论权限只授予预览 job，`contents: write` 只授予 `release-apk`。
 
 ## APK 静态门禁
 
