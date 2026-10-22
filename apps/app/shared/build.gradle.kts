@@ -78,6 +78,30 @@ kotlin {
   }
 }
 
+// 官网演示的版本号取自 android 模块的 versionName，与发布门禁（scripts/repo-tools/scripts/check-apk.ts）读取同一来源。
+val androidBuildScript = layout.projectDirectory.file("../android/build.gradle.kts")
+val showcaseVersionName =
+  providers.fileContents(androidBuildScript).asText.map { text ->
+    Regex("""versionName\s*=\s*"([^"]+)"""").find(text)?.groupValues?.get(1)
+      ?: error("android/build.gradle.kts 缺少 versionName")
+  }
+val generateShowcaseVersion by tasks.registering {
+  val output = layout.buildDirectory.dir("generated/showcaseVersion/kotlin")
+  val versionName = showcaseVersionName
+  inputs.property("versionName", versionName)
+  outputs.dir(output)
+  doLast {
+    val file = output.get().file("cn/rainafter/app/gazekeep/showcase/ShowcaseVersion.kt").asFile
+    file.parentFile.mkdirs()
+    file.writeText(
+      "package cn.rainafter.app.gazekeep.showcase\n\n" +
+        "/** 由 :shared:generateShowcaseVersion 生成，勿手改。 */\n" +
+        "internal const val SHOWCASE_VERSION_NAME = \"${versionName.get()}\"\n",
+    )
+  }
+}
+kotlin.sourceSets.getByName("showcaseMain").kotlin.srcDir(generateShowcaseVersion)
+
 // 截图基线随源码提交；默认校验，`-Pgazekeep.recordScreenshots=true` 时重新录制。
 val recordScreenshots = providers.gradleProperty("gazekeep.recordScreenshots").map { it == "true" }.orElse(false)
 tasks.withType<Test>().configureEach {
