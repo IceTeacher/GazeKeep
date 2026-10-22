@@ -22,7 +22,8 @@ export interface SiteContent {
   nav: string[];
   download: string;
   source: string;
-  theme: string;
+  /** 主题切换按钮：label 为可访问名称前缀，其余为三种偏好的名称。 */
+  theme: { label: string; system: string; light: string; dark: string };
   menu: string;
   hero: { title: string[]; subtitle: string; pills: string[]; explore: string };
   story: { title: string; intro: string; steps: StoryStep[] };
@@ -37,7 +38,7 @@ export interface SiteContent {
       requirement: string;
     }[];
   };
-  whitelist: { title: string; text: string; categories: string[]; limit: string; detail: string };
+  whitelist: { title: string; text: string; limit: string; detail: string };
   privacy: { title: string; text: string; labels: string[]; permission: string };
   start: { title: string; steps: { title: string; text: string }[] };
   faq: { title: string; items: { question: string; answer: string }[] };
@@ -47,4 +48,16 @@ export interface SiteContent {
   error: string;
   retry: string;
   status: Record<DemoState, string>;
+  /** 页面结构里的零散短文案：区块眉题、无障碍标签与语言切换。 */
+  ui: {
+    skip: string;
+    productNote: string;
+    kickers: { workflow: string; backends: string; whitelist: string; privacy: string };
+    limitLabel: string;
+    limitLink: string;
+    tagline: string;
+    switchLanguage: string;
+    languageShort: string;
+    languageName: string;
+  };
 }

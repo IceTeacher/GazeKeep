@@ -24,10 +24,10 @@
 | 层次      | 对象                                 | 框架与位置                                                          | 规则 Skill     |
 | --------- | ------------------------------------ | ------------------------------------------------------------------- | -------------- |
 | 单元      | Kotlin 规则与模块隔离协作            | kotlin.test、JUnit4；`commonTest`、`src/test`                       | `testing-unit` |
-| 单元      | web 纯逻辑与构建脚本                 | Vitest `unit` project；`apps/web/tests/unit/`                       | `testing-unit` |
+| 单元      | web 纯逻辑与构建脚本                 | Vitest `unit` project；`apps/web/tests/{src,scripts}/` 镜像源码     | `testing-unit` |
 | 单元      | 仓库工具：路径、索引、Hook、架构守卫 | `node:test`；`scripts/repo-tools/tests/`，临时隔离 fixture          | `testing-unit` |
 | 界面/视觉 | Android miuix 页面、交互与截图       | Robolectric、Compose UI 测试、Roborazzi；`shared/androidHostTest`   | `testing-ui`   |
-| 界面/视觉 | web DOM、滚动、生命周期与截图        | Vitest `browser` project（Chromium）；`apps/web/tests/browser/`     | `testing-ui`   |
+| 界面/视觉 | web DOM、滚动、生命周期与截图        | Vitest `browser` project（Chromium）；`apps/web/tests/scenarios/`   | `testing-ui`   |
 | 完整旅程  | 相机、ROM、三后端与超时恢复          | androidx.test、UiAutomator；`android/src/androidTest`，另加人工矩阵 | `testing-e2e`  |
 
 上表是目标分层，正在按[任务清单](../plans/todo.md)迁移；各入口当前是否已建立以下方小节为准，未建立的套件不能计作通过。
@@ -56,7 +56,8 @@ pnpm --filter web exec playwright install chromium-headless-shell  # 本机调�
 pnpm --filter web test:browser                   # 本机调试，截图可能因字体不同而不一致
 ```
 
-- web：Vitest `browser` project 在无头 Chromium 中运行。测试前由独立 Astro 开发服务渲染中英真实页面，浏览器侧注入 body 后调用 `initWebsite()`，以 `pagehide` 走页面自身的清理路径；KMP 内屏由 `tests/browser/fixtures/showcase.html` 按真实桥接协议模拟就绪、绘制与失败，不依赖 KMP 构建。截图基线位于 `apps/web/tests/browser/__screenshots__/`，按浏览器与平台命名，只覆盖页面排版并隐藏 WebGL 机身。页面使用系统字体栈，渲染结果取决于宿主字体（例如本机命中微软雅黑），因此基线只在与锁定 Playwright 同版本的官方镜像 `mcr.microsoft.com/playwright:v<版本>-noble` 中录制和校验；`test:browser:docker` 以当前用户、按宿主机原路径挂载仓库运行，CI 使用同一入口。有意改版时在容器内用 `--update` 重录，逐张核对后再提交；Playwright 升级会切换镜像，需要同时重录基线。失败截图写入未提交的 `.vitest/`。
+- web 测试目录镜像源码：`tests/src/` 对应 `src/`，`tests/scripts/` 对应构建脚本 `scripts/`，测试文件与被测文件同名（可带 `.browser` 后缀）；跨模块的整页旅程放 `tests/scenarios/`，结构守卫放 `tests/architecture/`，受控数据放 `tests/fixtures/`，共享挂载与浏览器命令放 `tests/_support/`。文件名以 `.browser.test.ts` 结尾的进入 `browser` project，其余 `.test.ts` 进入 `unit` project。`tests/architecture/test-layout.test.ts` 校验顶层目录、镜像映射、两个 project 互斥且都有测试、相对导入不越出 tests 与被测源码，并禁止源码目录中出现测试文件。
+- web：Vitest `browser` project 在无头 Chromium 中运行。测试前由独立 Astro 开发服务渲染中英真实页面，浏览器侧注入 body 后调用 `initWebsite()`，以 `pagehide` 走页面自身的清理路径；KMP 内屏由 `tests/fixtures/showcase.html` 按真实桥接协议模拟就绪、绘制与失败，不依赖 KMP 构建。截图基线位于 `apps/web/tests/scenarios/__screenshots__/`，按浏览器与平台命名，只覆盖页面排版并隐藏 WebGL 机身。页面使用系统字体栈，渲染结果取决于宿主字体（例如本机命中微软雅黑），因此基线只在与锁定 Playwright 同版本的官方镜像 `mcr.microsoft.com/playwright:v<版本>-noble` 中录制和校验；`test:browser:docker` 以当前用户、按宿主机原路径挂载仓库运行，CI 使用同一入口。有意改版时在容器内用 `--update` 重录，逐张核对后再提交；Playwright 升级会切换镜像，需要同时重录基线。失败截图写入未提交的 `.vitest/`。
 - Android：`:shared:testAndroidHostTest`（已含在 `pnpm --filter @gazekeep/app test`）用 Robolectric 4.17 原生图形模式运行真实 `App` 入口，controller 与 PlatformActions 为测试实现，统一 392×851dp、xhdpi。交互用例覆盖返回栈、自检进入/离开与预览释放、Unknown 不推进、Looking→Away 完成、首页启用与结果语言、应用列表搜索/选择/失败重试、保亮上限无限制和中英隐私三句；滚动容器内的点击使用语义 `OnClick`，因底部导航覆盖列表。Roborazzi 1.76.0 截图基线位于 `apps/app/shared/src/androidHostTest/screenshots/`（11 张，覆盖明暗、中英、1.3 倍字体与横屏），默认校验，有意改版时以 `./gradlew :shared:testAndroidHostTest -Pgazekeep.recordScreenshots=true` 重新录制并逐张核对；对比图写入 `shared/build/outputs/roborazzi/`。Robolectric 渲染不代表真实 ROM、厂商字体或系统栏，页面矩阵仍按[页面场景](#分类与页面场景)实机验收。
 
 ## 实机入口

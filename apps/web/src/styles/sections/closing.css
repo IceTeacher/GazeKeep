@@ -1,0 +1,39 @@
+.closing {
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+  padding-block: 160px 180px;
+}
+.closing img {
+  margin: 0 auto 28px;
+  border-radius: 18px;
+}
+.closing h2 {
+  position: relative;
+}
+.closing p {
+  margin-top: 24px;
+  font-size: 14px;
+  position: relative;
+}
+.closing .button {
+  margin-top: 35px;
+  position: relative;
+}
+.closing-glow {
+  position: absolute;
+  width: 600px;
+  height: 400px;
+  left: 50%;
+  top: 80px;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse, color-mix(in srgb, var(--accent) 5%, transparent), transparent 65%);
+}
+@media (max-width: 760px) {
+  .closing {
+    padding-block: 104px 112px;
+  }
+  .closing p {
+    font-size: 13px;
+  }
+}

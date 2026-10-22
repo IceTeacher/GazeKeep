@@ -1,0 +1,102 @@
+/* 专注范围：手机由右侧移到左侧，内容靠右；应用范围由手机内的真实列表承担，文案下只保留保护上限。 */
+.whitelist .section-heading,
+.whitelist .limit-card {
+  margin-left: auto;
+}
+/* 保护上限：刻度环 + 数值 + 设置入口，与运行方式卡片同样不加边框，只用极淡底色承托。 */
+.limit-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 24px;
+  margin-top: 64px;
+  padding: 24px 28px 24px 24px;
+  border: 0;
+  border-radius: 28px;
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  text-align: left;
+  position: relative;
+  z-index: 6;
+  transition: background 0.3s;
+}
+.limit-card:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.limit-dial {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  color: var(--accent);
+}
+.limit-ring {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+}
+.limit-ring circle {
+  fill: none;
+  stroke-width: 3;
+}
+.limit-track {
+  stroke: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+/* 30 分钟占一小时刻度的一半；进入视口时由动效脚本从 0 描到半圈。 */
+.limit-arc {
+  stroke: var(--accent);
+  stroke-linecap: round;
+  stroke-dasharray: 50 100;
+}
+.limit-text {
+  display: grid;
+  gap: 2px;
+}
+.limit-label {
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+.limit-card strong {
+  font-size: clamp(36px, 3.6vw, 48px);
+  font-weight: 450;
+  line-height: 1.15;
+  letter-spacing: -0.05em;
+}
+.limit-detail {
+  color: var(--muted);
+  font-size: 13px;
+}
+.limit-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: end;
+  color: var(--accent);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.limit-card:hover .limit-link {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+@media (max-width: 760px) {
+  .limit-card {
+    grid-template-columns: auto 1fr;
+    gap: 16px 18px;
+    margin-top: 40px;
+    padding: 20px;
+    border-radius: 24px;
+  }
+  .limit-dial {
+    width: 56px;
+    height: 56px;
+  }
+  .limit-card strong {
+    font-size: 34px;
+  }
+  .limit-link {
+    grid-column: 1 / -1;
+    justify-self: end;
+  }
+}

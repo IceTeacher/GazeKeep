@@ -15,7 +15,7 @@ description: 编写或评审 GazeKeep 界面与视觉测试时加载；覆盖 ap
 2. 用可见文案、角色、可访问名称和稳定状态断言；只有没有语义替代时才使用测试标签或 data 属性。
 3. 每个用例独立、可重复，固定时间、语言、主题、尺寸与动画；清理 listener、timer、协程、存储和路由，不依赖执行顺序。
 4. 截图基线只覆盖关键状态与组合，随测试提交；diff 与实际图像只留在构建目录。基线更新必须逐张核对并在交付中说明原因，不批量重录掩盖回归。
-5. 截图不得包含相机画面、人脸或真实个人数据；自检页使用无帧占位预览，应用列表使用虚构包名与图标。
+5. 截图不得包含相机画面、人脸或真实个人数据；自检页使用无帧占位预览。app 测试的应用列表使用虚构包名与图标；官网演示可使用开源应用与 AOSP 系统应用的真实包名和图标，并在 `apps/web/public/media/credits.txt` 登记来源与许可。
 
 ## app：Compose 交互与截图
 
@@ -26,7 +26,7 @@ description: 编写或评审 GazeKeep 界面与视觉测试时加载；覆盖 ap
 
 ## web：Vitest Browser Mode
 
-- `apps/web` 使用 Vitest projects：`unit` 运行于 Node，收集 `tests/unit/**/*.test.ts`；`browser` 使用 `@vitest/browser-playwright` 的 Chromium，收集 `tests/browser/**/*.browser.test.ts`。两个 project 互斥且都必须产生真实结果。
+- `apps/web` 使用 Vitest projects：`unit` 运行于 Node，收集 `tests/**/*.test.ts`（排除 `*.browser.test.ts`）；`browser` 使用 `@vitest/browser-playwright` 的 Chromium，收集 `tests/**/*.browser.test.ts`。两个 project 按文件名互斥且都必须产生真实结果。测试目录镜像源码，整页旅程放 `tests/scenarios/`，布局由 `tests/architecture/test-layout.test.ts` 守卫，详见测试规范。
 - 不用 happy-dom、jsdom 或 DOM polyfill 代替真实浏览器。KMP 展示 iframe 使用受控 fixture 模拟就绪、失败与重试；真实 KMP 产物只在完整构建后的人工或预览验收中验证。
 - 覆盖受影响的滚动叙事与吸附、减少动态、语言与 `lang`、展示加载失败回退、页面卸载清理；视觉断言使用 `toMatchScreenshot`，固定 viewport 并关闭动画与 WebGPU 等环境相关效果。
 - 无头 Chromium 不代表 Safari、Firefox、真实 GPU 或实体手机触摸；这些条件按[记录要求](../../../docs/development/testing.md#记录与验收状态)单列未执行。

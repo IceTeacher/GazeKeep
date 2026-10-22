@@ -1,0 +1,117 @@
+.workflow {
+  position: relative;
+}
+.story-heading {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 47%;
+}
+.story-heading p {
+  max-width: 400px;
+}
+.story-sticky {
+  display: contents;
+}
+.story-snap {
+  display: none;
+}
+.story-step {
+  min-height: 115svh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 43%;
+  margin-left: 57%;
+  position: relative;
+}
+.story-step:last-child {
+  margin-left: 0;
+}
+.story-copy {
+  opacity: 1;
+  transform: none;
+  transform-origin: left center;
+}
+.story-step h3 {
+  font-size: clamp(30px, 3.4vw, 48px);
+  line-height: 1.35;
+  text-wrap: balance;
+}
+.story-step p {
+  margin-top: 24px;
+  font-size: 15px;
+}
+.step-index {
+  font:
+    12px/1.5 ui-monospace,
+    monospace;
+  color: var(--accent);
+  margin-bottom: 25px;
+  opacity: 0.7;
+}
+@media (max-width: 760px) {
+  .story-heading {
+    width: 100%;
+    min-height: 0;
+    justify-content: end;
+    padding-block: 64px;
+  }
+  .story-steps {
+    height: 365svh;
+    position: relative;
+  }
+  .story-sticky {
+    display: block;
+    position: sticky;
+    top: var(--header-h);
+    height: calc(100svh - var(--header-h));
+  }
+  .story-step {
+    position: absolute;
+    top: calc(var(--mobile-phone-h) + 64px);
+    left: 0;
+    width: 100%;
+    min-height: 0;
+    padding: 0;
+    margin: 0 !important;
+    display: block;
+    justify-content: end;
+  }
+  .story-copy {
+    max-width: 520px;
+  }
+  .story-step h3 {
+    font-size: 28px;
+  }
+  .story-step p {
+    font-size: 14px;
+    line-height: 1.8;
+  }
+  .step-index {
+    margin-bottom: 15px;
+  }
+}
+:root[data-compact="true"] .story-heading,
+:root[data-compact="true"] .story-step {
+  min-height: 0;
+  width: 100%;
+  margin: 0;
+  padding-block: 45px;
+}
+@media (max-width: 760px) {
+  :root[data-compact="true"] .story-steps {
+    height: auto;
+  }
+  :root[data-compact="true"] .story-sticky {
+    position: static;
+    height: auto;
+    display: block;
+  }
+  :root[data-compact="true"] .story-step {
+    position: static;
+    padding: 32px 0;
+    opacity: 1 !important;
+  }
+}

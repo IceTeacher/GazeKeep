@@ -1,0 +1,140 @@
+/*
+ * 入场与微交互动效。滚动显现由 scroll-reveal.ts 控制（data-motion="on" 时才隐藏未显现元素）；
+ * 首屏入场由页面头部脚本设置 data-intro，纯 CSS 播放。动画只用 backwards 填充，结束后回到样式表的值，
+ * 不覆盖悬停等过渡；减少动态时由基础样式统一关闭。
+ */
+@keyframes reveal-up {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+}
+@keyframes reveal-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes ring-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+@keyframes dial-in {
+  from {
+    stroke-dasharray: 0 100;
+  }
+}
+@keyframes icon-in {
+  from {
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.5);
+  }
+}
+
+/* 首屏文案依次浮现。 */
+:root[data-intro="on"] .hero-copy > *,
+:root[data-intro="on"] .hero-copy h1 span {
+  animation: reveal-up 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+}
+:root[data-intro="on"] .hero-copy > .product-note {
+  animation-delay: 0.1s;
+}
+:root[data-intro="on"] .hero-copy > h1 {
+  animation: none;
+}
+:root[data-intro="on"] .hero-copy h1 span:nth-child(1) {
+  animation-delay: 0.2s;
+}
+:root[data-intro="on"] .hero-copy h1 span:nth-child(2) {
+  animation-delay: 0.32s;
+}
+:root[data-intro="on"] .hero-copy > .hero-description {
+  animation-delay: 0.46s;
+}
+:root[data-intro="on"] .hero-copy > .hero-actions {
+  animation-delay: 0.58s;
+}
+:root[data-intro="on"] .hero-copy > .trust-pills {
+  animation-delay: 0.7s;
+}
+:root[data-intro="on"] .hero-copy > .explore {
+  animation: reveal-fade 1.2s ease backwards 1s;
+}
+
+/* 滚动显现：--reveal-order 控制同组元素的错峰。 */
+:root[data-motion="on"] [data-reveal]:not(.is-revealed) {
+  opacity: 0;
+}
+:root[data-motion="on"] [data-reveal].is-revealed {
+  animation: reveal-up 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  animation-delay: calc(var(--reveal-order, 0) * 90ms);
+}
+
+/* 隐私三项：圆环与文字按列依次显现。 */
+:root[data-motion="on"] .privacy-lines:not(.is-revealed) .privacy-icon {
+  opacity: 0;
+}
+:root[data-motion="on"] .privacy-lines.is-revealed {
+  animation: none;
+}
+:root[data-motion="on"] .privacy-lines.is-revealed article > div {
+  animation: reveal-up 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  animation-delay: calc(var(--i) * 0.2s + 0.12s);
+}
+:root[data-motion="on"] .privacy-lines.is-revealed .privacy-icon {
+  animation: ring-in 0.6s cubic-bezier(0.3, 1.3, 0.5, 1) backwards;
+  animation-delay: calc(var(--i) * 0.2s);
+}
+
+/* 保护上限刻度环从 0 描到半圈。 */
+:root[data-motion="on"] .limit-card.is-revealed .limit-arc {
+  animation: dial-in 1.4s cubic-bezier(0.3, 0, 0.2, 1) backwards 0.3s;
+}
+
+/* 微交互：主题图标切换旋入，链接箭头随悬停前移。 */
+.theme-toggle .theme-icon {
+  animation: icon-in 0.45s cubic-bezier(0.3, 1.3, 0.5, 1);
+}
+.button svg,
+.text-link svg,
+.limit-link svg {
+  transition: transform 0.25s;
+}
+.button:hover svg,
+.text-link:hover svg,
+.limit-card:hover .limit-link svg {
+  transform: translate(2px, -2px);
+}
+.hero-actions .button:hover svg {
+  transform: translateY(2px);
+}
+.nav-links a {
+  position: relative;
+}
+.nav-links a::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 -6px;
+  height: 1px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: right center;
+  transition: transform 0.3s;
+}
+.nav-links a:hover::after {
+  transform: scaleX(1);
+  transform-origin: left center;
+}
+.faq-answer p {
+  opacity: 0;
+  transform: translateY(-6px);
+  transition:
+    opacity 0.3s,
+    transform 0.3s;
+}
+.faq-item:has([aria-expanded="true"]) .faq-answer p {
+  opacity: 1;
+  transform: none;
+  transition-delay: 0.08s;
+}

@@ -1,0 +1,16 @@
+/* 主题按钮只显示当前偏好的图标；未设置偏好时视为跟随系统。 */
+.theme-toggle .theme-icon {
+  display: none;
+  grid-area: 1 / 1;
+}
+:root:not([data-theme-preference="light"], [data-theme-preference="dark"]) .theme-icon[data-for="system"],
+:root[data-theme-preference="light"] .theme-icon[data-for="light"],
+:root[data-theme-preference="dark"] .theme-icon[data-for="dark"] {
+  display: block;
+}
+/* 圆形揭示：新主题帧由脚本裁剪扩散，关闭默认的交叉淡化。 */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}

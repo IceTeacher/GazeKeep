@@ -1,0 +1,38 @@
+/* 运行方式、专注范围直接置于页面底色，只以留白、字号层级和极淡色块组织，不使用分隔线。 */
+.feature-panel {
+  position: relative;
+  padding-block: 140px;
+  min-height: 100svh;
+}
+.feature-panel .section-heading,
+.feature-panel .backend-list,
+.feature-panel .limit-card {
+  width: 44%;
+}
+.feature-panel h2 {
+  font-size: clamp(34px, 3.4vw, 50px);
+}
+@media (max-width: 760px) {
+  .feature-panel {
+    padding-block: 72px 24px;
+    min-height: 0;
+  }
+  .feature-panel .section-heading,
+  .feature-panel .backend-list,
+  .feature-panel .limit-card {
+    width: 100%;
+  }
+  .feature-panel h2 {
+    font-size: 32px;
+  }
+}
+:root[data-compact="true"] .backends,
+:root[data-compact="true"] .whitelist {
+  min-height: 0;
+  padding-block: 50px;
+}
+:root[data-compact="true"] .feature-panel .section-heading,
+:root[data-compact="true"] .backend-list,
+:root[data-compact="true"] .limit-card {
+  width: 100%;
+}

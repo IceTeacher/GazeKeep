@@ -1,0 +1,31 @@
+---
+import type { SiteContent } from "../../data/schema";
+interface Props {
+  content: SiteContent;
+}
+const { content: c } = Astro.props;
+---
+
+<section id="workflow" class="workflow shell">
+  <div class="section-heading story-heading">
+    <span class="section-kicker">{c.ui.kickers.workflow}</span>
+    <h2>{c.story.title}</h2>
+    <p>{c.story.intro}</p>
+  </div>
+  <div class="story-steps">
+    {c.story.steps.map(() => (
+      <span class="story-snap" aria-hidden="true" />
+    ))}
+    <div class="story-sticky">
+      {c.story.steps.map((step, i) => (
+        <article class="story-step" data-route={step.route} data-status={step.state} data-effect={step.effect}>
+          <span class="step-index">0{i + 1}</span>
+          <div class="story-copy">
+            <h3>{step.title}</h3>
+            <p>{step.text}</p>
+          </div>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>

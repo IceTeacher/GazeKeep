@@ -1,0 +1,43 @@
+---
+import type { SiteContent } from "../../data/schema";
+import PersonStanding from "@lucide/astro/icons/person-standing";
+interface Props {
+  content: SiteContent;
+}
+const { content: c } = Astro.props;
+// LSPosed 与 Shizuku 使用各自开源项目的真实图标（来源见 public/media/credits.txt）；无障碍为系统服务，没有应用图标，使用通用无障碍人形。
+const icons: Partial<Record<string, string>> = {
+  lsposed: "/media/apps/lsposed.webp",
+  shizuku: "/media/apps/shizuku.webp",
+};
+---
+
+<section id="backends" class="backends shell feature-panel" data-route="backend" data-status="backend_lsposed">
+  <div class="feature-copy">
+    <div class="section-heading">
+      <span class="section-kicker">{c.ui.kickers.backends}</span>
+      <h2>{c.backends.title}</h2>
+      <p>{c.backends.intro}</p>
+    </div>
+    <div class="backend-list">
+      {c.backends.items.map((item, i) => (
+        <button class="backend-card" data-backend={item.id} aria-pressed={i === 0 ? "true" : "false"}>
+          <div class="backend-top">
+            <span class="backend-symbol" data-kind={icons[item.id] ? "app" : "system"} aria-hidden="true">
+              {icons[item.id] ? (
+                <img src={icons[item.id]} width="40" height="40" alt="" loading="lazy" decoding="async" />
+              ) : (
+                <PersonStanding size={22} stroke-width={1.8} />
+              )}
+            </span>
+            <span class="backend-tag">{item.tag}</span>
+          </div>
+          <h3>{item.name}</h3>
+          <p>{item.text}</p>
+          <span class="requirement">{item.requirement}</span>
+        </button>
+      ))}
+    </div>
+  </div>
+  <div class="device-slot" aria-hidden="true"></div>
+</section>

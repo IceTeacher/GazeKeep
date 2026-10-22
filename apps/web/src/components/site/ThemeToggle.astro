@@ -1,0 +1,24 @@
+---
+import Monitor from "@lucide/astro/icons/monitor";
+import Sun from "@lucide/astro/icons/sun";
+import Moon from "@lucide/astro/icons/moon";
+import type { SiteContent } from "../../data/schema";
+interface Props {
+  content: SiteContent;
+}
+const { theme } = Astro.props.content;
+// 默认跟随系统；脚本按已保存偏好更新可访问名称与图标。
+---
+
+<button
+  id="theme-toggle"
+  class="icon-button theme-toggle"
+  type="button"
+  aria-label={`${theme.label}（${theme.system}）`}
+  title={theme.system}
+  data-labels={JSON.stringify(theme)}
+>
+  <Monitor class="theme-icon" data-for="system" size={19} stroke-width={1.5} />
+  <Sun class="theme-icon" data-for="light" size={19} stroke-width={1.5} />
+  <Moon class="theme-icon" data-for="dark" size={19} stroke-width={1.5} />
+</button>

@@ -1,0 +1,39 @@
+---
+import type { SiteContent } from "../../data/schema";
+import ArrowUpRight from "@lucide/astro/icons/arrow-up-right";
+import Timer from "@lucide/astro/icons/timer";
+interface Props {
+  content: SiteContent;
+}
+const { content: c } = Astro.props;
+---
+
+<section id="whitelist" class="whitelist shell feature-panel" data-route="whitelist" data-status="idle">
+  <div class="feature-copy">
+    <div class="section-heading">
+      <span class="section-kicker">{c.ui.kickers.whitelist}</span>
+      <h2>{c.whitelist.title}</h2>
+      <p>{c.whitelist.text}</p>
+    </div>
+    <!-- 应用范围由左侧手机内的真实列表展示，这里只保留保护上限。 -->
+    <button class="limit-card" id="show-limit" data-reveal>
+      <span class="limit-dial" aria-hidden="true">
+        <svg class="limit-ring" viewBox="0 0 64 64">
+          <circle class="limit-track" cx="32" cy="32" r="29"></circle>
+          <circle class="limit-arc" cx="32" cy="32" r="29" pathLength="100"></circle>
+        </svg>
+        <Timer size={22} stroke-width={1.6} />
+      </span>
+      <span class="limit-text">
+        <span class="limit-label">{c.ui.limitLabel}</span>
+        <strong>{c.whitelist.limit}</strong>
+        <span class="limit-detail">{c.whitelist.detail}</span>
+      </span>
+      <span class="limit-link">
+        {c.ui.limitLink}
+        <ArrowUpRight size={14} stroke-width={2} />
+      </span>
+    </button>
+  </div>
+  <div class="device-slot" aria-hidden="true"></div>
+</section>

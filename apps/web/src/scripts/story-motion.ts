@@ -22,17 +22,21 @@ const tilt = (travel: number) => ({
   scale: 1 - TILT.scale * Math.abs(travel),
 });
 /** 位置是唯一输入，正反滚动和恢复页面共享同一姿态。 */
+/** 工作流标题停靠在进度约 0.07 处：此前手机保持首屏回正后的正面姿态、不显示手部，之后才进入第一幕。 */
+const ENTER_START = 0.2;
 export function storyPose(progress: number, mobile = false, viewportWidth = 1280) {
-  const enter = smooth(progress);
+  // 第一幕的进入、横移与侧倾都在标题停靠区之后开始，0.2→1 映射为 0→1。
+  const first = (progress - ENTER_START) / (1 - ENTER_START);
+  const enter = smooth(first);
   const grip = enter * (1 - smooth((progress - 1.45) / 0.35));
   const held = enter * (1 - smooth((progress - 1.8) / 0.2));
   const start = mobile ? 0.12 : 0.52,
     left = mobile ? -0.06 : (-0.38 * viewportWidth) / Math.min(viewportWidth, 1200);
   // 移动端不做横移，只有桌面横移叠加倾斜。
-  const travel = mobile ? 0 : bump((progress - 2.25) / 0.75) - bump(progress) || 0;
+  const travel = mobile ? 0 : bump((progress - 2.25) / 0.75) - bump(first) || 0;
   const lean = tilt(travel);
   return {
-    x: start + (left - start) * glide(progress) * (1 - glide((progress - 2.25) / 0.75)),
+    x: start + (left - start) * glide(first) * (1 - glide((progress - 2.25) / 0.75)),
     turn: -(mobile ? 20 : 28) * held + lean.turn || 0,
     grip,
     rotateX: (mobile ? 2 : 3) * held || 0,
@@ -111,6 +115,24 @@ export function heroPose(progress: number, mobile = false) {
     rotateX: (mobile ? 5 : 7) * t || 0,
     rotateY: -(mobile ? 10 : 12) * t || 0,
     rotateZ: (mobile ? 5 : 6) * t || 0,
+  };
+}
+
+/**
+ * 首屏电影式漂移（Ken Burns）：几个互质周期的缓慢正弦叠加成不重复的平移、倾斜与推近，
+ * 均从 0 起步避免首帧跳变；随滚出首屏按 heroPose 同一包络衰减为 0。
+ * @param seconds 自首屏出现起的秒数
+ * @param progress 与 heroPose 相同的滚出进度
+ */
+export function heroDrift(seconds: number, progress: number, mobile = false) {
+  const weight = (1 - smooth(progress)) * (mobile ? 0.6 : 1);
+  const wave = (period: number) => Math.sin((2 * Math.PI * seconds) / period);
+  return {
+    x: 0.015 * wave(23) * weight || 0,
+    rotateX: 2 * wave(19) * weight || 0,
+    rotateY: 4.2 * wave(26) * weight || 0,
+    rotateZ: 1.2 * wave(31) * weight || 0,
+    scale: 0.015 * (1 - Math.cos((2 * Math.PI * seconds) / 34)) * weight || 0,
   };
 }
 

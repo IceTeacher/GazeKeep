@@ -1,0 +1,42 @@
+/* 开始使用以大号浅色序号为锚点，三列只靠列距分组。 */
+.start-section {
+  padding-block: 100px 40px;
+}
+.start-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 64px;
+  margin-top: 72px;
+}
+.start-number {
+  display: block;
+  margin-bottom: 20px;
+  color: var(--accent);
+  font-size: clamp(56px, 5.6vw, 80px);
+  font-weight: 300;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.35;
+}
+.start-grid h3 {
+  font-size: 21px;
+}
+.start-grid p {
+  font-size: 14px;
+  margin-top: 12px;
+}
+@media (max-width: 760px) {
+  .start-section {
+    padding-block: 88px 24px;
+  }
+  .start-grid {
+    grid-template-columns: 1fr;
+    gap: 44px;
+    margin-top: 48px;
+  }
+  .start-number {
+    font-size: 52px;
+    margin-bottom: 14px;
+  }
+}

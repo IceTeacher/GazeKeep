@@ -21,6 +21,7 @@
     "test:browser:docker": "node scripts/sync-kmp-strings.ts && node scripts/test-browser-docker.ts"
   },
   "dependencies": {
+    "@lucide/astro": "1.53.0",
     "@tailwindcss/vite": "^4.0.0",
     "astro": "^7.4.0",
     "gsap": "^3.14.0",

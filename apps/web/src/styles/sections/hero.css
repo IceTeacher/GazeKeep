@@ -1,0 +1,232 @@
+.hero {
+  height: 100svh;
+  min-height: 740px;
+  position: relative;
+  background:
+    radial-gradient(ellipse at 64% 43%, color-mix(in srgb, var(--accent) 15%, transparent), transparent 45%),
+    linear-gradient(145deg, var(--hero-start), var(--bg) 70%);
+  overflow: hidden;
+}
+/* 同一光学语言贯穿主题和 CSS 降级。 */
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: -45%;
+  pointer-events: none;
+  background: repeating-conic-gradient(
+    from 25deg at 65% 50%,
+    transparent 0deg 16deg,
+    color-mix(in srgb, var(--accent) 16%, transparent) 20deg,
+    transparent 28deg 55deg
+  );
+  filter: blur(36px);
+  animation: optical-drift 18s ease-in-out infinite alternate;
+}
+@keyframes optical-drift {
+  to {
+    transform: rotate(22deg) scale(1.18) translate3d(5%, -4%, 0);
+  }
+}
+.hero[data-motion-paused="true"]::before {
+  animation-play-state: paused;
+}
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 120px;
+  background: linear-gradient(transparent, var(--bg));
+  pointer-events: none;
+}
+.hero-copy {
+  position: relative;
+  padding-top: clamp(180px, 24svh, 280px);
+  z-index: 2;
+}
+.product-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  margin-bottom: 30px;
+}
+h1 {
+  font-size: clamp(50px, 6.5vw, 88px);
+  line-height: 1.22;
+  font-weight: 550;
+  letter-spacing: -0.065em;
+}
+html[lang="en"] h1 {
+  font-size: clamp(48px, 5.2vw, 72px);
+  letter-spacing: -0.065em;
+}
+h1 span {
+  display: block;
+}
+.hero-description {
+  white-space: pre-line;
+  max-width: 490px;
+  font-size: 15px;
+  margin-top: 30px;
+  line-height: 1.9;
+}
+.hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  margin-top: 36px;
+}
+.trust-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-top: 36px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.trust-pills span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.trust-pills svg {
+  color: var(--accent);
+}
+.explore {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 86px;
+  max-width: 300px;
+}
+.scroll-mark {
+  width: 14px;
+  height: 23px;
+  border: 1px solid var(--muted);
+  border-radius: 10px;
+  position: relative;
+}
+.scroll-mark::before {
+  content: "";
+  position: absolute;
+  width: 2px;
+  height: 5px;
+  left: 5px;
+  top: 4px;
+  background: var(--accent);
+}
+#hero-shader {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.72;
+  pointer-events: none;
+}
+.hero-orbit {
+  position: absolute;
+  width: 700px;
+  height: 700px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  right: -80px;
+  top: 100px;
+  opacity: 0.4;
+  transform: rotateX(58deg) rotateZ(-30deg);
+}
+.hero-orbit::before {
+  content: "";
+  position: absolute;
+  inset: 60px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+}
+.hero-device-slot {
+  display: none;
+}
+@media (max-width: 1050px) {
+  .hero h1 {
+    font-size: 64px;
+  }
+  .hero-description {
+    max-width: 43%;
+  }
+}
+@media (max-width: 760px) {
+  .hero {
+    height: auto;
+    min-height: 0;
+    padding-bottom: 0;
+  }
+  .hero-copy {
+    text-align: center;
+    padding-top: 120px;
+  }
+  .product-note {
+    justify-content: center;
+    font-size: 10px;
+  }
+  .hero h1,
+  html[lang="en"] h1 {
+    font-size: clamp(40px, 10vw, 62px);
+  }
+  .hero-description {
+    max-width: 420px;
+    margin: 24px auto 0;
+    font-size: 13px;
+    white-space: normal;
+  }
+  .hero-actions,
+  .trust-pills {
+    justify-content: center;
+    gap: 16px;
+  }
+  .hero-actions {
+    margin-top: 28px;
+  }
+  .trust-pills {
+    font-size: 10px;
+    flex-wrap: wrap;
+  }
+  .explore {
+    margin: 30px auto 0;
+    justify-content: center;
+  }
+  .hero-orbit {
+    display: none;
+  }
+  .hero-device-slot {
+    display: block;
+    height: calc(var(--mobile-phone-h) + 80px);
+    margin-top: 36px;
+  }
+}
+/* 短视口、放大文字及减少动态共用紧凑阅读模式。 */
+:root[data-compact="true"] .hero {
+  min-height: 0;
+  height: auto;
+  padding-bottom: 60px;
+}
+:root[data-compact="true"] .hero-description {
+  max-width: 540px;
+}
+:root[data-compact="true"] .hero-copy {
+  padding-top: 130px;
+  text-align: center;
+}
+:root[data-compact="true"] .product-note,
+:root[data-compact="true"] .hero-actions,
+:root[data-compact="true"] .trust-pills {
+  justify-content: center;
+}
+:root[data-compact="true"] .explore {
+  margin: 30px auto 0;
+}
+:root[data-compact="true"] .hero-device-slot {
+  display: block;
+  height: calc(var(--mobile-phone-h) + 64px);
+}

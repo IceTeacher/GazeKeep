@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { playwright } from "@vitest/browser-playwright";
 import { getViteConfig } from "astro/config";
 import type { Plugin } from "vite";
-import { emulateMedia } from "./tests/browser/support/commands.ts";
+import { emulateMedia } from "./tests/_support/commands.ts";
 
 // 浏览器测试不依赖 KMP 产物：展示 iframe 由受控 fixture 按真实桥接协议回报就绪、绘制与失败。
 const showcaseFixture = (): Plugin => ({
@@ -12,7 +12,7 @@ const showcaseFixture = (): Plugin => ({
     server.middlewares.use(async (req, res, next) => {
       if (!/^\/kmp-showcase\/(wasm|js)\/index\.html/.test(req.url ?? "")) return next();
       res.setHeader("content-type", "text/html; charset=utf-8");
-      res.end(await readFile(new URL("tests/browser/fixtures/showcase.html", import.meta.url), "utf8"));
+      res.end(await readFile(new URL("tests/fixtures/showcase.html", import.meta.url), "utf8"));
     });
   },
 });
@@ -26,15 +26,16 @@ export default getViteConfig({
         test: {
           name: "unit",
           environment: "node",
-          include: ["tests/unit/**/*.test.ts"],
+          include: ["tests/**/*.test.ts"],
+          exclude: ["tests/**/*.browser.test.ts"],
         },
       },
       {
         extends: true,
         test: {
           name: "browser",
-          include: ["tests/browser/**/*.browser.test.ts"],
-          globalSetup: ["tests/browser/support/render-pages.ts"],
+          include: ["tests/**/*.browser.test.ts"],
+          globalSetup: ["tests/_support/render-pages.ts"],
           testTimeout: 30_000,
           browser: {
             enabled: true,

@@ -1,0 +1,54 @@
+---
+import type { SiteContent } from "../data/schema";
+import { site } from "../data/site.config";
+import "../styles/global.css";
+interface Props {
+  content: SiteContent;
+}
+const { content: c } = Astro.props;
+---
+
+<!doctype html>
+<html lang={c.locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>{c.title}</title>
+    <meta name="description" content={c.description} />
+    <meta property="og:title" content={c.title} />
+    <meta property="og:description" content={c.description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/app-icon.png" />
+    <meta property="og:locale" content={c.locale === "zh" ? "zh_CN" : "en_US"} />
+    <meta name="twitter:card" content="summary" />
+    <meta name="theme-color" content={site.themeColor.light} media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content={site.themeColor.dark} media="(prefers-color-scheme: dark)" />
+    <link rel="icon" href="/favicon-32.png" type="image/png" />
+    <link rel="alternate" hreflang="zh" href="/zh/" />
+    <link rel="alternate" hreflang="en" href="/en/" />
+    <link rel="alternate" hreflang="x-default" href="/zh/" />
+    <script is:inline>
+      // 首帧前按偏好确定明暗，避免闪烁；规则与 src/scripts/theme.ts 一致：无记录或非法值时跟随系统。
+      let preference = "system";
+      try {
+        const saved = localStorage.getItem("gazekeep-theme");
+        if (saved === "light" || saved === "dark") preference = saved;
+      } catch {
+        /* 无存储权限时跟随系统。 */
+      }
+      document.documentElement.dataset.themePreference = preference;
+      document.documentElement.dataset.theme =
+        preference === "system" ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : preference;
+      // 首屏入场动效只在未要求减少动态时播放。
+      if (!matchMedia("(prefers-reduced-motion: reduce)").matches) document.documentElement.dataset.intro = "on";
+      // 设备首帧（实体机身与首屏姿态）绘制前隐藏，避免闪出未投影或正面降级的中间态；脚本未能运行时限时显示。
+      document.documentElement.dataset.phone = "pending";
+      setTimeout(() => {
+        if (document.documentElement.dataset.phone === "pending") document.documentElement.dataset.phone = "ready";
+      }, 4000);
+    </script>
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>

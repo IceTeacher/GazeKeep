@@ -7,7 +7,7 @@ export const en = {
   nav: ["How it works", "Backends", "Privacy", "FAQ"],
   download: "Download APK",
   source: "View source",
-  theme: "Toggle color theme",
+  theme: { label: "Change theme", system: "System", light: "Light", dark: "Dark" },
   menu: "Navigation menu",
   hero: {
     title: ["Stay in the moment.", "Keep the light."],
@@ -72,8 +72,7 @@ export const en = {
   },
   whitelist: {
     title: "Give your focus\na place to stay.",
-    text: "Choose your reader, browser and document apps. GazeKeep acts only when the foreground app is confirmed in your list. Your list starts empty after installation; the phone demo uses sample apps.",
-    categories: ["Reading", "Browser", "Documents", "Code", "Comics"],
+    text: "Choose your reader, browser and document apps. GazeKeep acts only when the foreground app is confirmed in your list. Your list starts empty after installation; the phone demo lists a few open-source apps as examples.",
     limit: "30 minutes",
     detail: "Default protection limit · Customizable, including unlimited",
   },
@@ -142,5 +141,21 @@ export const en = {
     backend_lsposed: "LSPosed · Demo ready",
     backend_shizuku: "Shizuku · Demo ready",
     backend_accessibility: "Accessibility · Demo ready",
+  },
+  ui: {
+    skip: "Skip to content",
+    productNote: "A little understanding. For Android.",
+    kickers: {
+      workflow: "Considered by design",
+      backends: "Three ways to connect",
+      whitelist: "Your focus, your rules",
+      privacy: "Privacy starts with restraint.",
+    },
+    limitLabel: "Protection limit",
+    limitLink: "View settings",
+    tagline: "Stay in the moment.",
+    switchLanguage: "切换至中文",
+    languageShort: "中文",
+    languageName: "中文",
   },
 } satisfies SiteContent;

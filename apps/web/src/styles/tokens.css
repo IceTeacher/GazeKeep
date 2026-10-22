@@ -1,0 +1,51 @@
+/*
+ * 颜色令牌：页面、组件与脚本只引用这里的变量，不再内联色值。
+ * 品牌色（主题绿、按钮文字、握持手部肤色）明暗主题共用，切换主题只改变表面色。
+ */
+:root {
+  --accent: #14795e;
+  --accent-ink: #fff;
+  --hand-skin: #ed9da0;
+}
+/* 表面色：默认深色，浅色主题覆盖。 */
+:root {
+  --bg: #080d18;
+  --panel: #101820;
+  --panel-hover: #162d29;
+  --text: #edf2f7;
+  --muted: #a0acbd;
+  --line: #ffffff14;
+  --hero-start: #142b29;
+  --shadow: #0009;
+  /* 首屏 Shader 的底色与染色。 */
+  --shader-base: #080d18;
+  --shader-tint: #377e68;
+  /* 手机内屏与机身。 */
+  --phone-screen: #000;
+  --phone-foreground: #f2f4f7;
+  --device-bezel: #6c7670;
+  --device-frame: #202824;
+  --device-drop: #0003;
+  --camera-body: #03060a;
+  --camera-ring: #ffffff0a;
+  --camera-lens: #1b3048;
+  --screen-off: #000;
+  --placeholder-ink: #a0acbd;
+  --loader-track: #ffffff20;
+  color-scheme: dark;
+}
+:root[data-theme="light"] {
+  --bg: #f4f7fa;
+  --panel: #fff;
+  --panel-hover: #e9f4f0;
+  --text: #172b38;
+  --muted: #536674;
+  --line: #172b381a;
+  --hero-start: #e3efea;
+  --shadow: #24405025;
+  --shader-base: #f4f7fa;
+  --shader-tint: #b4d5c7;
+  --phone-screen: #f7f7f7;
+  --phone-foreground: #202124;
+  color-scheme: light;
+}
