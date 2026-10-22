@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { cp, mkdir, rm, access, readdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { assertFixedPublicPath } from "./kmp-showcase.ts";
 const web = fileURLToPath(new URL("../", import.meta.url));
 const app = fileURLToPath(new URL("../../app/", import.meta.url));
 function run(command: string, args: string[], cwd: string) {
@@ -27,6 +28,7 @@ for (const [target, folder] of [
     files.find((name) => name === "GazeKeep-shared.js") ??
     files.find((name) => name === "shared.js");
   if (!entry) throw new Error(`找不到 ${target} 浏览器入口：${files.join(", ")}`);
+  assertFixedPublicPath(await readFile(new URL(entry, output), "utf8"), target);
   const html = await readFile(`${app}/shared/src/showcaseMain/resources/index.html`, "utf8");
   await writeFile(
     new URL("index.html", output),
