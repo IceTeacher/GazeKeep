@@ -1,3 +1,0 @@
-interface:
-  display_name: "testing-browser"
-  short_description: "设计、执行或评审 GazeKeep 页面交互验收；覆盖导航、授权与生命周期。"

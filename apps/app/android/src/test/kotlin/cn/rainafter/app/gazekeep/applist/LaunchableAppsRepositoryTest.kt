@@ -12,7 +12,7 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
-import org.junit.Test
+import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 

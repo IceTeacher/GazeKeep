@@ -21,25 +21,51 @@
 
 ## 测试分层
 
-| 层次        | 对象                         | 入口与限制                              |
-| ----------- | ---------------------------- | --------------------------------------- |
-| Kotlin 主机 | core 规则及模块隔离协作      | Gradle 测试；不证明硬件兼容             |
-| Node 工具   | 路径、索引、Hook 与架构守卫  | `pnpm test:tools`，使用临时隔离 fixture |
-| 页面交互    | Android miuix 页面与生命周期 | 当前按设备场景验收，无自动化 UI 套件    |
-| 完整旅程    | 相机、ROM、三后端与超时恢复  | 真实组件，先核对设备操作授权            |
+| 层次      | 对象                                 | 框架与位置                                                          | 规则 Skill     |
+| --------- | ------------------------------------ | ------------------------------------------------------------------- | -------------- |
+| 单元      | Kotlin 规则与模块隔离协作            | kotlin.test、JUnit4；`commonTest`、`src/test`                       | `testing-unit` |
+| 单元      | web 纯逻辑与构建脚本                 | Vitest `unit` project；`apps/web/tests/unit/`                       | `testing-unit` |
+| 单元      | 仓库工具：路径、索引、Hook、架构守卫 | `node:test`；`scripts/repo-tools/tests/`，临时隔离 fixture          | `testing-unit` |
+| 界面/视觉 | Android miuix 页面、交互与截图       | Robolectric、Compose UI 测试、Roborazzi；`shared/androidHostTest`   | `testing-ui`   |
+| 界面/视觉 | web DOM、滚动、生命周期与截图        | Vitest `browser` project（Chromium）；`apps/web/tests/browser/`     | `testing-ui`   |
+| 完整旅程  | 相机、ROM、三后端与超时恢复          | androidx.test、UiAutomator；`android/src/androidTest`，另加人工矩阵 | `testing-e2e`  |
+
+上表是目标分层，正在按[任务清单](../plans/todo.md)迁移；各入口当前是否已建立以下方小节为准，未建立的套件不能计作通过。
 
 ## 主机入口
 
 ```bash
 pnpm --filter @gazekeep/app exec ./gradlew :core:allTests
 pnpm --filter @gazekeep/app exec ./gradlew :engine:testDebugUnitTest :backend:a11y:testDebugUnitTest \
-  :backend:shizuku:testDebugUnitTest :xposed:testDebugUnitTest \
+  :backend:shizuku:testDebugUnitTest :backend:lsposed:testDebugUnitTest :xposed:testDebugUnitTest \
   :android:testDebugUnitTest
 pnpm --filter @gazekeep/app exec ./gradlew :shared:testAndroidHostTest
+pnpm --filter web test:unit
+pnpm test:tools
 pnpm verify:architecture
 ```
 
-shared host task 覆盖许可文本搜索的纯逻辑，没有 UI 行为测试；backend:lsposed 和 bridge:protocol 当前没有专属行为测试，以组装、协议测试和实机补证，不能写成有独立测试套件。
+shared host task 覆盖许可文本搜索与中英字符串资源一致性；backend:lsposed 使用 Robolectric 与按真实 Parcel 布局应答的本地 Binder 验证握手、注册、seq/STALE 映射与失败关闭，不证明真实 system_server 钩点；bridge:protocol 只有常量，由两端测试与实机补证。Robolectric 模块需在单元测试 JVM 参数中开放 `java.base/jdk.internal.access`。上述任务均已纳入 `pnpm --filter @gazekeep/app test`。web `test:unit` 只运行 Vitest `unit` project；`pnpm --filter web test` 在本机同时运行 `unit` 与 `browser`，截图结果以下节的容器入口为准。
+
+## 界面与视觉入口
+
+```bash
+pnpm --filter web test:browser:docker            # 门禁与截图基线入口，需要 Docker
+pnpm --filter web test:browser:docker --update   # 有意改版时在容器内重录基线
+pnpm --filter web exec playwright install chromium-headless-shell  # 本机调试，首次或升级 Playwright 后
+pnpm --filter web test:browser                   # 本机调试，截图可能因字体不同而不一致
+```
+
+- web：Vitest `browser` project 在无头 Chromium 中运行。测试前由独立 Astro 开发服务渲染中英真实页面，浏览器侧注入 body 后调用 `initWebsite()`，以 `pagehide` 走页面自身的清理路径；KMP 内屏由 `tests/browser/fixtures/showcase.html` 按真实桥接协议模拟就绪、绘制与失败，不依赖 KMP 构建。截图基线位于 `apps/web/tests/browser/__screenshots__/`，按浏览器与平台命名，只覆盖页面排版并隐藏 WebGL 机身。页面使用系统字体栈，渲染结果取决于宿主字体（例如本机命中微软雅黑），因此基线只在与锁定 Playwright 同版本的官方镜像 `mcr.microsoft.com/playwright:v<版本>-noble` 中录制和校验；`test:browser:docker` 以当前用户、按宿主机原路径挂载仓库运行，CI 使用同一入口。有意改版时在容器内用 `--update` 重录，逐张核对后再提交；Playwright 升级会切换镜像，需要同时重录基线。失败截图写入未提交的 `.vitest/`。
+- Android：`:shared:testAndroidHostTest`（已含在 `pnpm --filter @gazekeep/app test`）用 Robolectric 4.17 原生图形模式运行真实 `App` 入口，controller 与 PlatformActions 为测试实现，统一 392×851dp、xhdpi。交互用例覆盖返回栈、自检进入/离开与预览释放、Unknown 不推进、Looking→Away 完成、首页启用与结果语言、应用列表搜索/选择/失败重试、保亮上限无限制和中英隐私三句；滚动容器内的点击使用语义 `OnClick`，因底部导航覆盖列表。Roborazzi 1.76.0 截图基线位于 `apps/app/shared/src/androidHostTest/screenshots/`（11 张，覆盖明暗、中英、1.3 倍字体与横屏），默认校验，有意改版时以 `./gradlew :shared:testAndroidHostTest -Pgazekeep.recordScreenshots=true` 重新录制并逐张核对；对比图写入 `shared/build/outputs/roborazzi/`。Robolectric 渲染不代表真实 ROM、厂商字体或系统栏，页面矩阵仍按[页面场景](#分类与页面场景)实机验收。
+
+## 实机入口
+
+```bash
+pnpm --filter @gazekeep/app test:device  # 安装测试 APK 并在已连接设备上运行，先核对授权
+```
+
+`android/src/androidTest` 使用 androidx.test 1.7.0 与 UiAutomator 2.4.0，按资源键读取 shared 默认中文文案（打包为测试 APK 资源），并用按应用语言把被测应用切到 zh-CN（需要 Android 13+，结束后恢复）。当前覆盖：单次最长保亮在强制停止后冷启动回读、撤销相机权限后自检只提供授权入口且拒绝后仍未授权、后端页无障碍就绪状态与系统设置一致、启用→息屏/亮屏→关闭后系统熄屏超时回到原值。测试只改动自身登记的设置并在结束时恢复；前提不满足（非预设保亮值、服务已开启、未完成自检或无就绪后端）时以 assumption 跳过，跳过和未运行都按未执行记录。需要真人注视、闭眼、多脸、暗光、口袋或相机抢占的场景仍按[实机矩阵](#实机完整矩阵)人工执行。实机套件不进入默认 `pnpm test`；`verify` 只编译测试 APK，编译通过不代表实机通过。
 
 ## 七条必守不变量
 
@@ -80,7 +106,7 @@ shared host task 覆盖许可文本搜索的纯逻辑，没有 UI 行为测试�
 - 分类器/阈值变更：正常光正视 10 次至少 9 次 Looking，转头 90° 十次均非 Looking，闭眼非 Looking；补充眼镜、暗光、多脸、侧脸及相机抢占。只记录计数和耗时，不保存画面或人脸特征。
 - 页面：覆盖页面导航/返回、字体/明暗/旋转、授权与未就绪原因、白名单搜索/选择/滚动、配置保存/冷启动、快速开关。
 - 自检：Looking→Away 才完成，Unknown 不推进；离页、后台、取消和关闭 Activity 后释放相机。
-- 网站：apps/web 尚未实现，无浏览器测试入口；不得把未建立的测试计作通过。
+- 网站：自动化覆盖桌面与移动端逐幕吸附、减少动态、语言与主题、展示加载失败重试、卸载清理和三张排版截图；无头 Chromium 不代表 Safari、Firefox、真实 GPU、WebGL 机身渲染或实体手机触摸，这些仍按人工验收记录。
 
 ## 记录与验收状态
 

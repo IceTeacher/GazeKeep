@@ -23,7 +23,7 @@
 
 Android 使用 Gradle wrapper、JDK 21（编译目标 JVM 11）和 AGP 内置 Kotlin。当前 Gradle 9.5.1、AGP 9.1.1、Kotlin 2.4.20，compile/targetSdk 37、minSdk 26；wrapper 与 Android 版本目录是真源，不在模块脚本写版本。
 
-开发工具独立于 APK：Node >=22.22、pnpm 11.7.0；版本由根 package.json 与 pnpm-lock.yaml 锁定。脚本使用 JavaScript ESM，测试使用 Node 内置 node:test，不需要 Python、venv、Ruff 或 TS 编译器。ktlint 版本仍在 Android 版本目录。当前本地安装和 Hook 面向 Linux/POSIX，不宣称其他平台已验证。
+开发工具独立于 APK：Node >=22.22、pnpm 12.14.0；版本由根 package.json 的 `packageManager` 与 pnpm-lock.yaml 锁定（锁文件首段记录 pnpm 自身各平台二进制的完整性），本机 pnpm 版本不同时会自动切换到锁定版本。pnpm 12 起 `pnpm-workspace.yaml` 中无法识别的设置会让命令失败，新增设置前核对官方配置名。脚本使用 TypeScript ESM，由 Node 原生类型剥离运行；仓库工具测试使用 Node 内置 node:test，官网测试使用 Vitest（浏览器测试需要 Playwright 的 Chromium，安装命令见[测试规范](testing.md#界面与视觉入口)），不需要 Python、venv 或 Ruff。ktlint 版本仍在 Android 版本目录。Kotlin/JS 与 Kotlin/Wasm 由 Kotlin Gradle 插件下载的 Yarn 1 安装依赖，锁文件在 `apps/app/kotlin-js-store/`；根构建脚本为生成的根 package.json 声明 Yarn 1，避免其读到仓库根的 pnpm `packageManager` 后中止，不需要启用 Corepack 或设置绕过变量。JS 与 Wasm 锁文件都随仓库提交（Yarn 在末尾写空行，`.gitattributes` 免除其空白检查）；依赖安装与 Wasm 测试工具安装共用 Yarn 1 全局缓存，根构建脚本以共享构建服务让这些任务串行执行，避免配置缓存下并行写缓存。当前本地安装和 Hook 面向 Linux/POSIX，不宣称其他平台已验证。
 
 ```bash
 pnpm install --frozen-lockfile
@@ -81,6 +81,31 @@ oxfmt 与 oxlint 配置位于仓库根（`.oxfmtrc.json`、`.oxlintrc.json`）�
 按[测试规范](testing.md)选择模块验证；目录迁移使用完整主机门禁，普通文档/工具任务不无理由执行全部 Android 测试。Node 工具测试包含真实临时 Git 提交、部分暂存冲突恢复、XML 文本与隐私文案、安装校验和仓库检查；不在真实索引中制造测试提交。
 
 改 Android 依赖仍检查合并 Manifest 与 APK 权限，开发依赖不能进入 APK。Release 已启用 R8 与资源压缩；发布以[发布规范](release.md)为准，Debug 构建不代表 Release 或实机验收。
+
+## 持续集成
+
+`.github/workflows/pipeline.yml` 在 PR、`dev`/`main` 推送、`v*.*.*` tag 和手动触发时运行，全部使用 GitHub 托管 runner，不使用自建 runner。公共安装步骤位于 `.github/actions/setup`；第三方 action 固定到提交 SHA，workflow 默认只授予 `contents: read`。job 按三层依赖：`changes` 与 `repo` 并行，二者通过后运行 `app` 与 `web`，发布 job 只依赖 `app` 与 `web`。仓库门禁失败时不再消耗长构建，任务图也不出现跨层连线。job 与 step 名称使用英文，便于在 Actions 页面阅读。
+
+runner 固定为 `ubuntu-24.04`，避免 `ubuntu-latest` 迁移系统时 Android SDK、Docker 与 APK 工具随之变化。缓存策略：
+
+- pnpm 本体按 `packageManager` 版本缓存，未命中时用 npm 安装并重试 3 次；不使用 `pnpm/action-setup`，因为它每次都会清空目录并从 registry 下载两次。依赖由 `setup-node` 缓存 pnpm store。
+- Gradle User Home 只在 `dev`、`main` 推送时写缓存，PR 只读。配置缓存不跨运行保存：setup-gradle 的项目状态缓存需要 Develocity 授权，而命中依赖缓存后配置阶段只需十几秒。
+- Kotlin/JS 与 Kotlin/Wasm 的测试工具目录（`~/.kotlin/kotlin-npm-tooling`）和 Yarn 下载缓存按 `kotlin-js-store` 锁文件与版本目录缓存，只在 job 成功时保存。
+
+- `changes`：`scripts/repo-tools/scripts/ci-changes.ts` 按差异判断 Android 与官网是否受影响。根配置、锁文件、`.github/` 或基线未知（tag、手动触发、首次推送或强推）时全量回归；官网同时受 `apps/app/shared`、Gradle 根配置、版本目录与 Kotlin/JS 锁文件影响。
+- `repo`：始终运行 Hook、文档、Agent 资产、架构、全仓格式、repo-tools lint 与测试，并对本次提交区间执行 commitlint 与 `git diff --check`。
+- `app`：受影响时运行 `pnpm --filter @gazekeep/app verify`；实机套件不进入 CI。
+- `web`：受影响时完整构建官网（含 KMP Showcase），再运行单元测试、容器内浏览器与截图测试（`test:browser:docker`）、lint 与 `astro check`，产物交给发布 job 复用。发布规则见[官网架构](../architecture/web/website.md#六当前构建与后续验收)，冒烟由 `check-web-deploy.ts` 执行。
+- `release-apk`：tag 必须等于 `v<versionName>` 且位于 `main`；构建压缩 Release、执行 APK 静态门禁，并作为 artifact 保留 7 天。不创建 GitHub Release。未配置正式签名时产物为 unsigned，不可分发。
+
+公开仓库的 workflow 不写明文地址、项目名或凭据，配置集中在两个 GitHub Environment：
+
+| Environment      | 部署来源              | secret                                          | variable                                                 |
+| ---------------- | --------------------- | ----------------------------------------------- | -------------------------------------------------------- |
+| `web-preview`    | `dev` 推送、同仓库 PR | `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID` | `CLOUDFLARE_PAGES_PROJECT`                               |
+| `web-production` | 仅 `main`             | `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID` | `CLOUDFLARE_PAGES_PROJECT`、`GAZEKEEP_WEB_URL`（站点根） |
+
+Cloudflare token 只授予 Account › Cloudflare Pages:Edit。fork PR 拿不到 secret，只运行门禁；PR 评论权限只授予预览 job。
 
 ## APK 静态门禁
 

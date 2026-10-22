@@ -1,38 +1,35 @@
 package cn.rainafter.app.gazekeep.controller
 
-import org.junit.Test
+import kotlin.test.Test
 import kotlin.test.assertEquals
 
+// 样本使用虚构厂商、型号与指纹，不保留真实设备信息。
 class SystemInfoFormatterTest {
+  private fun info(
+    manufacturer: String,
+    model: String,
+    fingerprint: String = "Acme/demo/demo:15/TEST:user/release-keys",
+  ) = buildSystemInfo("1.2.3", "15", 35, manufacturer, model, fingerprint)
+
   @Test
-  fun `does not duplicate manufacturer when model already starts with manufacturer`() {
-    val info = buildSystemInfo(
-      versionName = "1.0.0",
-      release = "14",
-      sdkInt = 34,
-      manufacturer = "Xiaomi",
-      model = "Xiaomi 12 Pro Dimensity",
-      fingerprint = "Xiaomi/daumier/daumier:14/UP1A.231005.007/OS2.0.6.0.ULGCNXM:user/release-keys",
-    )
-    assertEquals("v1.0.0", info.appVersion)
-    assertEquals("Android 14 (API 34)", info.androidVersion)
-    assertEquals("Xiaomi 12 Pro Dimensity", info.deviceModel)
-    assertEquals(
-      "Xiaomi/daumier/daumier:14/UP1A.231005.007/OS2.0.6.0.ULGCNXM:user/release-keys",
-      info.systemFingerprint,
-    )
+  fun formatsVersionsForDisplay() {
+    val info = info("Acme", "Acme Phone 1")
+    assertEquals("v1.2.3", info.appVersion)
+    assertEquals("Android 15 (API 35)", info.androidVersion)
   }
 
   @Test
-  fun `prefixes manufacturer when model only contains model code`() {
-    val info = buildSystemInfo(
-      versionName = "1.0",
-      release = "15",
-      sdkInt = 35,
-      manufacturer = "Xiaomi",
-      model = "23127PN0CC",
-      fingerprint = "Xiaomi/shennong/shennong:15/AP3A.240905.015.A2/OS2.0.100.0:user/release-keys",
-    )
-    assertEquals("Xiaomi 23127PN0CC", info.deviceModel)
+  fun deviceModelPrefixesManufacturerOnlyWhenMissing() {
+    assertEquals("Acme Phone 1", info("Acme", "Acme Phone 1").deviceModel)
+    assertEquals("ACME Phone 1", info("acme", "ACME Phone 1").deviceModel)
+    assertEquals("Acme X100", info(" Acme ", " X100 ").deviceModel)
+  }
+
+  @Test
+  fun missingFieldsFallBackWithoutBlankOutput() {
+    assertEquals("Acme", info("Acme", " ").deviceModel)
+    assertEquals("X100", info("", "X100").deviceModel)
+    assertEquals("-", info("", "").deviceModel)
+    assertEquals("-", info("Acme", "X100", fingerprint = " ").systemFingerprint)
   }
 }

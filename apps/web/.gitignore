@@ -26,3 +26,6 @@ pnpm-debug.log*
 # KMP build and synchronized resources
 public/kmp-showcase/
 src/data/privacy.generated.json
+
+# Vitest 浏览器测试的失败截图与对比输出
+.vitest/

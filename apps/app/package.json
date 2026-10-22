@@ -5,6 +5,7 @@
     "build": "node ../../scripts/repo-tools/scripts/android-task.ts build",
     "lint": "node ../../scripts/repo-tools/scripts/android-task.ts lint",
     "test": "node ../../scripts/repo-tools/scripts/android-task.ts test",
-    "verify": "node ../../scripts/repo-tools/scripts/android-task.ts verify"
+    "verify": "node ../../scripts/repo-tools/scripts/android-task.ts verify",
+    "test:device": "node ../../scripts/repo-tools/scripts/android-task.ts device"
   }
 }

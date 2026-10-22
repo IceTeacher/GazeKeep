@@ -2,7 +2,7 @@ package cn.rainafter.app.gazekeep.runtime
 
 import cn.rainafter.app.gazekeep.core.model.Attention
 import cn.rainafter.app.gazekeep.core.model.BackendId
-import org.junit.Test
+import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull

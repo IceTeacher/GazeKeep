@@ -16,6 +16,35 @@
 - 展示字体脚本改用 harfbuzzjs 1.6.3（hb-subset）并自行改写 name 表：与 fontTools 4.67.0 产物对比，表集合、422 个码位、702 个字形轮廓与步进、GSUB/GPOS 特性、18 条 name 记录和纵横度量一致；已提交字体未重新生成。
 - 主机验证：31 项仓库工具测试（新增 XML 阻断与 TypeScript/Tailwind 用例，先确认旧实现失败）、52 项官网 Node 测试（新增 3 项字体改名与校验和用例）、两工程 oxlint 与 `tsc`、Astro 类型检查（0 错误）、`build:site`、全仓 `format:check`、文档/Agent 资产/架构/Hook 检查、TS 版 commitlint 与 `git diff --check` 通过。未运行：Android 构建与 lint（未改动）、KMP 完整构建、真实编辑器集成。
 
+## 测试框架化（2026-10-22，进行中）
+
+- `testing-browser` 更名为 `testing-ui`，统一负责 app 的 Compose 交互与 Roborazzi 截图、web 的 Vitest 真实 Chromium 测试；`testing-unit` 与 `testing-e2e` 按新分层重写，测试规范登记目标分层与各入口现状。
+- web 迁到 Vitest 5.0.5：`unit` project 49 项（字符串资源用例已迁到 app）（按源模块合并，删除与三幕姿态重复的 1 项；shader 保留列表改为与页面图层同源，删除读取源码的比对用例）；`browser` project 15 项，Playwright 1.64.1 无头 Chromium，覆盖桌面/移动端逐幕吸附、减少动态（含运行中切换）、中英语言与主题同步、内屏 Wasm→JS 降级与重试、`pagehide` 清理与往返缓存，以及 3 张排版截图基线。等待内屏事件的上限统一为 15 秒：内屏在 requestIdleCallback 后才加载，机器负载约 20 时原 5 秒上限会偶发超时，调整后连续 3 次全部通过。几何与姿态常量为官网架构写明的设计规格，作为规格断言保留。
+- 已用临时改坏实现确认浏览器用例失败（禁用卸载清理、跳过 JS 降级、移除减少动态监听）。`pnpm --filter web test`、lint、Astro 类型检查（0 错误）、`build:site`（产物 shader 注册表仍只含首屏 5 个组件）与全仓格式检查通过。`resources.test.ts` 暂留 web，待 app 侧 Kotlin 资源测试落地后迁出。未执行：Safari/Firefox、真实 GPU 与 WebGL 机身渲染、实体手机触摸。
+- app 单元测试：现有 40 个 Kotlin 测试经审查均保留；`PowerDumpOracleTest` 改用 `kotlinx-coroutines-test`（1.10.2，与 coroutines 核心版本一致）虚拟时间，为此给 `PowerDumpOracle` 增加可注入轮询调度器；`SystemInfoFormatterTest` 改用虚构设备样本并补空字段边界；android 模块统一为 kotlin.test。新增 `LsposedKeepAwakeBackendTest`（Robolectric 4.17，9 项，生产构造函数不变，内部构造函数注入 Binder 解析）与 shared `StringResourcesTest`（自 web 迁入）。均先确认旧实现失败（缺少注入点编译失败；改坏 STALE 映射、协议版本校验与英文占位符后对应用例失败）。
+- 主机验证：`pnpm --filter @gazekeep/app verify`（Debug 组装、lint、246 项主机测试，失败/跳过 0）、ktlint/TOML 检查、31 项仓库工具测试、repo-tools lint 与架构检查通过。未执行：设备与实机验收。
+- Kotlin/JS 依赖安装已修复：Kotlin Gradle 插件下载的 Yarn 1.22.22 会向上查找第一个声明 `packageManager` 的 package.json，原先读到仓库根的 `pnpm@11.7.0` 后中止 `:kotlinNpmInstall`/`:kotlinWasmNpmInstall`，阻断 `:core:allTests` 的 JS/Wasm 任务。根构建脚本在生成的 `build/js`、`build/wasm` 根 package.json 中写入 `packageManager: yarn@1.22.22`，`yarn.lock` 不变。删除生成目录后不设任何绕过变量重跑 `:core:allTests`，JS、Wasm 与主机各 41 项通过；`pnpm --filter @gazekeep/app verify` 通过。
+- app 界面与视觉：`shared/androidHostTest` 新增 22 项交互用例与 11 张 Roborazzi 1.76.0 截图（Robolectric 4.17、androidx Compose ui-test 1.12.1，均只进入测试配置），驱动真实 `App` 入口。已用临时改坏实现确认失败（离页不取消自检、首页工作态配色）；校验模式连续两次通过。`pnpm --filter @gazekeep/app verify`（275 项主机测试，失败 0）与 Debug APK 静态门禁通过。未执行：真实 ROM 渲染、厂商字体、系统栏与大字号实机对比。
+- app 实机套件：`android/src/androidTest` 新增 4 项 UiAutomator 旅程（配置冷启动回读、相机权限撤销与拒绝、无障碍就绪一致性、熄屏超时恢复），`verify` 纳入 `:android:assembleDebugAndroidTest`，新增 `test:device` 入口；测试依赖只进入测试 APK，主 APK 静态门禁通过。
+- [ ] 在已授权设备上运行 `pnpm --filter @gazekeep/app test:device` 并记录设备、ROM、后端与结果；本次只编译，未在任何设备上执行，不计作通过。
+
+## pnpm 升级（2026-10-22）
+
+- `packageManager` 由 pnpm 11.7.0 升至 12.14.0（当时 `latest`，发布 7 天）；本机 11.7.0 自动切换到锁定版本，未修改全局安装。锁文件只新增首段 pnpm 自身二进制的完整性记录，依赖解析不变；`--no-frozen-lockfile` 重解析无变化。已核对 12.0.0 不兼容变更：仓库无 git 依赖，`--frozen-lockfile` 不带值使用，工作区设置均被识别。
+- 验证：冻结安装与供应链策略检查、Hook 自检、31 项仓库工具测试、文档/Agent 资产/架构检查、全仓格式与 lint、官网 64 项测试、lint、类型检查与 `build:site`、`pnpm --filter @gazekeep/app verify` 均通过。未执行：其他平台与 CI 环境。
+
+## CI 流水线（2026-10-22）
+
+- 新增 GitHub Actions 流水线，使用托管 runner：改动范围判断、仓库门禁、Android 主机门禁、官网完整构建，以及官网 Pages 预览与生产发布（含冒烟和 PR 评论）、tag 的 Release APK 门禁。官网仍用 Cloudflare Pages Direct Upload；k3s 与 GitOps 仓库不接入（当前没有服务端负载）。已用 `gh` 创建 Environment `web-preview` 与 `web-production`（后者仅允许 `main`），写入项目名、站点地址、账号 ID 与 Pages API token。
+- 新增 `ci-changes.ts`、`check-web-deploy.ts` 及 5 项测试，先确认模块缺失时失败。冒烟脚本对现网 `https://gazekeep.rainafter.cn` 通过；实测发现 Pages 会把 `index.html` 308 跳到目录地址，因此探测改为目录地址。
+- 本地验证：36 项仓库工具测试、repo-tools lint、文档/Agent 资产/架构检查、全仓格式、`git diff --check`、actionlint 1.7.12（含 shellcheck 0.11.0）均通过，`main..dev` 区间 commitlint 通过；Wrangler 输出解析、版本提取与评论正文已用本地样本模拟。
+- 前两次 CI 运行暴露的干净环境问题已修复：Wasm `yarn.lock` 未跟踪且以空行结尾（提交锁文件，并用 `.gitattributes` 免除空白检查）；截图基线依赖本机字体（浏览器测试改在 Playwright v1.64.1-noble 镜像中运行并重录基线）；官网未声明 `vite` 依赖（新增 devDependency）；`:core:wasmJsBrowserTest` 找不到 `kotlin-web-helpers` 运行器（推测为冷缓存下 Yarn 1 并发安装，已用共享构建服务串行化，app job 失败时上传 Yarn 日志）。
+- 第三次 CI 运行（`dev` 推送，run 39710220826）全部通过：仓库门禁、改动范围判断、`app` 门禁（含 `:core:wasmJsBrowserTest`，约 8.5 分钟）、官网构建与容器内浏览器测试（约 7 分钟）、`dev` 预览上传（别名 `https://dev.gazekeep.pages.dev`）与冒烟。Yarn 串行化后未再复现，但原失败为偶发，单次通过只能说明未复现。预览 job 中 pnpm 自安装耗时 5 分钟，其余 job 约 2 秒，判断为 npm registry 偶发慢。
+- 之后 job 依赖改为三层（`app`、`web` 依赖 `changes` 与 `repo`，发布 job 只依赖 `app` 与 `web`），job 与 step 改用英文名，官网检查拆成独立 step；actionlint 1.7.12（含 shellcheck）通过，新任务图与命名尚待下一次 CI 运行确认。
+- 随后优化缓存：pnpm 本体按版本缓存并替代 `pnpm/action-setup`（本地确认 npm 安装 `pnpm@12.14.0` 可用）；Gradle 缓存在 `dev`/`main` 推送时写入；新增 Kotlin/JS 工具与 Yarn 缓存；runner 固定为 `ubuntu-24.04`。actionlint 与 shellcheck 通过；推送后首次运行（run 39713395454，冷缓存）通过并写入缓存，三层任务图与英文步骤名生效；第二次手动运行（run 39714436230）命中 pnpm、Gradle 与 Kotlin/JS 缓存，Android app 由约 9.7 分钟降至 1.5 分钟，Website 由约 6.8 分钟降至 3 分钟，整次运行约 3.8 分钟。输入未变的 Gradle 任务（含测试）从构建缓存复用，这是 Gradle 的增量语义，不代表重新执行。Gradle 配置缓存不跨运行复用：试过传入 `cache-encryption-key`，调试日志显示 setup-gradle v6.4.0 的项目状态缓存为 `not-enabled`（需隐藏开关与 Develocity 授权），且命中依赖缓存后配置阶段仅 11–15 秒，已撤销该配置并删除 secret。
+- [ ] 核对 PR 预览评论原地更新，以及 `main` 生产发布与冒烟。以上未在 CI 中执行，不计作通过。
+- [ ] 首个 `v*` tag 核对 unsigned Release 的 APK 门禁（托管镜像的 `apkanalyzer` 与 `aapt2`）；正式签名 secret 与 GitHub Release 自动化待授权后再接入。
+
 ## 官网本次验证（2026-10-20）
 
 - 根路径跳转：原 `index.astro` 依靠 meta refresh 跳转，浏览器会先渲染“进入 GazeKeep 官网”链接页。改为 `public/_redirects` 的 `/ /zh/ 302` 服务端跳转，兜底页加 `noindex`/`canonical` 并使用站点深色底。新增 1 项测试（缺少 `_redirects` 时先失败）；49 项官网 Node 测试、Astro 类型检查（0 错误）与 `build:site` 通过；本地 `wrangler pages dev dist` 中 `/` 返回 `302 Location: /zh/`，`/zh/`、`/en/` 返回 200。完整构建后已部署（预览 `https://4b331619.gazekeep.pages.dev`），线上 curl 复验 `https://gazekeep.pages.dev/` 返回 `302 location: /zh/`，`/zh/`、`/en/` 返回 200。未执行：真实浏览器观察跳转过程。

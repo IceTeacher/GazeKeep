@@ -23,7 +23,7 @@
 
 Web 字体使用带 OFL 许可的 Noto CJK 字符子集，位于 showcaseMain，仅用于网页展示。官网构建过滤 source map；KMP 生成目录排除在 Astro 类型检查之外。
 
-首屏加载：`shaders/js` 的 `createShader` 会注册整个组件库，构建插件（`scripts/build-performance.ts`）在打包时把注册表裁到首屏实际使用的组件，测试保证保留列表与 `orchestrator.ts` 一致；shaders 版本固定，升级后注册表结构变化会让构建直接失败，而不是退回全量打包。构建完成后为 Three.js 分块注入 `modulepreload`，与入口脚本并行下载，以缩短机身首帧等待；样式内联，不再单独发出阻塞渲染的请求。页面内图标使用 192px WebP，favicon 使用 32px PNG，512px PNG 只作为 `og:image`。KMP 内屏的 Wasm 体积取决于托管端压缩：上线托管需对 `.wasm`/`.js` 启用 Brotli 或 gzip，带哈希的资源设为长期不可变缓存，无哈希的 KMP 入口用协商缓存。
+首屏加载：`shaders/js` 的 `createShader` 会注册整个组件库，构建插件（`scripts/build-performance.ts`）在打包时把注册表裁到首屏实际使用的组件，保留列表与页面创建的图层同源于 `src/scripts/hero-shader.ts`；shaders 版本固定，升级后注册表结构变化会让构建直接失败，而不是退回全量打包。构建完成后为 Three.js 分块注入 `modulepreload`，与入口脚本并行下载，以缩短机身首帧等待；样式内联，不再单独发出阻塞渲染的请求。页面内图标使用 192px WebP，favicon 使用 32px PNG，512px PNG 只作为 `og:image`。KMP 内屏的 Wasm 体积取决于托管端压缩：上线托管需对 `.wasm`/`.js` 启用 Brotli 或 gzip，带哈希的资源设为长期不可变缓存，无哈希的 KMP 入口用协商缓存。
 
 ### 1.1 核心定位
 
@@ -144,7 +144,7 @@ Web 字体使用带 OFL 许可的 Noto CJK 字符子集，位于 showcaseMain，
 
 本轮已完成双语数据、七模块页面、Three.js 实体设备、Shader/连续滚动调度、真实 miuix Wasm/JS 展示壳、语言/主题桥接、隐私资源校验和加载失败恢复。构建与维护命令见 [官网 README](../../../apps/web/README.md)，对应环境和验收结果见[任务清单](../../plans/todo.md#官网本次验证2026-10-20)。
 
-官网部署到 Cloudflare Pages 项目 `gazekeep`，生产分支为 `main`。完整构建依赖本机 JDK、Android SDK 与 Gradle，当前由本地执行完整构建，再通过 Wrangler Direct Upload 发布静态 `dist/`。根路径由 `public/_redirects` 在服务端 302 跳转到 `/zh/`，不渲染中间页；用 302 而非 301，便于以后按浏览器语言分流；`src/pages/index.astro` 只作为 `astro preview` 等不读取 `_redirects` 环境的兜底跳转页。Direct Upload 项目不能原地切换为 Git 集成，自动构建需另建项目并配置 KMP 工具链。后续验证集中于 WebGPU 实际渲染、120Hz 硬件表现、跨浏览器矩阵和 KMP 资源体积；官网完成后再评估是否接入统计脚本及其隐私要求。本轮不集成统计脚本或 Partytown。
+官网部署到 Cloudflare Pages 项目 `gazekeep`，生产分支为 `main`，自定义域名与优选 IP 在 Cloudflare 与 DNS 侧维护，流水线不改动。完整构建依赖 JDK、Android SDK 与 Gradle，因此由 GitHub Actions 托管 runner 完成完整构建与门禁后，再通过 Wrangler Direct Upload 发布同一份 `dist/`：`dev` 推送发布到 `dev` 分支别名，同仓库 PR 发布到 `pr-<编号>` 别名并原地更新一条 PR 评论，`main` 推送发布生产；fork PR 只跑门禁。发布后冒烟检查根路径 302 到 `/zh/`、`/zh/` 与 `/en/` 以及两个 KMP Showcase 目录返回 200，失败只标红不自动回滚，回滚在 Cloudflare 面板对上一个部署执行 Rollback。本地 `deploy` 脚本仅作应急。根路径由 `public/_redirects` 在服务端 302 跳转到 `/zh/`，不渲染中间页；用 302 而非 301，便于以后按浏览器语言分流；`src/pages/index.astro` 只作为 `astro preview` 等不读取 `_redirects` 环境的兜底跳转页。Direct Upload 项目不能原地切换为 Git 集成；Cloudflare 构建镜像也缺少 Android SDK，所以保留 Direct Upload，由 CI 承担构建。后续验证集中于 WebGPU 实际渲染、120Hz 硬件表现、跨浏览器矩阵和 KMP 资源体积；官网完成后再评估是否接入统计脚本及其隐私要求。本轮不集成统计脚本或 Partytown。
 
 ### 第三轮设备与动效修订
 
