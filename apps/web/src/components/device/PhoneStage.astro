@@ -1,9 +1,6 @@
 ---
 import type { SiteContent } from "../../data/schema";
 import GripLayers from "./GripLayers.astro";
-import BatteryFull from "@lucide/astro/icons/battery-full";
-import Signal from "@lucide/astro/icons/signal";
-import Wifi from "@lucide/astro/icons/wifi";
 interface Props {
   content: SiteContent;
 }
@@ -41,9 +38,41 @@ const { content: c } = Astro.props;
             <div class="phone-statusbar" aria-hidden="true">
               <span>9:41</span>
               <span class="status-icons">
-                <Wifi class="status-wifi" size={16} stroke-width={2.25} />
-                <Signal class="status-signal" size={16} stroke-width={2.25} />
-                <BatteryFull class="status-battery" size={18} stroke-width={2} />
+                <!-- 状态栏图标模仿 Android 原生实心风格，属于机身仿真而非界面图标，不使用 Lucide。 -->
+                <svg
+                  class="status-wifi"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path d="M1 9a17 17 0 0 1 22 0L12 22Z"></path>
+                </svg>
+                <svg
+                  class="status-signal"
+                  width="15"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path d="M2 22 22 2v20Z"></path>
+                </svg>
+                <svg
+                  class="status-battery"
+                  width="10"
+                  height="17"
+                  viewBox="0 0 14 24"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M5 1h4v2h3a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h3Z"
+                    opacity=".35"
+                  ></path>
+                  <path d="M3 7h8v14H3Z"></path>
+                </svg>
               </span>
             </div>
             <div class="home-indicator"></div>
