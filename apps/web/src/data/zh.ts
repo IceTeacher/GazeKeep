@@ -1,8 +1,9 @@
 import type { SiteContent } from "./schema";
 export const zh = {
   locale: "zh",
-  title: "GazeKeep · 目光所及，屏幕常明",
+  title: "GazeKeep - 注视保亮",
   description: "面向 Android 的端侧离线注视保亮工具。临近熄屏短时采样，注视时延后熄屏，看不清时正常熄屏。",
+  ogImageAlt: "GazeKeep 官网首屏：目光所及，屏幕常明，右侧为显示 GazeKeep 主页的手机",
   nav: ["工作方式", "运行后端", "隐私", "常见问题"],
   download: "下载 APK",
   source: "查看源码",

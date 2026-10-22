@@ -1,9 +1,10 @@
 import type { SiteContent } from "./schema";
 export const en = {
   locale: "en",
-  title: "GazeKeep · Stay in the moment",
+  title: "GazeKeep - Stay in the moment",
   description:
     "Offline gaze-based screen keeping for Android. Brief checks near timeout keep your screen awake while you look. Uncertain results let it sleep.",
+  ogImageAlt: "GazeKeep website hero: Stay in the moment, with a phone showing the GazeKeep home screen",
   nav: ["How it works", "Backends", "Privacy", "FAQ"],
   download: "Download APK",
   source: "View source",

@@ -1,5 +1,7 @@
 export const site = {
   name: "GazeKeep",
+  /** 生产域名：分享元数据的 og:url 与图片使用绝对地址，预览部署也指向生产页。 */
+  url: "https://gazekeep.rainafter.cn",
   repository: "https://github.com/IceTeacher/GazeKeep",
   download: "https://github.com/IceTeacher/GazeKeep/releases/latest",
   docs: "https://github.com/IceTeacher/GazeKeep/blob/main/docs/product/usage.md",

@@ -3,7 +3,8 @@ import { createServer } from "node:net";
 import { fileURLToPath } from "node:url";
 import type { TestProject } from "vitest/node";
 
-export type RenderedPage = { lang: string; body: string };
+/** meta 为头部 `<meta>` 的 property/name → content 映射，供分享元数据断言。 */
+export type RenderedPage = { lang: string; body: string; meta: Record<string, string> };
 
 declare module "vitest" {
   export interface ProvidedContext {
@@ -58,11 +59,20 @@ export default async function setup(project: TestProject) {
   };
   try {
     const render = async (lang: "zh" | "en"): Promise<RenderedPage> => {
-      const body = /<body[^>]*>([\s\S]*)<\/body>/.exec(await fetchPage(lang))?.[1];
+      const html = await fetchPage(lang);
+      const body = /<body[^>]*>([\s\S]*)<\/body>/.exec(html)?.[1];
       if (!body) throw new Error(`/${lang}/ 渲染结果缺少 body`);
+      const head = /<head[^>]*>([\s\S]*)<\/head>/.exec(html)?.[1] ?? "";
+      const meta: Record<string, string> = {};
+      for (const [tag] of head.matchAll(/<meta\b[^>]*>/g)) {
+        const key = /\b(?:property|name)="([^"]+)"/.exec(tag)?.[1];
+        const content = /\bcontent="([^"]*)"/.exec(tag)?.[1];
+        if (key && content !== undefined && !(key in meta)) meta[key] = content;
+      }
       // 去掉页面模块脚本与开发工具栏，保留 JSON 数据脚本。
       return {
         lang,
+        meta,
         body: body
           .replace(/<script(?![^>]*application\/json)[\s\S]*?<\/script>/g, "")
           .replace(/<astro-dev-toolbar[\s\S]*?<\/astro-dev-toolbar>/g, ""),

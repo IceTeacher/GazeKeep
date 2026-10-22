@@ -19,6 +19,8 @@ export interface SiteContent {
   locale: Locale;
   title: string;
   description: string;
+  /** 分享卡片图片（public/og/og-<locale>.png，1200×630）的替代文本。 */
+  ogImageAlt: string;
   nav: string[];
   download: string;
   source: string;
