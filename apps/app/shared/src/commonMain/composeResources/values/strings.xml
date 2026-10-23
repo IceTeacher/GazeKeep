@@ -157,6 +157,11 @@
     name="home_privacy_card_summary"
   >仅在快要熄屏时短暂采样，画面只在内存判断、不保存不上传，看不清即正常熄屏</string>
     <string name="settings_title">设置</string>
+    <string name="settings_language">语言</string>
+    <string name="settings_language_system">跟随系统</string>
+    <!-- 语言名称按各自语言书写，不随界面语言翻译。 -->
+    <string name="settings_language_chinese">简体中文</string>
+    <string name="settings_language_english">English</string>
     <string name="settings_about">关于</string>
     <string name="settings_about_summary">版本信息、开源致谢与第三方许可</string>
     <string name="about_brand_name">GazeKeep</string>

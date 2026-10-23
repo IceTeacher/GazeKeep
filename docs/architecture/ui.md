@@ -7,7 +7,7 @@ shared 的 commonMain 使用 miuix，只依赖 core 和平台契约。App 组装
 | 页面            | 职责                                                      |
 | --------------- | --------------------------------------------------------- |
 | Home            | 总开关、运行状态、最近检测、系统环境摘要和隐私入口        |
-| Settings        | 检测参数、保护上限、白名单、日志和工具入口                |
+| Settings        | 检测参数、保护上限、白名单、语言、日志和工具入口          |
 | Backend         | 后端选择、就绪状态与设置引导                              |
 | Apps            | 启动器应用搜索、白名单勾选                                |
 | Logs            | 搜索、级别筛选、卡片/原始视图、分享、导出、清空与滚动定位 |
@@ -25,7 +25,7 @@ Home 和 Settings 为底栏标签；二级页面隐藏底栏，返回恢复上�
 
 GazeKeepController 发布配置、运行、自检、应用列表和日志状态，并处理配置写入、启停、自检及列表/日志操作。保存与启用失败通过 UiNotice 表达，UI 不直接操作配置文件、服务或 Binder。
 
-PlatformActions 负责授权、系统设置、外部链接、日志分享/SAF 导出、返回、预览、图标与日志时间格式化。日志统一使用 Android 标准日期 API，保持 UTC+8 和 MM-dd HH:mm:ss；卡片、原始视图、分享与导出一致。不申请网络或存储权限。
+PlatformActions 负责授权、系统设置、外部链接、日志分享/SAF 导出、返回、预览、图标、日志时间格式化与应用内语言。日志统一使用 Android 标准日期 API，保持 UTC+8 和 MM-dd HH:mm:ss；卡片、原始视图、分享与导出一致。不申请网络或存储权限。
 
 应用列表只查询启动器可见应用，不申请 QUERY_ALL_PACKAGES；区分未加载、加载中、已加载和失败，已加载的空结果不继续显示加载提示，失败可重试。图标预读取可取消。
 
@@ -39,10 +39,12 @@ PlatformActions 负责授权、系统设置、外部链接、日志分享/SAF �
 
 ## 文案与验收
 
-字符串使用 composeResources，结果为「注视了屏幕 / 未注视屏幕 / 这次没看清」。隐私三句逐字引用[真源](../product/privacy-security.md)。
+字符串使用 composeResources，结果为「注视了屏幕 / 未注视屏幕 / 这次没看清」。默认资源为中文，`values-en` 为英文；不新增 i18n 框架。
+
+设置页「语言」提供跟随系统（默认）、简体中文与 English，语言名按各自语言书写。AppLanguage 按语言标签首项匹配，空列表或不受支持的语言视为跟随系统；系统语言不是中英文时，跟随系统沿用默认中文资源。PlatformActions 返回 null 时表示语言由宿主控制，设置页不显示该项。Android 的保存与生效路径见[运行架构](android-runtime.md#应用内语言)。隐私三句逐字引用[真源](../product/privacy-security.md)。
 
 shared 主机测试覆盖许可搜索等纯逻辑，不代表页面通过。按[测试规范](../development/testing.md)验证导航、返回、字体、明暗、旋转、配置回读、快速开关、自检释放和列表状态；当前版本实机未执行项见[待办](../plans/todo.md)。
 
 ## 官网实时展示
 
-shared 的浏览器展示入口复用 Home、Backend、Settings、Apps 页面，注入固定演示 controller 与无硬件能力的 PlatformActions。Web 主题与资源语言由官网桥接设置；Android App 仍使用原有主题与导航入口。core 仅增加浏览器编译目标，业务规则保持统一。
+shared 的浏览器展示入口复用 Home、Backend、Settings、Apps 页面，注入固定演示 controller 与无硬件能力的 PlatformActions。Web 主题与资源语言由官网桥接设置，演示设置页不显示应用内语言；Android App 仍使用原有主题与导航入口。core 仅增加浏览器编译目标，业务规则保持统一。

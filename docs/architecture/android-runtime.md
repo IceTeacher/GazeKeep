@@ -22,6 +22,12 @@ LegacyMigration 只迁移旧 `gazekeep_config` SharedPreferences 的后端选择
 
 Shizuku 的 pendingTimeoutRestore 使用独立 `gazekeep_timeout_restore` SharedPreferences，不是普通用户配置，也不是已实现的 internal_state DataStore。恢复工作不得依赖即将取消的服务 scope；同步持久化与失败语义见[Shizuku 架构](backends/shizuku.md)。
 
+## 应用内语言
+
+AppLocales 不引入 AppCompat：Android 13+ 写入系统 LocaleManager，与系统设置「应用语言」同源，切换后由系统重建页面；Manifest 的 `localeConfig` 声明 zh-CN 与 en，系统页只列出这两种语言。Android 12 及以下把语言标签存入独立的 `gazekeep_app_locale` SharedPreferences，MainActivity 在 attachBaseContext 套用并重建页面，同时更新进程默认 LocaleList，因为 Compose 资源按进程默认语言选择。跟随系统时重置为系统语言。
+
+通知文案来自 android 模块的 `values`/`values-en` 资源，GazeNotifier 使用套用语言后的 Context；渠道名在服务创建时随语言更新，已展示的常驻通知在服务重建后更新。
+
 ## 当前清单与通知
 
 applicationId 为 cn.rainafter.app.gazekeep；相机、camera 前台服务和通知是现有申请能力，Shizuku Provider 与 Xposed 打包入口保持稳定。无障碍配置 canRetrieveWindowContent=false。

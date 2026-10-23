@@ -26,8 +26,10 @@ import cn.rainafter.app.gazekeep.core.model.Sensitivity
 import cn.rainafter.app.gazekeep.core.policy.canConfigureHideCameraIndicator
 import cn.rainafter.app.gazekeep.ui.components.AppScaffold
 import cn.rainafter.app.gazekeep.ui.components.ExperimentalSwitchPreference
+import cn.rainafter.app.gazekeep.ui.contract.AppLanguage
 import cn.rainafter.app.gazekeep.ui.contract.ControllerState
 import cn.rainafter.app.gazekeep.ui.contract.GazeKeepController
+import cn.rainafter.app.gazekeep.ui.contract.PlatformActions
 import cn.rainafter.app.gazekeep.ui.navigation.SettingsScreen
 import cn.rainafter.app.gazekeep.ui.text.backendLabel
 import gazekeep.shared.generated.resources.Res
@@ -50,6 +52,10 @@ import gazekeep.shared.generated.resources.settings_hold_60
 import gazekeep.shared.generated.resources.settings_hold_custom_hint
 import gazekeep.shared.generated.resources.settings_hold_custom_value
 import gazekeep.shared.generated.resources.settings_hold_unlimited
+import gazekeep.shared.generated.resources.settings_language
+import gazekeep.shared.generated.resources.settings_language_chinese
+import gazekeep.shared.generated.resources.settings_language_english
+import gazekeep.shared.generated.resources.settings_language_system
 import gazekeep.shared.generated.resources.settings_lead
 import gazekeep.shared.generated.resources.settings_lead_5
 import gazekeep.shared.generated.resources.settings_lead_8
@@ -91,6 +97,7 @@ import top.yukonga.miuix.kmp.icon.extended.Notes
 import top.yukonga.miuix.kmp.icon.extended.Scan
 import top.yukonga.miuix.kmp.icon.extended.Stopwatch
 import top.yukonga.miuix.kmp.icon.extended.Timer
+import top.yukonga.miuix.kmp.icon.extended.Translate
 import top.yukonga.miuix.kmp.icon.extended.Tune
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.preference.ArrowPreference
@@ -164,6 +171,7 @@ internal fun SettingsTabScreen(
   state: ControllerState,
   scope: CoroutineScope,
   controller: GazeKeepController,
+  actions: PlatformActions,
   onNavigate: (SettingsScreen) -> Unit,
   bottomBar: @Composable () -> Unit = {},
 ) {
@@ -348,6 +356,32 @@ internal fun SettingsTabScreen(
             summary = stringResource(Res.string.settings_app_count, state.config.packages.size),
             startAction = { StartSettingIcon(MiuixIcons.GridView) },
             onClick = { onNavigate(SettingsScreen.Apps) },
+          )
+        }
+      }
+
+      val appLanguage = actions.appLanguage()
+      if (appLanguage != null) {
+        Card(modifier = Modifier.fillMaxWidth()) {
+          val languages = AppLanguage.entries
+          val languageLabels = languages.map {
+            stringResource(
+              when (it) {
+                AppLanguage.System -> Res.string.settings_language_system
+                AppLanguage.Chinese -> Res.string.settings_language_chinese
+                AppLanguage.English -> Res.string.settings_language_english
+              },
+            )
+          }
+          OverlayDropdownPreference(
+            title = stringResource(Res.string.settings_language),
+            summary = languageLabels[languages.indexOf(appLanguage)],
+            startAction = { StartSettingIcon(MiuixIcons.Translate) },
+            items = languageLabels,
+            selectedIndex = languages.indexOf(appLanguage),
+            onSelectedIndexChange = { index ->
+              languages[index].takeIf { it != appLanguage }?.let(actions::setAppLanguage)
+            },
           )
         }
       }

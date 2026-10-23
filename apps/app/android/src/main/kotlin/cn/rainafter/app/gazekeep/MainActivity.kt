@@ -1,5 +1,6 @@
 package cn.rainafter.app.gazekeep
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -7,10 +8,14 @@ import androidx.activity.enableEdgeToEdge
 import cn.rainafter.app.gazekeep.app.AppGraph
 import cn.rainafter.app.gazekeep.controller.AndroidGazeKeepController
 import cn.rainafter.app.gazekeep.platform.AndroidPlatformActions
+import cn.rainafter.app.gazekeep.platform.AppLocales
 import cn.rainafter.app.gazekeep.ui.App
 
 class MainActivity : ComponentActivity() {
   private lateinit var controller: AndroidGazeKeepController
+  override fun attachBaseContext(newBase: Context) {
+    super.attachBaseContext(AppLocales.wrap(newBase))
+  }
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)

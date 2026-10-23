@@ -14,6 +14,7 @@ import cn.rainafter.app.gazekeep.core.model.BackendId
 import cn.rainafter.app.gazekeep.core.model.Readiness
 import cn.rainafter.app.gazekeep.core.model.SetupStep
 import cn.rainafter.app.gazekeep.ui.App
+import cn.rainafter.app.gazekeep.ui.contract.AppLanguage
 import cn.rainafter.app.gazekeep.ui.contract.ControllerState
 import cn.rainafter.app.gazekeep.ui.contract.SelfTestState
 import cn.rainafter.app.gazekeep.ui.contract.SystemInfo
@@ -90,9 +91,13 @@ class UiTestSession(
   }
 }
 
-fun ActivityComposeRule.launchApp(state: ControllerState, selfTest: SelfTestState = SelfTestState()): UiTestSession {
+fun ActivityComposeRule.launchApp(
+  state: ControllerState,
+  selfTest: SelfTestState = SelfTestState(),
+  language: AppLanguage? = AppLanguage.System,
+): UiTestSession {
   val controller = FakeGazeKeepController(state, selfTest)
-  val actions = FakePlatformActions()
+  val actions = FakePlatformActions(language)
   setContent { App(controller, actions) }
   waitForIdle()
   return UiTestSession(this, controller, actions)

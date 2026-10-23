@@ -2,6 +2,8 @@ package cn.rainafter.app.gazekeep.ui
 
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
 import cn.rainafter.app.gazekeep.core.model.Attention
 import cn.rainafter.app.gazekeep.core.model.BackendId
 import cn.rainafter.app.gazekeep.ui.contract.AppListLoadState
@@ -86,6 +88,14 @@ class ScreenshotTest {
   fun settingsLargeFontZh() {
     RuntimeEnvironment.setFontScale(1.3f)
     shoot("settings_font130_zh") { settings() }
+  }
+
+  @Test
+  @Config(qualifiers = "+en")
+  fun settingsBottomLightEn() = shoot("settings_bottom_light_en") {
+    settings()
+    // 语言入口位于首屏之下，滚到页尾覆盖语言与工具入口的英文排版。
+    rule.onNodeWithText(text(Res.string.settings_about)).performScrollTo()
   }
 
   @Test

@@ -30,6 +30,7 @@ import cn.rainafter.app.gazekeep.core.model.BackendLock
 import cn.rainafter.app.gazekeep.core.model.GazeConfig
 import cn.rainafter.app.gazekeep.core.model.Readiness
 import cn.rainafter.app.gazekeep.ui.contract.AppEntry
+import cn.rainafter.app.gazekeep.ui.contract.AppLanguage
 import cn.rainafter.app.gazekeep.ui.contract.AppListLoadState
 import cn.rainafter.app.gazekeep.ui.contract.ControllerState
 import cn.rainafter.app.gazekeep.ui.contract.GazeKeepController
@@ -115,6 +116,10 @@ private object DemoActions : PlatformActions {
   override fun shareLogs(text: String) {}
   override fun exportLogs(text: String) {}
   override fun formatLogTimestamp(epochMillis: Long) = ""
+
+  // 演示语言由官网桥接控制，设置页不显示应用内语言切换。
+  override fun appLanguage(): AppLanguage? = null
+  override fun setAppLanguage(language: AppLanguage) {}
 
   @Composable override fun HandleBack(enabled: Boolean, onBack: () -> Unit) {}
 
@@ -212,7 +217,7 @@ fun startShowcase() {
           when (route.value) {
             "backend" -> BackendScreen(state, scope, DemoController, DemoActions, {})
 
-            "settings" -> SettingsTabScreen(state, scope, DemoController, {})
+            "settings" -> SettingsTabScreen(state, scope, DemoController, DemoActions, {})
 
             "privacy" -> PrivacyScreen({})
 

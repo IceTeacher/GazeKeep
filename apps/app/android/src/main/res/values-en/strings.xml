@@ -1,0 +1,12 @@
+<resources>
+    <string name="xposed_description">Delays screen timeout while you look at the screen; lets it sleep on the system timeout when it cannot tell or you look away.</string>
+    <string name="alert_backend_unavailable">The keep-awake backend is unavailable. Open settings to check.</string>
+    <string name="alert_camera_permission_lost">Camera permission is unavailable. The screen will not be kept on this time.</string>
+    <string name="alert_camera_unavailable">The camera is temporarily unavailable. The screen will not be kept on this time.</string>
+    <string name="alert_backend_failed">The keep-awake backend did not respond. Open settings to check.</string>
+    <string name="alert_title">GazeKeep needs attention</string>
+    <string name="notification_service_channel">GazeKeep</string>
+    <string name="notification_alert_channel">GazeKeep alerts</string>
+    <string name="notification_service_title">GazeKeep is running</string>
+    <string name="notification_service_waiting">Waiting for the system timeout</string>
+</resources>

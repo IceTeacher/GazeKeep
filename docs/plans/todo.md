@@ -4,6 +4,14 @@
 
 当前按[v1 稳定性与发布规划](20261014-v1-stability-release.md)推进，先复查自检及后台切换时的相机释放与取消链路，再完成异常恢复和正式产物验收。
 
+## 应用内语言（2026-10-24）
+
+- 文案继续使用 Compose Multiplatform Resources，不引入 i18n 框架或 AppCompat；设置页新增「语言」（跟随系统默认、简体中文、English），Android 13+ 走系统 LocaleManager 与 `localeConfig`，12 及以下用独立偏好在 attachBaseContext 套用；android 与 a11y 模块补齐英文原生资源（通知、Xposed 描述、无障碍描述）。官网演示不显示该项。
+- 主机验证：先确认新增用例在旧实现上编译失败；shared 新增 `AppLanguageTest` 4 项与设置页语言交互 2 项，新增 `settings_bottom_light_en` 截图（共 12 张，原 11 张校验未变）；`:shared:testAndroidHostTest`、JS/Wasm 编译、`:android:testDebugUnitTest`、`:android:assembleDebug`、`pnpm --filter @gazekeep/app lint`、全仓 `format:check` 通过；合并 Manifest 含 `localeConfig`，权限无新增。
+- 模拟器验证（Pixel_8_API_35，x86_64，系统语言 zh-Hans-CN，Debug APK）：默认显示跟随系统；应用内切到 English/简体中文/跟随系统时，系统记录分别为 `[en]`/`[zh-CN]`/`[]`，页面重建且停留在设置页；冷启动保持；外部写入 en-US 显示 English、写入 fr-FR 显示跟随系统且为中文；系统「应用语言」页只列出中英，选择 en-GB 后应用显示 English；英文下的异常通知与渠道名为英文。验证后已恢复为 `[]`。
+- [ ] Android 12 及以下的偏好存储与 attachBaseContext 路径未在设备或模拟器上执行（本机只有 API 35 镜像）。
+- [ ] 运行中切换语言后，常驻服务通知的正文在服务重建前保持旧语言，未实测重建后的更新；真实 ROM（含 MIUI/HyperOS 的应用语言入口）未验收。
+
 ## 本次文档维护（2026-10-17）
 
 - 任务清单与专题计划统一迁入 `docs/plans/`，索引统一为“任务与计划”，状态在正文和索引中标注；同步协作规则、文档维护 Skill、读者导航及全部引用。
