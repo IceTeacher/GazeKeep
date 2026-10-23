@@ -47,6 +47,7 @@
 - 测试先行：Function 3 项（路径与查询、方法/请求体/请求头、非 `/stats` 路径）与页面脚本 2 项均先确认失败；架构测试的镜像目录加入 `functions`，页面渲染工具新增头部外链脚本属性。`wrangler pages dev dist` 实测 `/stats/script.js`、`/stats/recorder.js` 与录制配置接口经代理返回 200，`/` 302、`/zh/` 与 KMP 目录 200。未经代理发送真实上报，避免污染生产统计。
 - dev 预览与生产实测：`/stats/*` 经代理 200，生产发出 `/stats/api/send`，预览不发出；生产实测的一次无头 Chromium 访问计入了 Umami。
 - 地区修正：Umami 部署在 Vercel，会把 `X-Forwarded-For` 改写为 Worker 出口地址，地区请求头（`x-vercel-ip-country` 等）也按出口判定，因此 Umami 侧设 `CLIENT_IP_HEADER` 无效。核对 Umami v3.4.0 源码后改为在转发 `/api/send` 时把 `CF-Connecting-IP` 写入 `payload.ip`：Umami 有该字段时跳过地区请求头、按 IP 查 GeoLite，只影响本站且无需改 Umami 配置；不再写 `X-Forwarded-For`。会话录制 `/api/record` 不读该字段，其 IP 仍为出口地址（只用于 IP 屏蔽）。新增与改写 3 项 Function 用例，先确认旧实现失败。
+- 录像上报核对：按 `recorder.js` 源码，录制在取得统计会话令牌后才启动且上传需带令牌。dev 预览原样访问并滚动约 36 秒（3 次）均无 `/api/send` 与 `/api/record`；对照组去掉 `data-domains` 并在浏览器内伪造响应（不发往 Umami）后出现 `/api/record`，确认预览不上报录像，更正此前“预览也会录制”的说明。
 - [ ] 合入 `main` 后确认 Umami 后台新访问的地区为访客实际地区。
 
 ## CI 流水线（2026-10-22）
