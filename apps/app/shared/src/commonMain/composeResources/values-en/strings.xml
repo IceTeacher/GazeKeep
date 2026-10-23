@@ -191,6 +191,7 @@
     <string name="settings_about_summary">Version, credits and third-party licenses</string>
     <string name="about_brand_name">GazeKeep</string>
     <string name="about_github">GitHub project</string>
+    <string name="about_website">Official website</string>
     <string name="about_third_party_notices">Third-party open-source licenses</string>
     <string name="home_status_decision">Last check: %1$s</string>
     <string name="home_chip_ready">Ready</string>

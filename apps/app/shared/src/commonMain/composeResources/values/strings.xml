@@ -160,7 +160,8 @@
     <string name="settings_about">关于</string>
     <string name="settings_about_summary">版本信息、开源致谢与第三方许可</string>
     <string name="about_brand_name">GazeKeep</string>
-    <string name="about_github">GitHub 项目</string>
+    <string name="about_github">GitHub 仓库</string>
+    <string name="about_website">官方网站</string>
     <string name="about_third_party_notices">第三方开源许可</string>
     <string name="home_status_decision">最近检测：%1$s</string>
     <string name="home_chip_ready">已就绪</string>
