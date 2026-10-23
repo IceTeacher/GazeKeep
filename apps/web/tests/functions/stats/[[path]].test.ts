@@ -23,27 +23,56 @@ test("脚本请求保留子路径与查询参数转发到 Umami，并原样返�
   expect(await response.text()).toBe("ok");
 });
 
-test("上报请求保留方法、请求体与 User-Agent，并以访客 IP 写入 X-Forwarded-For", async () => {
-  const calls = stubUpstream();
-  await onRequest({
+const send = (body: string, ip?: string) =>
+  onRequest({
     request: new Request("https://gazekeep.rainafter.cn/stats/api/send", {
       method: "POST",
-      body: '{"type":"event"}',
+      body,
       headers: {
         "content-type": "application/json",
         "user-agent": "Mozilla/5.0 Test",
-        "cf-connecting-ip": "203.0.113.7",
         cookie: "site=secret",
+        ...(ip ? { "cf-connecting-ip": ip } : {}),
       },
     }),
   });
+
+test("上报以访客 IP 写入 payload.ip，保留方法、其余字段与 User-Agent", async () => {
+  const calls = stubUpstream();
+  // 客户端自带的 ip 以 Cloudflare 识别的访客地址为准。
+  await send('{"type":"event","payload":{"website":"w","url":"/zh/","ip":"198.51.100.1"}}', "203.0.113.7");
   const [forwarded] = calls;
   expect(forwarded.method).toBe("POST");
-  expect(await forwarded.text()).toBe('{"type":"event"}');
+  expect(await forwarded.json()).toEqual({ type: "event", payload: { website: "w", url: "/zh/", ip: "203.0.113.7" } });
   expect(forwarded.headers.get("user-agent")).toBe("Mozilla/5.0 Test");
-  expect(forwarded.headers.get("x-forwarded-for")).toBe("203.0.113.7");
-  // 官网 Cookie 不发往统计服务。
+  // Vercel 会覆盖 X-Forwarded-For，不再写入；官网 Cookie 不发往统计服务。
+  expect(forwarded.headers.get("x-forwarded-for")).toBeNull();
   expect(forwarded.headers.get("cookie")).toBeNull();
+});
+
+test("缺少访客 IP 或请求体不是上报 JSON 时原样转发", async () => {
+  const calls = stubUpstream();
+  await send('{"type":"event","payload":{"website":"w"}}');
+  await send("not json", "203.0.113.7");
+  await send('{"type":"event"}', "203.0.113.7");
+  expect(await Promise.all(calls.map((request) => request.text()))).toEqual([
+    '{"type":"event","payload":{"website":"w"}}',
+    "not json",
+    '{"type":"event"}',
+  ]);
+});
+
+test("会话录制等其他接口不改写请求体", async () => {
+  const calls = stubUpstream();
+  const body = '{"website":"w","events":[]}';
+  await onRequest({
+    request: new Request("https://gazekeep.rainafter.cn/stats/api/record", {
+      method: "POST",
+      body,
+      headers: { "content-type": "application/json", "cf-connecting-ip": "203.0.113.7" },
+    }),
+  });
+  expect(await calls[0].text()).toBe(body);
 });
 
 test("非 /stats 路径不转发", async () => {
