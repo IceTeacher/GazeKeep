@@ -1,17 +1,26 @@
 package cn.rainafter.app.gazekeep.ui
 
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onLast
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import cn.rainafter.app.gazekeep.ui.testing.UiTestSession
 import cn.rainafter.app.gazekeep.ui.testing.launchApp
 import cn.rainafter.app.gazekeep.ui.testing.readyState
 import cn.rainafter.app.gazekeep.ui.testing.text
 import gazekeep.shared.generated.resources.Res
+import gazekeep.shared.generated.resources.about_dep_libxposed
+import gazekeep.shared.generated.resources.about_github
+import gazekeep.shared.generated.resources.about_website
 import gazekeep.shared.generated.resources.nav_settings
+import gazekeep.shared.generated.resources.settings_about
+import gazekeep.shared.generated.resources.settings_back
 import gazekeep.shared.generated.resources.settings_hold_10
 import gazekeep.shared.generated.resources.settings_hold_unlimited
 import gazekeep.shared.generated.resources.settings_max_hold
@@ -54,5 +63,32 @@ class SettingsUiTest {
     app.openTab(text(Res.string.nav_settings))
     app.assertShown(text(Res.string.settings_self_test))
     app.assertShown(text(Res.string.settings_need_self_test))
+  }
+
+  @Test
+  fun aboutLinksOpenProjectRepositoryAndWebsite() {
+    val app = rule.launchApp(readyState())
+    app.openTab(text(Res.string.nav_settings))
+    app.click(text(Res.string.settings_about))
+    app.click(text(Res.string.about_github))
+    app.click(text(Res.string.about_website))
+    assertEquals(
+      listOf("openUrl:https://github.com/IceTeacher/GazeKeep", "openUrl:https://gazekeep.rainafter.cn"),
+      app.actions.calls,
+    )
+  }
+
+  @Test
+  @Config(qualifiers = "+zh-rCN-land")
+  fun aboutBackButtonStaysPinnedWhileScrolling() {
+    val app = rule.launchApp(readyState())
+    app.openTab(text(Res.string.nav_settings))
+    app.click(text(Res.string.settings_about))
+    val back = rule.onNodeWithContentDescription(text(Res.string.settings_back))
+    val before = back.getUnclippedBoundsInRoot()
+    // 横屏下内容超出一屏，滚到最后一项确保页面确实发生了滚动。
+    rule.onNodeWithText(text(Res.string.about_dep_libxposed)).performScrollTo()
+    rule.waitForIdle()
+    assertEquals(before, back.getUnclippedBoundsInRoot())
   }
 }

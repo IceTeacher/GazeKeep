@@ -41,6 +41,7 @@ import cn.rainafter.app.gazekeep.ui.components.SettingsGroupTitle
 import cn.rainafter.app.gazekeep.ui.contract.ControllerState
 import cn.rainafter.app.gazekeep.ui.contract.PlatformActions
 import cn.rainafter.app.gazekeep.ui.navigation.SettingsScreen
+import cn.rainafter.app.gazekeep.ui.text.ProjectLinks
 import cn.rainafter.app.gazekeep.ui.text.filterThirdPartyNotices
 import gazekeep.shared.generated.resources.Res
 import gazekeep.shared.generated.resources.about_brand_name
@@ -51,6 +52,7 @@ import gazekeep.shared.generated.resources.about_dep_mlkit
 import gazekeep.shared.generated.resources.about_dep_shizuku
 import gazekeep.shared.generated.resources.about_github
 import gazekeep.shared.generated.resources.about_third_party_notices
+import gazekeep.shared.generated.resources.about_website
 import gazekeep.shared.generated.resources.app_icon
 import gazekeep.shared.generated.resources.notices_all_title
 import gazekeep.shared.generated.resources.notices_core_title
@@ -102,15 +104,8 @@ internal fun AboutScreen(
           end = 16.dp,
         ),
     ) {
-      IconButton(onClick = onBack) {
-        Icon(
-          imageVector = MiuixIcons.Back,
-          contentDescription = stringResource(Res.string.settings_back),
-          tint = MiuixTheme.colorScheme.onSurface,
-        )
-      }
-
-      Spacer(Modifier.height(36.dp))
+      // 为固定在顶部的返回按钮留出位置，首屏布局与按钮在列内时一致。
+      Spacer(Modifier.height(BackButtonSize + 36.dp))
 
       Column(
         modifier = Modifier.fillMaxWidth(),
@@ -151,7 +146,11 @@ internal fun AboutScreen(
         Card(modifier = Modifier.fillMaxWidth()) {
           ArrowPreference(
             title = stringResource(Res.string.about_github),
-            onClick = { actions.openUrl("https://github.com/RainAfter/GazeKeep") },
+            onClick = { actions.openUrl(ProjectLinks.REPOSITORY) },
+          )
+          ArrowPreference(
+            title = stringResource(Res.string.about_website),
+            onClick = { actions.openUrl(ProjectLinks.WEBSITE) },
           )
           ArrowPreference(
             title = stringResource(Res.string.about_third_party_notices),
@@ -183,8 +182,24 @@ internal fun AboutScreen(
         }
       }
     }
+
+    // 返回按钮放在滚动列之外，滚动时固定在左上角。
+    IconButton(
+      onClick = onBack,
+      modifier = Modifier
+        .padding(top = statusBarTop + 8.dp, start = 16.dp)
+        .size(BackButtonSize),
+    ) {
+      Icon(
+        imageVector = MiuixIcons.Back,
+        contentDescription = stringResource(Res.string.settings_back),
+        tint = MiuixTheme.colorScheme.onSurface,
+      )
+    }
   }
 }
+
+private val BackButtonSize = 40.dp
 
 private data class CoreDependency(val name: String, val license: String, val url: String)
 
