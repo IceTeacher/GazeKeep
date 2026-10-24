@@ -28,6 +28,8 @@ AppLocales 不引入 AppCompat：Android 13+ 写入系统 LocaleManager，与系
 
 通知文案来自 android 模块的 `values`/`values-en` 资源，GazeNotifier 使用套用语言后的 Context；渠道名在服务创建时随语言更新，已展示的常驻通知在服务重建后更新。
 
+应用内语言只作用于本应用进程。系统设置中的无障碍服务名称与描述、LSPosed 管理器中的模块描述由其他应用按自身语言读取，跟随系统语言；任何版本的应用内设置（包括 Android 13+ 的按应用语言）都无法改变这些入口，因此不宣称它们支持应用内切换。
+
 ## 当前清单与通知
 
 applicationId 为 cn.rainafter.app.gazekeep；相机、camera 前台服务和通知是现有申请能力，Shizuku Provider 与 Xposed 打包入口保持稳定。无障碍配置 canRetrieveWindowContent=false。
