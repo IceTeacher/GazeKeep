@@ -176,6 +176,8 @@
     <string name="home_decision_pending">No recent check</string>
     <string name="home_status_tap_to_start">Enable GazeKeep</string>
     <string name="home_status_waiting_hint">Check backend permissions and service status</string>
+    <string name="home_status_waiting_camera">Waiting for camera access</string>
+    <string name="home_status_waiting_camera_hint">Resumes automatically once camera access is granted</string>
     <string name="home_info_app_version">App version</string>
     <string name="home_info_backend_status">Backend readiness</string>
     <string name="home_info_camera_selftest">Camera and self-test</string>

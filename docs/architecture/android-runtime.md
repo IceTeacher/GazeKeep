@@ -10,7 +10,7 @@ GazeService 适配生命周期，BackendSession 拥有 backend、oracle、engine
 
 无障碍服务初始化 backend 后发布可观察的实例状态；运行会话持续跟踪实例及 readiness，覆盖服务后连接、断开和重连。断开同步摘除窗口，再清除实例；同类型的新实例也必须释放旧后端并重新选择、配置 oracle。旧服务延迟销毁不能清除新服务的实例状态，取消会话后不再注册后端。
 
-服务在 onCreate 与每次 onStartCommand 提升前核对相机授权，并处理权限撤销或 while-in-use 条件变化造成的平台拒绝。失败时清理会话、发布停止状态、尝试异常通知并 stopSelf，各项清理彼此隔离；失败启动返回 START_NOT_STICKY，不在权限缺失时反复粘性重启，也不创建采集会话。保存的启用配置与自检资格保留，重新授权后由前台页面正常重配。有效的每次 onStartCommand 都兑现 startForeground。息屏保持 camera 前台服务空转，只释放检测资源；后台亮屏广播直接重启 camera FGS 的限制不能靠猜测绕过。保留空转服务是为了避免依赖后台广播重新启动 camera FGS；仍须验证存活与冷启动恢复。RuntimeStatusStore 只发布状态，不驱动保亮或采集避让；自检避让由 AppGraph 注入的进程共享采集协调器负责。
+服务在 onCreate 与每次 onStartCommand 提升前核对相机授权，并处理权限撤销或 while-in-use 条件变化造成的平台拒绝。失败时清理会话、发布停止状态、尝试异常通知并 stopSelf，各项清理彼此隔离；失败启动返回 START_NOT_STICKY，不在权限缺失时反复粘性重启，也不创建采集会话。保存的启用配置与自检资格保留；前台页面刷新时若相机权限由未授权变为已授权、且启用与自检资格仍在，控制器自动重配，不要求手动关开总开关（首次读取只记录基线）。有效的每次 onStartCommand 都兑现 startForeground。息屏保持 camera 前台服务空转，只释放检测资源；后台亮屏广播直接重启 camera FGS 的限制不能靠猜测绕过。保留空转服务是为了避免依赖后台广播重新启动 camera FGS；仍须验证存活与冷启动恢复。RuntimeStatusStore 只发布状态，不驱动保亮或采集避让；自检避让由 AppGraph 注入的进程共享采集协调器负责。
 
 ## 配置与迁移
 

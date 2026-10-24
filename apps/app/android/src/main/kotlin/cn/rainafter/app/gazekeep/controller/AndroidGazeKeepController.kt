@@ -47,6 +47,8 @@ class AndroidGazeKeepController(
   private val mutableState = MutableStateFlow(ControllerState(systemInfo = readSystemInfo(this.context)))
   override val state = mutableState.asStateFlow()
   private val readinessProbe = BackendReadinessProbe(context)
+
+  @Volatile private var lastCameraGranted: Boolean? = null
   private val selfTestCoordinator = SelfTestCoordinator(context, scope, store, ownership)
   override val selfTest = selfTestCoordinator.state
   private val decisionLogs = DecisionLogs.get(this.context)
@@ -126,6 +128,20 @@ class AndroidGazeKeepController(
         )
       }
       syncIndicatorState()
+      // 首次读取只记录基线，避免每次打开应用都把默认未授权当作权限恢复。
+      val wasGranted = lastCameraGranted
+      lastCameraGranted = readiness.cameraGranted
+      val current = state.value
+      if (wasGranted != null && current.loaded &&
+        shouldResumeAfterCameraGrant(
+          wasGranted,
+          readiness.cameraGranted,
+          current.config.enabled,
+          current.selfTestPassed,
+        )
+      ) {
+        reconfigureEngine()
+      }
     }
   }
 
