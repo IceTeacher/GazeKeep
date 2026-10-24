@@ -34,6 +34,7 @@ dependencies {
   testImplementation(libs.kotlin.test)
   testImplementation(libs.kotlin.testJunit)
   testImplementation(libs.junit)
+  testImplementation(libs.robolectric)
   androidTestImplementation(libs.kotlin.test)
   androidTestImplementation(libs.kotlin.testJunit)
   androidTestImplementation(libs.androidx.test.runner)
@@ -53,6 +54,12 @@ android {
     versionCode = 4
     versionName = "1.1.2"
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+  }
+  testOptions.unitTests {
+    // 通知文案测试按资源键读取各语言字符串。
+    isIncludeAndroidResources = true
+    // Robolectric 的 Parcel/FileDescriptor 拦截需要访问 JDK 内部 API。
+    all { it.jvmArgs("--add-opens=java.base/jdk.internal.access=ALL-UNNAMED") }
   }
   // 实机套件按资源键读取页面文案，避免在测试中复制字符串。
   sourceSets.getByName("androidTest").assets.srcDir("../shared/src/commonMain/composeResources/values")

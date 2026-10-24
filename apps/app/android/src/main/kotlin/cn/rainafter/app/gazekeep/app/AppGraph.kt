@@ -7,6 +7,7 @@ import cn.rainafter.app.gazekeep.engine.camera.CaptureOwnershipCoordinator
 import cn.rainafter.app.gazekeep.engine.config.ConfigStore
 import cn.rainafter.app.gazekeep.notification.DecisionLogs
 import cn.rainafter.app.gazekeep.notification.GazeNotifier
+import cn.rainafter.app.gazekeep.platform.AppLocales
 import cn.rainafter.app.gazekeep.runtime.BackendSession
 import kotlinx.coroutines.CoroutineScope
 
@@ -15,7 +16,7 @@ class AppGraph(context: Context) {
   val settings = ConfigStore(this.context)
   private val decisionLogs = DecisionLogs.get(this.context)
   fun createController() = AndroidGazeKeepController(context, settings, captureOwnership)
-  fun createNotifier() = GazeNotifier(context)
+  fun createNotifier() = GazeNotifier { AppLocales.wrap(context) }
   fun createSession(scope: CoroutineScope, config: GazeConfig, notifier: GazeNotifier) =
     BackendSession(context, scope, config, notifier, decisionLogs::record, captureOwnership)
   companion object {

@@ -1,0 +1,4 @@
+<resources>
+    <string name="a11y_service_name">GazeKeep</string>
+    <string name="a11y_service_description">Delays screen timeout while you look at the screen</string>
+</resources>

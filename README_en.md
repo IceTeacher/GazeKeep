@@ -31,11 +31,11 @@ With GazeKeep, you can confidently lower your system display timeout to an ultra
 
 ## Screenshots
 
-|                                                 Home Status                                                  |                                                Settings                                                 |
-| :----------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------: |
-|     <img src="docs/assets/screenshot-home.png" width="320" alt="Home status and environment overview" />     | <img src="docs/assets/screenshot-settings.png" width="320" alt="Detection and protection parameters" /> |
-|                                                 **Backends**                                                 |                                            **App Whitelist**                                            |
-| <img src="docs/assets/screenshot-backend.png" width="320" alt="Three working backends and auto selection" /> |        <img src="docs/assets/screenshot-apps.png" width="320" alt="App whitelist management" />         |
+|                                                   Home Status                                                   |                                                  Settings                                                  |
+| :-------------------------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------: |
+|     <img src="docs/assets/screenshot-home-en.png" width="320" alt="Home status and environment overview" />     | <img src="docs/assets/screenshot-settings-en.png" width="320" alt="Detection and protection parameters" /> |
+|                                                  **Backends**                                                   |                                             **App Whitelist**                                              |
+| <img src="docs/assets/screenshot-backend-en.png" width="320" alt="Three working backends and auto selection" /> |        <img src="docs/assets/screenshot-apps-en.png" width="320" alt="App whitelist management" />         |
 
 ## Privacy & Security
 

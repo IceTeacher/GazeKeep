@@ -31,6 +31,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.ActivityCompat
 import cn.rainafter.app.gazekeep.applist.AppIconCache
 import cn.rainafter.app.gazekeep.controller.AndroidGazeKeepController
+import cn.rainafter.app.gazekeep.ui.contract.AppLanguage
 import cn.rainafter.app.gazekeep.ui.contract.PlatformActions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -85,6 +86,10 @@ class AndroidPlatformActions(
   }
 
   override fun formatLogTimestamp(epochMillis: Long): String = formatLogTimestampUtc8(epochMillis)
+
+  override fun appLanguage(): AppLanguage = AppLocales.current(activity)
+
+  override fun setAppLanguage(language: AppLanguage) = AppLocales.set(activity, language)
 
   override fun shareLogs(text: String) {
     if (text.isBlank()) return

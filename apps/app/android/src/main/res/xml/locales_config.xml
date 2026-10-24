@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- 与 shared composeResources 的资源语言一致；Android 13+ 系统设置据此提供「应用语言」入口。 -->
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <locale android:name="zh-CN" />
+    <locale android:name="en" />
+</locale-config>

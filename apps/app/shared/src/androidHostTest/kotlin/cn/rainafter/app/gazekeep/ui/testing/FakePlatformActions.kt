@@ -5,14 +5,19 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import cn.rainafter.app.gazekeep.ui.contract.AppLanguage
 import cn.rainafter.app.gazekeep.ui.contract.PlatformActions
 
 /** 平台能力的测试实现：返回键走真实 BackHandler，自检预览与应用图标用无内容的占位块，截图不含相机画面。 */
-class FakePlatformActions : PlatformActions {
+class FakePlatformActions(language: AppLanguage? = AppLanguage.System) : PlatformActions {
   val calls = mutableListOf<String>()
+  private var language by mutableStateOf(language)
   var previewMounted = false
     private set
 
@@ -46,6 +51,13 @@ class FakePlatformActions : PlatformActions {
 
   override fun exportLogs(text: String) {
     calls += "exportLogs"
+  }
+
+  override fun appLanguage(): AppLanguage? = language
+
+  override fun setAppLanguage(language: AppLanguage) {
+    calls += "setAppLanguage:$language"
+    this.language = language
   }
 
   // 固定 UTC 格式，截图不随运行机器时区变化。

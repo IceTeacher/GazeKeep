@@ -187,6 +187,11 @@
     name="home_privacy_card_summary"
   >Brief sampling near timeout. Frames stay in memory. Uncertain results let the screen sleep.</string>
     <string name="settings_title">Settings</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_language_system">Follow system</string>
+    <!-- 语言名称按各自语言书写，不随界面语言翻译。 -->
+    <string name="settings_language_chinese">简体中文</string>
+    <string name="settings_language_english">English</string>
     <string name="settings_about">About</string>
     <string name="settings_about_summary">Version, credits and third-party licenses</string>
     <string name="about_brand_name">GazeKeep</string>

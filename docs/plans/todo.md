@@ -4,6 +4,16 @@
 
 当前按[v1 稳定性与发布规划](20261014-v1-stability-release.md)推进，先复查自检及后台切换时的相机释放与取消链路，再完成异常恢复和正式产物验收。
 
+## 应用内语言（2026-10-24）
+
+- 文案继续使用 Compose Multiplatform Resources，不引入 i18n 框架或 AppCompat；设置页新增「语言」（跟随系统默认、简体中文、English），Android 13+ 走系统 LocaleManager 与 `localeConfig`，12 及以下用独立偏好在 attachBaseContext 套用；android 与 a11y 模块补齐英文原生资源：通知随应用内语言切换；Xposed 描述与无障碍描述由 LSPosed 管理器与系统设置读取，只随系统语言切换。官网演示不显示该项。
+- 主机验证：先确认新增用例在旧实现上编译失败；shared 新增 `AppLanguageTest` 4 项与设置页语言交互 2 项，新增 `settings_bottom_light_en` 截图（共 12 张，原 11 张校验未变）；`:shared:testAndroidHostTest`、JS/Wasm 编译、`:android:testDebugUnitTest`、`:android:assembleDebug`、`pnpm --filter @gazekeep/app lint`、全仓 `format:check` 通过；合并 Manifest 含 `localeConfig`，权限无新增。
+- 模拟器验证（Pixel_8_API_35，x86_64，系统语言 zh-Hans-CN，Debug APK）：默认显示跟随系统；应用内切到 English/简体中文/跟随系统时，系统记录分别为 `[en]`/`[zh-CN]`/`[]`，页面重建且停留在设置页；冷启动保持；外部写入 en-US 显示 English、写入 fr-FR 显示跟随系统且为中文；系统「应用语言」页只列出中英，选择 en-GB 后应用显示 English；英文下的异常通知与渠道名为英文；应用语言为 `[en]` 时，系统设置的无障碍服务详情仍显示中文描述，符合“只随系统语言切换”的边界。验证后已恢复为 `[]`。
+- 低版本模拟器验证（Pixel_6_API_31 Android 12 x86_64；Pixel_2_API_27 Android 8.1 x86，后者使用仅额外保留 x86 原生库的临时 Debug 包，不代表发布支持 x86）：设置页切换 English/简体中文/跟随系统时偏好分别为 `en`/`zh-CN`/空，页面重建并停留在设置页，冷启动保持；跟随系统时改系统语言后应用随之切换；应用为 English 时系统无障碍详情仍为中文描述。API 31 前置相机接主机摄像头完成自检后，GazeService 前台运行中经设置页切换 `en`→空：进程与服务实例不变，常驻通知与两条渠道名随之切换，已展示的提醒保持原文；English 下撤销相机权限，进程重建后的提醒为英文，恢复权限后服务重新前台运行；常驻通知不可划掉，划掉场景不适用；两台均无崩溃。验证后已恢复语言、AVD 相机配置与权限。
+- [ ] Android 8.1 的运行中通知刷新只有主机测试：模拟器相机以 640×480 NV21 打开主机摄像头失败并导致 HAL 超时，经 v4l2loopback 转接时模拟器找不到设备或崩溃，自检无法完成，未执行。
+- 运行中切换语言（PR #9 评审 P2）：android 接入 Robolectric，新增 `GazeNotifierLocaleTest` 3 项与 `AppLocalesTest` 1 项（SDK 32），先确认旧实现编译失败；`:android:testDebugUnitTest`（30 项）、`:android:assembleDebug`、`:android:lintDebug`（28 条警告与 HEAD 相同）、`verify:architecture`、`pnpm --filter @gazekeep/app lint` 通过。模拟器（同上，GazeService 前台运行）切换 `[]`→`[en]`→`[]`：进程与服务实例不变，常驻通知标题与正文、两条渠道名随之切换，已展示的提醒保持原文，无崩溃。语言写入使用 `cmd locale set-app-locales`，与设置页同为 LocaleManager 记录。重装后 LSPosed 提示模块需重启，期间出现“保亮后端不可用”提醒，与本项无关，未重启模拟器。
+- [ ] 真实 ROM（含 MIUI/HyperOS 的应用语言入口）未验收。
+
 ## 本次文档维护（2026-10-17）
 
 - 任务清单与专题计划统一迁入 `docs/plans/`，索引统一为“任务与计划”，状态在正文和索引中标注；同步协作规则、文档维护 Skill、读者导航及全部引用。

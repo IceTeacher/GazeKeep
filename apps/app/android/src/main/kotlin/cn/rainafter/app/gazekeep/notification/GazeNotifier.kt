@@ -13,7 +13,9 @@ import cn.rainafter.app.gazekeep.MainActivity
 import cn.rainafter.app.gazekeep.R
 import cn.rainafter.app.gazekeep.core.engine.Alert
 
-class GazeNotifier(private val context: Context) {
+/** 文案每次按当前应用语言解析：运行中切换语言时，服务不会重建本对象。 */
+class GazeNotifier(private val localized: () -> Context) {
+  private val context get() = localized()
   private val lastAlerts = mutableMapOf<Alert, Long>()
   fun notifyAlert(alert: Alert) {
     val now = SystemClock.elapsedRealtime()
@@ -61,6 +63,15 @@ class GazeNotifier(private val context: Context) {
           NotificationManager.IMPORTANCE_DEFAULT,
         ),
       )
+    }
+  }
+
+  /** 语言变化后更新渠道名与仍在展示的常驻通知；用户已移除的常驻通知不重新弹出。 */
+  fun refreshLocale() {
+    createChannels()
+    val manager = context.getSystemService(NotificationManager::class.java)
+    if (manager.activeNotifications.any { it.id == NOTIFICATION_ID }) {
+      manager.notify(NOTIFICATION_ID, serviceNotification())
     }
   }
 

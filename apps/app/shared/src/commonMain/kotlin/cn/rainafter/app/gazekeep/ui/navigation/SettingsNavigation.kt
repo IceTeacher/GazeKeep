@@ -204,6 +204,7 @@ internal fun SettingsNavigation(
         state = state,
         scope = scope,
         controller = controller,
+        actions = actions,
         onNavigate = ::navigateTo,
         bottomBar = { BottomNavBar(selectedTab = SettingsScreen.Settings) },
       )
