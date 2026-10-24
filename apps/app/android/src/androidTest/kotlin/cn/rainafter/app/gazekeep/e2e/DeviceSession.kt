@@ -58,13 +58,15 @@ class DeviceSession {
   /** 以中文界面运行应用，使断言与默认资源一致；需要 Android 13 的按应用语言。 */
   fun useChineseUi() {
     assumeTrue("按应用语言需要 Android 13+，当前 API ${Build.VERSION.SDK_INT}", Build.VERSION.SDK_INT >= 33)
-    val original = shell(
-      "cmd locale get-app-locales $PACKAGE --user current",
-    ).substringAfter("Locales: ").trim('[', ']')
+    // 输出格式随系统版本不同（如 "Locales: [..]" 或 "Locales for <pkg> for user 0 are [..]"），只取方括号内的列表。
+    val original = Regex("""\[(.*)]""").find(
+      shell("cmd locale get-app-locales $PACKAGE --user current"),
+    )?.groupValues?.get(1).orEmpty().trim()
     shell("cmd locale set-app-locales $PACKAGE --user current --locales zh-CN")
     onCleanup {
+      // executeShellCommand 不经 shell 解析，传入 "" 会被当成字面值；省略 --locales 才是空列表。
       if (original.isBlank()) {
-        shell("cmd locale set-app-locales $PACKAGE --user current --locales \"\"")
+        shell("cmd locale set-app-locales $PACKAGE --user current")
       } else {
         shell("cmd locale set-app-locales $PACKAGE --user current --locales $original")
       }
@@ -107,9 +109,14 @@ class DeviceSession {
     device.waitForIdle()
   }
 
+  /** 部分 ROM 在启动动画期间会丢弃注入的首次点击，切换后以设置页独有条目确认，未切换则重试。 */
   fun openSettingsTab() {
-    require(label("nav_settings")).click()
-    device.waitForIdle()
+    repeat(3) {
+      require(label("nav_settings")).click()
+      device.waitForIdle()
+      if (device.wait(Until.hasObject(By.text(label("settings_backend"))), 3_000L)) return
+    }
+    error("切换到设置页失败")
   }
 
   fun close() {
