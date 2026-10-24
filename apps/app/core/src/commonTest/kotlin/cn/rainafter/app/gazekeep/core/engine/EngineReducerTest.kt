@@ -106,6 +106,11 @@ class EngineReducerTest {
     assertEquals(EngineState.Yielded(YieldReason.WaitingDeadline), transition.snapshot.state)
     assertTrue(transition.effects.any { it is EngineEffect.CancelCapture })
     assertTrue(transition.effects.none { it is EngineEffect.Extend })
+    // 作废的这一轮必须留下记录，否则日志无法解释这次采样去向。
+    val record = transition.effects.filterIsInstance<EngineEffect.Record>().single().record
+    assertEquals(DecisionReason.Aborted, record.reason)
+    assertEquals(AbortReason.Cancelled, record.abortReason)
+    assertFalse(record.extended)
   }
 
   @Test

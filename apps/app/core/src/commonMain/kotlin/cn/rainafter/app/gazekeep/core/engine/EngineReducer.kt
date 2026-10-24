@@ -227,10 +227,21 @@ object EngineReducer {
       darkUnknownStreak = 0,
       forcedYieldPending = false,
     )
-    return Transition(
-      snapshot.copy(state = EngineState.Yielded(YieldReason.WaitingDeadline), context = context),
-      listOf(EngineEffect.CancelCapture, EngineEffect.CancelWake, EngineEffect.CancelHoldLimit, EngineEffect.Release),
-    )
+    val next = snapshot.copy(state = EngineState.Yielded(YieldReason.WaitingDeadline), context = context)
+    val effects = buildList {
+      addAll(
+        listOf(EngineEffect.CancelCapture, EngineEffect.CancelWake, EngineEffect.CancelHoldLimit, EngineEffect.Release),
+      )
+      // 采集中被真实触摸作废的一轮同样记录，日志才能解释这次采样的去向。
+      if (snapshot.state is EngineState.Capturing) {
+        add(
+          EngineEffect.Record(
+            next.record(uptime, DecisionReason.Aborted, null, false, null).copy(abortReason = AbortReason.Cancelled),
+          ),
+        )
+      }
+    }
+    return Transition(next, effects)
   }
 
   private fun gateResult(snapshot: EngineSnapshot, result: GateDecision, now: Long): Transition {
