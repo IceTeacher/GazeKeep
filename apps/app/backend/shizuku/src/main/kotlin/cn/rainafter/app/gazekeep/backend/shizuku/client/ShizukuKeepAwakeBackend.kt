@@ -47,6 +47,15 @@ class ShizukuKeepAwakeBackend(
     kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO,
   )
 
+  // 重连只在 UserService 掉线时调度，detach 只取消待执行的重绑而不废弃作用域。
+  private val reconnector = UserServiceReconnector(
+    scope = kotlinx.coroutines.CoroutineScope(
+      kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main,
+    ),
+    binderAlive = Shizuku::pingBinder,
+    bind = ::refresh,
+  )
+
   private fun coordinator(remote: IGazeKeepShell) = TimeoutRestoreCoordinator(
     restoreStore::read,
     restoreStore::write,
@@ -72,6 +81,7 @@ class ShizukuKeepAwakeBackend(
         return
       }
       shell = remote
+      reconnector.onConnected()
       _readiness.value = Readiness.Unavailable("restoring original timeout")
       recoveryScope.launch {
         operations.withLock {
@@ -90,11 +100,13 @@ class ShizukuKeepAwakeBackend(
       shell = null
       bound = false
       _readiness.value = Readiness.NeedsSetup(SetupStep.StartShizuku)
+      reconnector.onLost()
     }
   }
 
   private val binderReceived = Shizuku.OnBinderReceivedListener { refresh() }
   private val binderDead = Shizuku.OnBinderDeadListener {
+    reconnector.cancel()
     shell = null
     bound = false
     _readiness.value = Readiness.NeedsSetup(SetupStep.StartShizuku)
@@ -107,6 +119,7 @@ class ShizukuKeepAwakeBackend(
   }
 
   override suspend fun detach() {
+    reconnector.cancel()
     runCatching {
       if (bound) Shizuku.unbindUserService(args, connection, true)
     }

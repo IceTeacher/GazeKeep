@@ -10,6 +10,8 @@ backend:shizuku 分为 client、protocol、oracle、restore。ShellService 的�
 
 恢复写回后读回确认原值，再同步清记录；任一步失败保留恢复记录并报告未就绪。连接先恢复再 Ready，息屏/释放及销毁共用恢复流程；恢复任务独立于检测会话 scope。Binder 不可用时只能保留记录，待连接恢复再写回，不能宣称离线时已恢复系统设置。
 
+UserService 进程单独退出而 Shizuku 仍在线时不会再收到 binderReceived，由 UserServiceReconnector 按 1/2/5/10/30 s 退避重新绑定，连接成功后重置；Shizuku 自身离线或后端 detach 时取消待执行的重绑，等待 binderReceived 正常刷新。
+
 ## 来源与协议
 
 shell 协议 v3 保持已有事务编号与 PowerSnapshot 字段顺序，追加前台包查询；UserService 绑定版本跟随协议版本，触发旧服务更新；版本不匹配不就绪，避免连接旧 UserService。查询只解析明确 resumed activity，冲突/异常返回未知。shell 命令限时，原始 dumpsys 不跨进程、不进日志。
