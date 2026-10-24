@@ -38,6 +38,8 @@ import gazekeep.shared.generated.resources.settings_about_summary
 import gazekeep.shared.generated.resources.settings_app_count
 import gazekeep.shared.generated.resources.settings_apps
 import gazekeep.shared.generated.resources.settings_backend
+import gazekeep.shared.generated.resources.settings_background_policy
+import gazekeep.shared.generated.resources.settings_background_policy_summary
 import gazekeep.shared.generated.resources.settings_custom
 import gazekeep.shared.generated.resources.settings_debug_log
 import gazekeep.shared.generated.resources.settings_debug_log_summary
@@ -242,6 +244,15 @@ internal fun SettingsTabScreen(
           startAction = { StartSettingIcon(MiuixIcons.Scan) },
           onClick = { onNavigate(SettingsScreen.SelfTest) },
         )
+        if (actions.hasRomBackgroundPolicy()) {
+          // HyperOS 默认省电策略会在系统相机使用后冻结服务进程，且无公开接口读取当前策略，只能常驻引导。
+          ArrowPreference(
+            title = stringResource(Res.string.settings_background_policy),
+            summary = stringResource(Res.string.settings_background_policy_summary),
+            startAction = { StartSettingIcon(MiuixIcons.Info) },
+            onClick = actions::openRomBackgroundPolicy,
+          )
+        }
       }
 
       Card(modifier = Modifier.fillMaxWidth()) {

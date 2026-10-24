@@ -18,6 +18,10 @@ interface PlatformActions {
   fun appLanguage(): AppLanguage?
   fun setAppLanguage(language: AppLanguage)
 
+  /** ROM 是否提供需用户放开的后台省电策略入口（如 HyperOS）；false 时设置页不显示该项。 */
+  fun hasRomBackgroundPolicy(): Boolean
+  fun openRomBackgroundPolicy()
+
   @Composable fun HandleBack(enabled: Boolean, onBack: () -> Unit)
 
   @Composable fun SelfTestPreview(modifier: Modifier)

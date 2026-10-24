@@ -120,6 +120,8 @@ private object DemoActions : PlatformActions {
   // 演示语言由官网桥接控制，设置页不显示应用内语言切换。
   override fun appLanguage(): AppLanguage? = null
   override fun setAppLanguage(language: AppLanguage) {}
+  override fun hasRomBackgroundPolicy(): Boolean = false
+  override fun openRomBackgroundPolicy() {}
 
   @Composable override fun HandleBack(enabled: Boolean, onBack: () -> Unit) {}
 

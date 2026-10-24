@@ -65,6 +65,8 @@ Visit [GitHub Releases](https://github.com/IceTeacher/GazeKeep/releases/latest) 
 3. **Configure App Whitelist**: Keep app whitelist enabled and select reading, browsing, or cooking apps where gaze-keep should be active.
 4. **Confirm Backend & Enable**: Ensure at least one backend is ready, then switch on the master keep-awake toggle on the home page.
 
+> On Xiaomi/HyperOS, set battery saver to "No restrictions" via "Background activity" in Settings, otherwise keep-awake may stop after using the system camera; reopen the app once after changing it.
+
 ### 2. Backend Comparison & Preparation
 
 | Backend           | Applicable Conditions               | Backend Highlights                                                                           |

@@ -17,6 +17,8 @@
     <string name="settings_backend">当前后端</string>
     <string name="settings_privacy">隐私</string>
     <string name="settings_self_test">相机自检</string>
+    <string name="settings_background_policy">后台运行</string>
+    <string name="settings_background_policy_summary">请将省电策略设为「无限制」，否则使用系统相机后注视保亮可能失效</string>
     <string name="settings_back">返回</string>
     <string name="settings_loading">正在读取设置…</string>
     <string name="settings_off">已关闭</string>

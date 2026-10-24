@@ -17,6 +17,8 @@
     <string name="settings_backend">Backend</string>
     <string name="settings_privacy">Privacy</string>
     <string name="settings_self_test">Camera self-test</string>
+    <string name="settings_background_policy">Background activity</string>
+    <string name="settings_background_policy_summary">Set battery saver to “No restrictions”, otherwise gaze keep-awake may stop after using the system camera</string>
     <string name="settings_back">Back</string>
     <string name="settings_loading">Loading settings…</string>
     <string name="settings_off">Off</string>
