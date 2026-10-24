@@ -15,6 +15,9 @@ import cn.rainafter.app.gazekeep.core.policy.LeadBackoff
  * 引擎唯一修改状态的入口；Android 侧只负责把副作用结果重新投递成事件。
  */
 object EngineReducer {
+  // 锁屏等场景下系统只把截止时间推后数毫秒；超过该差值才视为新的截止周期。
+  private const val GATE_SKIP_JITTER_MS = 1_000L
+
   fun reduce(snapshot: EngineSnapshot, event: EngineEvent, now: Long): Transition = when (event) {
     is EngineEvent.ConfigChanged -> configChanged(snapshot, event.config)
 
@@ -158,6 +161,15 @@ object EngineReducer {
       return next.copy(effects = activity.effects + next.effects)
     }
     if (snapshot.context.forcedYieldPending) return maxHold(snapshot, now)
+    val skippedAt = snapshot.context.skippedScreenOffAtUptime
+    val current = snapshot.state
+    if (current is EngineState.Yielded &&
+      current.reason is YieldReason.Gate &&
+      skippedAt != null &&
+      kotlin.math.abs(deadline.screenOffAtUptime - skippedAt) < GATE_SKIP_JITTER_MS
+    ) {
+      return Transition(snapshot.copy(context = snapshot.context.copy(foregroundPackage = deadline.foregroundPackage)))
+    }
     val remaining = deadline.screenOffAtUptime - now
     // 保留真实熄屏截止时间，只将检测提前到降亮之前。
     val wakeAt = deadline.captureWakeAtUptime(
@@ -210,6 +222,7 @@ object EngineReducer {
     val context = snapshot.context.copy(
       lastExternalActivityUptime = uptime,
       holdStartUptime = null,
+      skippedScreenOffAtUptime = null,
       lookingStreak = 0,
       darkUnknownStreak = 0,
       forcedYieldPending = false,
@@ -224,7 +237,10 @@ object EngineReducer {
     val state = snapshot.state
     if (state !is EngineState.Gating) return Transition(snapshot)
     if (result is GateDecision.Skip) {
-      val next = snapshot.copy(state = EngineState.Yielded(YieldReason.Gate(result.reason)))
+      val next = snapshot.copy(
+        state = EngineState.Yielded(YieldReason.Gate(result.reason)),
+        context = snapshot.context.copy(skippedScreenOffAtUptime = state.deadline.screenOffAtUptime),
+      )
       return Transition(
         next,
         listOf(

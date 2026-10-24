@@ -151,6 +151,42 @@ class EngineReducerTest {
   }
 
   @Test
+  fun jitteredDeadlineAfterSkippedGateDoesNotGateAgain() {
+    // 锁屏亮屏时系统每次只把截止时间推后几毫秒，不能每次都重新门控。
+    val skipped = EngineReducer.reduce(
+      EngineReducer.reduce(ready(), EngineEvent.DeadlineUpdated(deadline), 15_000L).snapshot,
+      EngineEvent.GateResult(GateDecision.Skip(SkipReason.Locked)),
+      15_010L,
+    ).snapshot
+    val jitter = EngineReducer.reduce(
+      skipped,
+      EngineEvent.DeadlineUpdated(deadline.copy(screenOffAtUptime = deadline.screenOffAtUptime + 5L)),
+      15_200L,
+    )
+    assertIs<EngineState.Yielded>(jitter.snapshot.state)
+    assertTrue(jitter.effects.isEmpty())
+  }
+
+  @Test
+  fun newDeadlineCycleOrTouchAfterSkippedGateGatesAgain() {
+    val skipped = EngineReducer.reduce(
+      EngineReducer.reduce(ready(), EngineEvent.DeadlineUpdated(deadline), 15_000L).snapshot,
+      EngineEvent.GateResult(GateDecision.Skip(SkipReason.Locked)),
+      15_010L,
+    ).snapshot
+    val extended = deadline.copy(screenOffAtUptime = 31_000L)
+    val nextCycle = EngineReducer.reduce(skipped, EngineEvent.DeadlineUpdated(extended), 26_000L)
+    assertEquals(listOf(EngineEffect.RunGates(extended)), nextCycle.effects)
+
+    val touched = deadline.copy(
+      screenOffAtUptime = deadline.screenOffAtUptime + 5L,
+      lastExternalActivityUptime = 15_100L,
+    )
+    val afterTouch = EngineReducer.reduce(skipped, EngineEvent.DeadlineUpdated(touched), 15_200L)
+    assertIs<EngineState.Gating>(afterTouch.snapshot.state)
+  }
+
+  @Test
   fun unrelatedUnknownDoesNotCountAsDarkness() {
     val result = EngineReducer.reduce(
       capturing(ready(context = EngineContext(darkUnknownStreak = 1))),
