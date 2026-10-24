@@ -12,7 +12,7 @@ android → xposed（唯一 APK 打包）
 
 ## 仓库分区
 
-Android 九个运行模块与一个编译存根模块统一位于 apps/app，内部依赖由 Gradle 管理。apps/web 提供 Astro 静态双语官网，并复用 shared 的浏览器展示入口，scripts/repo-tools 提供 Node 仓库工具；pnpm 管理开发依赖，Turbo 调度工程级任务，不取代引擎或模块依赖。Node 开发工具不进入 APK。
+Android 九个运行模块、一个编译存根模块与一个实机测试模块（e2e）统一位于 apps/app，内部依赖由 Gradle 管理。apps/web 提供 Astro 静态双语官网，并复用 shared 的浏览器展示入口，scripts/repo-tools 提供 Node 仓库工具；pnpm 管理开发依赖，Turbo 调度工程级任务，不取代引擎或模块依赖。Node 开发工具不进入 APK。
 
 ## 十模块职责
 

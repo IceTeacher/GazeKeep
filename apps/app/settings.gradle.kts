@@ -29,6 +29,7 @@ dependencyResolutionManagement {
 }
 
 include(":android")
+include(":e2e")
 include(":shared")
 include(":core")
 include(":engine")

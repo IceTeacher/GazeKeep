@@ -119,6 +119,7 @@ test("架构检查阻断模块变动、非法依赖与源码目录错误", (t) =
   const f = fixture(t);
   const modules = [
     "android",
+    "e2e",
     "shared",
     "core",
     "engine",
