@@ -18,7 +18,9 @@ import kotlinx.coroutines.launch
 class DecisionLogs private constructor(context: Context) {
   private val store = DecisionLogStore(context.noBackupFilesDir.resolve("decisions"))
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-  private val queue = Channel<() -> Unit>(256)
+
+  // 无界队列：记录在调用时已带事件时间，排队只影响落盘时刻，不能因队列满而静默丢弃。
+  private val queue = Channel<() -> Unit>(Channel.UNLIMITED)
   private val mutableEntries = MutableStateFlow<List<LogEntry>>(emptyList())
   val entries = mutableEntries.asStateFlow()
 
@@ -52,17 +54,20 @@ class DecisionLogs private constructor(context: Context) {
   }
 
   fun record(record: DecisionRecord) {
-    queue.trySend {
-      store.append(record)
-      mutableEntries.value = store.readEntries()
-    }
+    val atMs = System.currentTimeMillis()
+    queue.trySend { prepend(store.append(record, atMs)) }
   }
 
   fun log(level: LogLevel, tag: String, target: String? = "system", message: String) {
+    val atMs = System.currentTimeMillis()
     queue.trySend {
-      store.appendLog(level = level, tag = tag, target = target, message = message)
-      mutableEntries.value = store.readEntries()
+      prepend(store.appendLog(level = level, tag = tag, target = target, message = message, atMs = atMs))
     }
+  }
+
+  /** 新记录插到列表前端，避免每次写入都重读全部日志文件；保留期由定时清理后的整体重读收敛。 */
+  private fun prepend(entry: LogEntry?) {
+    if (entry != null) mutableEntries.value = listOf(entry) + mutableEntries.value
   }
 
   fun clear() {

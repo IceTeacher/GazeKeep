@@ -146,7 +146,7 @@
     name="settings_debug_log_summary"
   >Off by default. When enabled, retain the last 24 hours. Turning off clears recorded logs.</string>
     <string name="settings_view_logs">View logs</string>
-    <string name="settings_view_logs_summary">View, filter, share or export recorded logs</string>
+    <string name="settings_view_logs_summary">View, filter, share or export recorded logs, which include foreground app package names</string>
     <string name="logs_title">Logs</string>
     <string name="logs_search_placeholder">Search</string>
     <string name="logs_empty">No logs yet</string>

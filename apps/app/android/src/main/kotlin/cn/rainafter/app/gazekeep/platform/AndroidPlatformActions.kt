@@ -106,7 +106,7 @@ class AndroidPlatformActions(
     if (text.isBlank()) return
     pendingExportText = text
     runCatching {
-      exportLauncher.launch("gazekeep-logs-${System.currentTimeMillis()}.log")
+      exportLauncher.launch("gazekeep-logs-${System.currentTimeMillis()}.txt")
     }
   }
 

@@ -116,7 +116,7 @@
     name="settings_debug_log_summary"
   >默认关闭日志，打开时保留最近24小时的日志，关闭后清除已经记录的日志</string>
     <string name="settings_view_logs">查看日志</string>
-    <string name="settings_view_logs_summary">查看、筛选、分享或导出已记录的详细日志</string>
+    <string name="settings_view_logs_summary">查看、筛选、分享或导出已记录的详细日志；内容包含前台应用包名</string>
     <string name="logs_title">日志</string>
     <string name="logs_search_placeholder">搜索</string>
     <string name="logs_empty">暂无日志记录</string>
