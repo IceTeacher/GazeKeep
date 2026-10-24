@@ -2,6 +2,7 @@ package cn.rainafter.app.gazekeep.e2e
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.Until
 import org.junit.After
 import org.junit.Assume.assumeTrue
 import org.junit.Before
@@ -18,10 +19,15 @@ class ConfigPersistenceTest {
 
   @After fun tearDown() = session.close()
 
-  private fun chooseMaxHold(option: String) {
+  /**
+   * 选择后等待弹出菜单收起、且显示值变为目标值。显示值来自持久化后的配置流，
+   * 据此确认写盘完成，避免紧接着强停时 DataStore 尚未落盘。
+   */
+  private fun chooseMaxHold(option: String, unrelated: String) {
     session.tap(session.label("settings_max_hold"))
     session.require(option).click()
-    session.device.waitForIdle()
+    session.device.wait(Until.gone(By.text(unrelated)), 5_000L)
+    assertNotNull(session.find(option), "未确认 $option 已保存")
   }
 
   @Test
@@ -37,10 +43,10 @@ class ConfigPersistenceTest {
     session.onCleanup {
       session.launch()
       session.openSettingsTab()
-      chooseMaxHold(original!!)
+      chooseMaxHold(original!!, presets.first { it != original && it != target })
     }
 
-    chooseMaxHold(target)
+    chooseMaxHold(target, presets.first { it != original && it != target })
     session.forceStop()
     session.launch()
     session.openSettingsTab()

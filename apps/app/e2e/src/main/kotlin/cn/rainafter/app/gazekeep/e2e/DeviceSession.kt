@@ -33,6 +33,9 @@ class DeviceSession {
 
   fun label(key: String): String = requireNotNull(labels[key]) { "缺少字符串资源：$key" }
 
+  /** 限定在被测应用内匹配文案：系统设置等其他应用也有「设置」等同名文字。 */
+  fun appText(key: String) = By.pkg(PACKAGE).text(label(key))
+
   fun shell(command: String): String {
     val output = instrumentation.uiAutomation.executeShellCommand(command)
     return ParcelFileDescriptor.AutoCloseInputStream(output).bufferedReader().use { it.readText() }.trim()
@@ -76,8 +79,19 @@ class DeviceSession {
   fun launch() {
     device.wakeUp()
     shell("wm dismiss-keyguard")
-    shell("am start -W -n $PACKAGE/.MainActivity")
-    checkNotNull(device.wait(Until.hasObject(By.pkg(PACKAGE).depth(0)), TIMEOUT_MS)) { "应用未进入前台" }
+    // 重装、撤权引起的进程清理是异步的，刚启动的界面可能随即被关掉并露出其他任务；确认主界面停留在前台，否则重新启动。
+    repeat(3) {
+      // 清空任务重建界面：不沿用上一用例停留的子页面；部分 ROM 会丢弃注入的返回键，不能靠返回退回主界面。
+      // 只重建 Activity，不影响已在运行的服务。
+      shell("am start -W -f 0x10008000 -n $PACKAGE/.MainActivity")
+      if (device.wait(Until.findObject(appText("nav_settings")), TIMEOUT_MS) != null &&
+        !device.wait(Until.gone(appText("nav_settings")), 1_500L)
+      ) {
+        device.waitForIdle()
+        return
+      }
+    }
+    error("应用主界面未显示")
   }
 
   fun forceStop() {
@@ -111,10 +125,10 @@ class DeviceSession {
 
   /** 部分 ROM 在启动动画期间会丢弃注入的首次点击，切换后以设置页独有条目确认，未切换则重试。 */
   fun openSettingsTab() {
-    repeat(3) {
-      require(label("nav_settings")).click()
+    repeat(5) {
+      checkNotNull(device.wait(Until.findObject(appText("nav_settings")), TIMEOUT_MS)) { "未找到应用底部导航" }.click()
       device.waitForIdle()
-      if (device.wait(Until.hasObject(By.text(label("settings_backend"))), 3_000L)) return
+      if (device.wait(Until.hasObject(appText("settings_backend")), 4_000L)) return
     }
     error("切换到设置页失败")
   }

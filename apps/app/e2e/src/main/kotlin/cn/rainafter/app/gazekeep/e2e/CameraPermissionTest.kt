@@ -28,6 +28,8 @@ class CameraPermissionTest {
     val wasGranted = granted()
     session.onCleanup { if (wasGranted) session.shell("pm grant $PACKAGE ${Manifest.permission.CAMERA}") }
     session.shell("pm revoke $PACKAGE ${Manifest.permission.CAMERA}")
+    // 撤权会异步结束被测进程；先同步强停，避免刚启动的界面又被这次查杀关掉。
+    session.forceStop()
 
     session.launch()
     session.openSettingsTab()
