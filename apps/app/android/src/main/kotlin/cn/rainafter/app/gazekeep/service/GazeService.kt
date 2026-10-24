@@ -4,12 +4,15 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
+import android.content.res.Configuration
 import android.os.Build
+import android.os.LocaleList
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import cn.rainafter.app.gazekeep.app.AppGraph
 import cn.rainafter.app.gazekeep.core.engine.Alert
 import cn.rainafter.app.gazekeep.notification.GazeNotifier
+import cn.rainafter.app.gazekeep.platform.AppLocales
 import cn.rainafter.app.gazekeep.runtime.BackendSession
 import cn.rainafter.app.gazekeep.runtime.RuntimeStatusStore
 import kotlinx.coroutines.flow.first
@@ -22,12 +25,16 @@ class GazeService : LifecycleService() {
   private lateinit var notifier: GazeNotifier
   private var session: BackendSession? = null
   private lateinit var foreground: ForegroundStartGuard
+  private lateinit var locales: LocaleList
+  private var stopObservingLocale: () -> Unit = {}
 
   override fun onCreate() {
     super.onCreate()
     graph = AppGraph(applicationContext)
     notifier = graph.createNotifier()
     notifier.createChannels()
+    locales = resources.configuration.locales
+    stopObservingLocale = AppLocales.observeLegacy(applicationContext, notifier::refreshLocale)
     foreground = ForegroundStartGuard(
       cameraGranted = { checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED },
       promote = ::promoteForeground,
@@ -71,7 +78,16 @@ class GazeService : LifecycleService() {
     session?.dump(writer)
   }
 
+  // 13+ 的应用内语言与系统语言变化都以配置变化送达；服务不重建，需主动刷新通知文案。
+  override fun onConfigurationChanged(newConfig: Configuration) {
+    super.onConfigurationChanged(newConfig)
+    if (newConfig.locales == locales) return
+    locales = newConfig.locales
+    notifier.refreshLocale()
+  }
+
   override fun onDestroy() {
+    stopObservingLocale()
     session?.close()
     session = null
     super.onDestroy()

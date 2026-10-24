@@ -26,7 +26,7 @@ Shizuku 的 pendingTimeoutRestore 使用独立 `gazekeep_timeout_restore` Shared
 
 AppLocales 不引入 AppCompat：Android 13+ 写入系统 LocaleManager，与系统设置「应用语言」同源，切换后由系统重建页面；Manifest 的 `localeConfig` 声明 zh-CN 与 en，系统页只列出这两种语言。Android 12 及以下把语言标签存入独立的 `gazekeep_app_locale` SharedPreferences，MainActivity 在 attachBaseContext 套用并重建页面，同时更新进程默认 LocaleList，因为 Compose 资源按进程默认语言选择。跟随系统时重置为系统语言。
 
-通知文案来自 android 模块的 `values`/`values-en` 资源，GazeNotifier 使用套用语言后的 Context；渠道名在服务创建时随语言更新，已展示的常驻通知在服务重建后更新。
+通知文案来自 android 模块的 `values`/`values-en` 资源，GazeNotifier 每次生成通知时按当前应用语言解析，因为运行中切换语言不会重建服务。语言变化时 GazeService 刷新渠道名并替换仍在展示的常驻通知：Android 13+ 的应用内语言与系统语言变化以配置变化送达 `onConfigurationChanged`；Android 12 及以下只写进程内偏好，由 AppLocales 的偏好监听通知服务。已展示的提醒保持原文，用户移除的常驻通知不重新弹出。
 
 应用内语言只作用于本应用进程。系统设置中的无障碍服务名称与描述、LSPosed 管理器中的模块描述由其他应用按自身语言读取，跟随系统语言；任何版本的应用内设置（包括 Android 13+ 的按应用语言）都无法改变这些入口，因此不宣称它们支持应用内切换。
 

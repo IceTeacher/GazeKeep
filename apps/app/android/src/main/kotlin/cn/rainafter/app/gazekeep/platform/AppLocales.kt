@@ -3,6 +3,7 @@ package cn.rainafter.app.gazekeep.platform
 import android.app.Activity
 import android.app.LocaleManager
 import android.content.Context
+import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.content.res.Resources
 import android.os.Build
@@ -29,6 +30,19 @@ object AppLocales {
       activity.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putString(KEY_TAGS, tags) }
       activity.recreate()
     }
+  }
+
+  /**
+   * 低版本的语言只写进程内偏好，不产生配置变化，运行中的服务靠该回调刷新文案；返回取消函数。
+   * 13+ 由系统推送配置变化，调用方在 onConfigurationChanged 处理，这里不注册。
+   */
+  fun observeLegacy(context: Context, onChange: () -> Unit): () -> Unit {
+    if (Build.VERSION.SDK_INT >= 33) return {}
+    val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    // 偏好只弱引用监听器，由返回的取消函数持有强引用。
+    val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key -> if (key == KEY_TAGS) onChange() }
+    prefs.registerOnSharedPreferenceChangeListener(listener)
+    return { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
   }
 
   /** 低版本把保存的语言套到 Context；13+ 由系统完成，原样返回。 */

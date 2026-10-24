@@ -16,7 +16,7 @@ class AppGraph(context: Context) {
   val settings = ConfigStore(this.context)
   private val decisionLogs = DecisionLogs.get(this.context)
   fun createController() = AndroidGazeKeepController(context, settings, captureOwnership)
-  fun createNotifier() = GazeNotifier(AppLocales.wrap(context))
+  fun createNotifier() = GazeNotifier { AppLocales.wrap(context) }
   fun createSession(scope: CoroutineScope, config: GazeConfig, notifier: GazeNotifier) =
     BackendSession(context, scope, config, notifier, decisionLogs::record, captureOwnership)
   companion object {

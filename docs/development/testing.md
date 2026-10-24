@@ -45,7 +45,7 @@ pnpm test:tools
 pnpm verify:architecture
 ```
 
-shared host task 覆盖许可文本搜索与中英字符串资源一致性；backend:lsposed 使用 Robolectric 与按真实 Parcel 布局应答的本地 Binder 验证握手、注册、seq/STALE 映射与失败关闭，不证明真实 system_server 钩点；bridge:protocol 只有常量，由两端测试与实机补证。Robolectric 模块需在单元测试 JVM 参数中开放 `java.base/jdk.internal.access`。上述任务均已纳入 `pnpm --filter @gazekeep/app test`。web `test:unit` 只运行 Vitest `unit` project；`pnpm --filter web test` 在本机同时运行 `unit` 与 `browser`，截图结果以下节的容器入口为准。
+shared host task 覆盖许可文本搜索与中英字符串资源一致性；backend:lsposed 使用 Robolectric 与按真实 Parcel 布局应答的本地 Binder 验证握手、注册、seq/STALE 映射与失败关闭，不证明真实 system_server 钩点；android 使用 Robolectric 验证 GazeNotifier 按当前语言生成提醒、语言变化后刷新渠道名与仍在展示的常驻通知，以及 Android 12 及以下（SDK 32）语言偏好变化回调，不证明真实 ROM 的通知展示；bridge:protocol 只有常量，由两端测试与实机补证。Robolectric 模块需在单元测试 JVM 参数中开放 `java.base/jdk.internal.access`。上述任务均已纳入 `pnpm --filter @gazekeep/app test`。web `test:unit` 只运行 Vitest `unit` project；`pnpm --filter web test` 在本机同时运行 `unit` 与 `browser`，截图结果以下节的容器入口为准。
 
 ## 界面与视觉入口
 
