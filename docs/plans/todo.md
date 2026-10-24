@@ -34,13 +34,22 @@
 
 未执行：Shizuku 临时超时退路与原值写回（本机 userActivity 可用，无法自然触发）；Sui/Shizuku 服务端重启；旧 seq；legacy；命中候选（当前 APK 不记录死线钩子候选）；应用列表加载失败重试；Pocket 分支；R8 压缩产物与正式签名。测试后已恢复系统超时 60000 ms、无障碍列表、夜间模式、字体、旋转、应用语言、相机权限与应用配置；保留用户改动：省电策略「无限制」、Debug 包安装。
 
-- [ ] HyperOS 默认「智能」省电策略下，系统相机进入前台数秒内冻结 GazeKeep 进程（`cgroup.freeze=1`，前台服务仍在），退出相机后不解冻，注视保亮静默失效，打开应用才恢复；改「无限制」后不再冻结。需在启用步骤与界面引导设置省电策略，并评估冻结检测与提示。
-- [ ] Shizuku UserService 进程退出后不自动重绑：引擎 Disabled，主页仍显示「工作中」与 Shizuku 已就绪，「重新检测」无效，只有重选后端才恢复；通知权限拒绝时用户无从察觉。
-- [ ] 锁屏亮屏时 LSPosed 持续推送已过期 deadline，引擎反复 Gating→GateSkipped(Locked)（约 27 s 内 53 次），浪费电量并刷满日志。
-- [ ] 详细日志时间戳取自写盘时刻：单线程队列每条都重读全部日志文件（约 125 ms/条），积压时卡片与导出时间滞后或同秒，队列容量 256 满时 `trySend` 静默丢弃；列表旧记录在前；导出文件名被加 `.txt`，内容含前台包名。
-- [ ] 撤销相机权限后主页显示「等待可用后端／请检查所选后端授权」，与实际原因不符；重新授权后服务不自动恢复，需手动关开总开关。
-- [ ] Capturing 阶段因触摸作废的一轮不写 Aborted 记录；开机后首屏短暂沿用旧的 LSPosed「已就绪」状态。
-- [ ] 实机套件结构缺陷：CameraPermissionTest 的 `pm revoke` 与 ConfigPersistenceTest 的 `am force-stop` 会杀死被测进程及同进程 instrumentation，无法完成，需改为独立进程的自插桩测试模块；ScreenTimeoutRestoreTest 的息屏/亮屏在安全锁屏设备上无法回到应用。本轮已修复 DeviceSession 的语言输出解析、空语言恢复和导航首击被丢弃后的重试。
+### 修复（fix/device-matrix-issues，2026-10-25）
+
+上述缺陷在本分支修复，主机门禁：`pnpm --filter @gazekeep/app verify`、仓库工具 41 项、架构/文档/资产/格式检查通过；新增或调整的用例均先在旧实现上失败。真机为同一 Xiaomi 12 Pro，安装本分支 arm64 Debug 包覆盖（数据保留），回归后已恢复配置与系统设置。
+
+- HyperOS 冻结：真机对照确认「智能」策略下后台闲置 90 s 后开系统相机 3–6 s 内冻结、回桌面不解冻；加入 deviceidle 白名单（等同忽略电池优化）仍冻结；「无限制」同条件不冻结。修改策略会强停应用，前台服务不自动重启。小米设备设置页新增「后台运行」入口，真机从应用内打开 powerkeeper 后台配置页；使用说明与 README 同步启用步骤。
+- Shizuku：UserServiceReconnector 退避重绑；真机杀 UserService 后 1.67 s 重新拉起，引擎 1.64 s 内从 Disabled 回到 Shizuku/Armed。
+- 主页与权限：真机撤权后主页显示「等待相机授权」，重新授权回到应用后服务自动恢复为工作中。
+- 日志：真机日志时间与 logcat 事件时间一致到毫秒，列表与导出最新在前、导出为 .txt。
+- 锁屏空转：reducer 不再对同一截止周期内的微调重新门控（主机用例）；真机锁屏 25 s 内门控 0 次，但本次未复现原有的毫秒级 deadline 连续微调，原触发条件仍待复现。
+- 触摸作废记录：补记 Aborted(Cancelled)（主机用例）。
+- 实机套件：迁至自插桩模块 `e2e`；`test:device` 在本机连续 10 轮 3 项通过、ScreenTimeoutRestoreTest 因安全锁屏跳过；修复异步查杀、同名文案与落盘时序导致的偶发失败。
+
+- [ ] 开机后首屏短暂显示「LSPosed 已就绪」且引擎先选用 LSPosed、约 45 s 后改为 Shizuku，而该次开机模块日志无加载记录；就绪探测为实时 Binder 查询、无缓存，原因未定位，需在禁用作用域并重启的场景复现。
+- [ ] 锁屏毫秒级 deadline 微调的原触发条件待复现，以确认真机空转已消除。
+- [ ] ScreenTimeoutRestoreTest 需在无安全锁屏的设备上执行。
+- [ ] HyperOS 冻结只能引导，无法检测当前策略或冻结状态；其他 ROM 的后台限制未验证。
 
 ## 应用内语言（2026-10-24）
 
@@ -74,7 +83,7 @@
 - Kotlin/JS 依赖安装已修复：Kotlin Gradle 插件下载的 Yarn 1.22.22 会向上查找第一个声明 `packageManager` 的 package.json，原先读到仓库根的 `pnpm@11.7.0` 后中止 `:kotlinNpmInstall`/`:kotlinWasmNpmInstall`，阻断 `:core:allTests` 的 JS/Wasm 任务。根构建脚本在生成的 `build/js`、`build/wasm` 根 package.json 中写入 `packageManager: yarn@1.22.22`，`yarn.lock` 不变。删除生成目录后不设任何绕过变量重跑 `:core:allTests`，JS、Wasm 与主机各 41 项通过；`pnpm --filter @gazekeep/app verify` 通过。
 - app 界面与视觉：`shared/androidHostTest` 新增 22 项交互用例与 11 张 Roborazzi 1.76.0 截图（Robolectric 4.17、androidx Compose ui-test 1.12.1，均只进入测试配置），驱动真实 `App` 入口。已用临时改坏实现确认失败（离页不取消自检、首页工作态配色）；校验模式连续两次通过。`pnpm --filter @gazekeep/app verify`（275 项主机测试，失败 0）与 Debug APK 静态门禁通过。未执行：真实 ROM 渲染、厂商字体、系统栏与大字号实机对比。
 - app 实机套件：`android/src/androidTest` 新增 4 项 UiAutomator 旅程（配置冷启动回读、相机权限撤销与拒绝、无障碍就绪一致性、熄屏超时恢复），`verify` 纳入 `:android:assembleDebugAndroidTest`，新增 `test:device` 入口；测试依赖只进入测试 APK，主 APK 静态门禁通过。
-- [ ] 在已授权设备上运行 `pnpm --filter @gazekeep/app test:device` 并记录设备、ROM、后端与结果；本次只编译，未在任何设备上执行，不计作通过。
+- 实机套件已在 Xiaomi 12 Pro / HyperOS OS2.0.6 上执行，结果见「真机矩阵（2026-10-25）」的修复记录。
 
 ## pnpm 升级（2026-10-22）
 
