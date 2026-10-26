@@ -426,7 +426,7 @@ object EngineReducer {
         EngineEffect.CancelCapture,
         EngineEffect.CancelWake,
         EngineEffect.CancelHoldLimit,
-        EngineEffect.Release,
+        EngineEffect.ForceRelease,
         EngineEffect.Record(next.record(now, DecisionReason.MaxHold, null, false, null)),
       ),
     )

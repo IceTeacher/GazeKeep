@@ -146,6 +146,34 @@ class DefaultEngineEffectRunnerTest {
   }
 
   @Test
+  fun forceReleaseUsesTheBackendsNonDeferringRelease() = runBlocking {
+    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+    val calls = mutableListOf<String>()
+    val backend = object : KeepAwakeBackend {
+      override val id = BackendId.Shizuku
+      override val readiness = MutableStateFlow<Readiness>(Readiness.Ready)
+      override suspend fun extend(token: ExtendToken): ExtendResult = ExtendResult.Done
+      override suspend fun release() {
+        calls += "release"
+      }
+      override suspend fun forceRelease() {
+        calls += "force"
+      }
+      override suspend fun attach() = Unit
+      override suspend fun detach() = Unit
+    }
+    val runner = runner(scope, backend = backend)
+    try {
+      runner.run(EngineEffect.Release) {}
+      runner.run(EngineEffect.ForceRelease) {}
+      assertEquals(listOf("release", "force"), calls)
+    } finally {
+      runner.close()
+      scope.cancel()
+    }
+  }
+
+  @Test
   fun disconnectedBackendFeedsFailureBackWithoutMarkingExtended() = runBlocking {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
     val runner = runner(scope)

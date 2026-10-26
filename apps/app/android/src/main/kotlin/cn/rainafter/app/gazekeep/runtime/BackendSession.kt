@@ -244,8 +244,9 @@ class BackendSession(
 
     engine?.submit(EngineEvent.BackendSelected(null))
     val previous = backend
+    // 被切走的后端之后收不到熄屏释放，临时设置必须立即恢复。
     if (previous != null) {
-      runCatching { previous.release() }
+      runCatching { previous.forceRelease() }
     }
     backend = target
     runCatching {

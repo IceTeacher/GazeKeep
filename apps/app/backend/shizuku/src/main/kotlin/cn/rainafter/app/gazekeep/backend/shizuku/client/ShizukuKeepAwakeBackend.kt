@@ -108,7 +108,7 @@ class ShizukuKeepAwakeBackend(
     }
   }
 
-  private val binderReceived = Shizuku.OnBinderReceivedListener { refresh() }
+  private val binderReceived = Shizuku.OnBinderReceivedListener { if (!refresh()) reconnector.onLost() }
   private val binderDead = Shizuku.OnBinderDeadListener {
     reconnector.cancel()
     shell = null
@@ -200,6 +200,19 @@ class ShizukuKeepAwakeBackend(
     )
   }
 
+  /** 放弃保亮或被切走时不推迟：临时延长不能留给之后不再经过本后端的熄屏释放。 */
+  override suspend fun forceRelease() = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+    operations.withLock {
+      val remote = shell ?: return@withLock
+      try {
+        coordinator(remote).restore()
+      } catch (error: Exception) {
+        _readiness.value = Readiness.Unavailable("timeout restore failed")
+        throw error
+      }
+    }
+  }
+
   private fun extendWithTimeout(remote: IGazeKeepShell, token: ExtendToken): ExtendResult = runCatching {
     val now = android.os.SystemClock.uptimeMillis()
     // PowerDumpOracle 的序号即系统上次用户活动时间。
@@ -212,22 +225,23 @@ class ShizukuKeepAwakeBackend(
     ExtendResult.Failed(fallbackError)
   }
 
-  private fun refresh() {
+  /** 仅在调用 bindUserService 失败时返回 false；未就绪或已绑定都无需重试绑定。 */
+  private fun refresh(): Boolean {
     if (!Shizuku.pingBinder()) {
       _readiness.value = Readiness.NeedsSetup(SetupStep.StartShizuku)
-      return
+      return true
     }
     if (Shizuku.isPreV11() || Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
       _readiness.value = Readiness.NeedsSetup(SetupStep.GrantShizukuPermission)
-      return
+      return true
     }
-    if (bound) return
+    if (bound) return true
     bound = true
-    runCatching { Shizuku.bindUserService(args, connection) }
+    return runCatching { Shizuku.bindUserService(args, connection) }
       .onFailure {
         bound = false
         _readiness.value = Readiness.Unavailable("bind user service failed")
-      }
+      }.isSuccess
   }
   private companion object {
     val timeoutOperations = kotlinx.coroutines.sync.Mutex()

@@ -141,7 +141,9 @@ class EngineReducerTest {
     )
     assertEquals(EngineState.Yielded(YieldReason.MaxHold), gate.snapshot.state)
     assertTrue(gate.effects.none { it is EngineEffect.StartCapture })
-    assertTrue(EngineEffect.Release in gate.effects)
+    // 到达上限是放弃保亮，后端不得推迟恢复临时设置。
+    assertTrue(EngineEffect.ForceRelease in gate.effects)
+    assertTrue(EngineEffect.Release !in gate.effects)
     assertTrue(gate.snapshot.context.forcedYieldPending)
   }
 
@@ -231,7 +233,7 @@ class EngineReducerTest {
     val active = capturing(ready(context = EngineContext(holdStartUptime = 100L)))
     val expired = EngineReducer.reduce(active, EngineEvent.HoldLimitReached(100L), 1_800_100L)
     assertEquals(EngineState.Yielded(YieldReason.MaxHold), expired.snapshot.state)
-    assertTrue(EngineEffect.Release in expired.effects)
+    assertTrue(EngineEffect.ForceRelease in expired.effects)
     val late = EngineReducer.reduce(
       expired.snapshot,
       EngineEvent.CaptureFinished(Attention.Looking, emptyList(), 10L),

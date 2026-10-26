@@ -154,6 +154,11 @@ class DefaultEngineEffectRunner(
         backendLock.withLock { selected?.release() }
       }
 
+      EngineEffect.ForceRelease -> {
+        val selected = backend()
+        backendLock.withLock { selected?.forceRelease() }
+      }
+
       is EngineEffect.Record -> onRecord(effect.record)
 
       is EngineEffect.Notify -> onNotify(effect.alert)

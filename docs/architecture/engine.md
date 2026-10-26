@@ -16,7 +16,7 @@ Gate Skip、TooLate、Unknown/Away、中止、Extend 失败、关闭、权限丢
 
 ScreenOff 清累计状态，直到 ScreenOn 不采帧。真实触摸先取消旧采集、释放并清保亮累计，再等待新 deadline。独立 oracle 的新外部活动时间也走同一 reducer 路径；Shizuku 自身 userActivity 不算外部活动。
 
-DefaultEngineEffectRunner 的门控、采集与 Extend 归会话所有，取消异常继续传播；采集、门控与 Extend 返回后重新检查取消，旧任务即使忽略取消并返回成功，也不能回灌事件或更新新会话 oracle。Extend 和 Release 使用互斥锁，结果先回灌再触发 oracle 读取，避免新 deadline 抢先丢失保亮累计。会话销毁另有硬件清理。
+DefaultEngineEffectRunner 的门控、采集与 Extend 归会话所有，取消异常继续传播；采集、门控与 Extend 返回后重新检查取消，旧任务即使忽略取消并返回成功，也不能回灌事件或更新新会话 oracle。Extend、Release 与 ForceRelease 使用互斥锁；ForceRelease 只由到达保亮上限发出，要求后端不推迟恢复临时设置（见 Shizuku 退路），后端切换时 BackendSession 对被切走的后端同样强制释放。结果先回灌再触发 oracle 读取，避免新 deadline 抢先丢失保亮累计。会话销毁另有硬件清理。
 
 无障碍 oracle 分开记录系统超时起点与真实用户活动；自身 Extend 只推进前者，不能清除保亮累计和退避。运行定时使用带唤醒时刻的 ScheduledWakeFired，错误结果也携带当前轮次身份。
 

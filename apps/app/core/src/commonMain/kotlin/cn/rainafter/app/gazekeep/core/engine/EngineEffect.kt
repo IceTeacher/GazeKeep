@@ -21,6 +21,9 @@ sealed interface EngineEffect {
   data object CancelCapture : EngineEffect
   data class Extend(val token: ExtendToken) : EngineEffect
   data object Release : EngineEffect
+
+  /** 放弃保亮的释放：后端须立即恢复临时设置，不得推迟到之后的熄屏释放。 */
+  data object ForceRelease : EngineEffect
   data class Record(val record: DecisionRecord) : EngineEffect
   data class Notify(val alert: Alert) : EngineEffect
 }
