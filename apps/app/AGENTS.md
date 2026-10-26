@@ -4,7 +4,7 @@
 
 ## 交付边界
 
-- Android 九个运行模块与一个编译存根模块统一位于本目录，应用模块为 `android`。模块名、包名、协议及外部入口保持稳定；目录迁移不改变产品安全承诺。
+- Android 九个运行模块、一个编译存根模块与一个实机测试模块 `e2e` 统一位于本目录，应用模块为 `android`。模块名、包名、协议及外部入口保持稳定；目录迁移不改变产品安全承诺。
 - 产品为缺少系统级注视保亮能力的 Android 手机提供端上短时检测与延后超时。兼容性按 Android、ROM 和后端能力实测，不指定优先机型。
 - 主要模块已实现，完整实机回归、异常矩阵与发布门禁仍待补齐；当前实现见[架构总览](../../docs/architecture/overview.md)，缺口见[任务清单](../../docs/plans/todo.md)。
 
@@ -36,7 +36,7 @@
 ## 测试与验收
 
 - 主机测试验证纯规则、reducer、解析、协议、配置和隔离适配；页面验收验证导航、自检、权限和生命周期；完整旅程验证真实相机、ROM、三后端与系统超时恢复。
-- 按任务加载 [testing-unit](../../.agents/skills/testing-unit/SKILL.md)、[testing-ui](../../.agents/skills/testing-ui/SKILL.md) 或 [testing-e2e](../../.agents/skills/testing-e2e/SKILL.md)。主机单元测试使用 kotlin.test 与 JUnit4，界面与截图使用 shared 的 Robolectric、Compose UI 测试与 Roborazzi，实机套件使用 android 的 UiAutomator。
+- 按任务加载 [testing-unit](../../.agents/skills/testing-unit/SKILL.md)、[testing-ui](../../.agents/skills/testing-ui/SKILL.md) 或 [testing-e2e](../../.agents/skills/testing-e2e/SKILL.md)。主机单元测试使用 kotlin.test 与 JUnit4，界面与截图使用 shared 的 Robolectric、Compose UI 测试与 Roborazzi，实机套件使用 e2e 自插桩模块的 UiAutomator。
 - 禁止弱化默认熄屏断言。fake、主机通过和“不 Extend”不能证明硬件兼容、Hold 锁释放或实际熄屏；`NO-SOURCE`、缺设备与旧版本结果都不能写成当前验收通过，移动目录不能视为实机验收。
 - 在本目录执行 `./gradlew`，或从仓库根执行 `pnpm build`、`pnpm lint`、`pnpm test`。完整主机门禁使用 `pnpm --filter @gazekeep/app verify`（同时编译实机测试 APK）；实机套件使用 `pnpm --filter @gazekeep/app test:device`，运行前核对设备操作授权；相关验证以[测试规范](../../docs/development/testing.md)为准。Turbo 不缓存 Android 任务，Gradle 保留自身缓存。
 - 发布说明记录该版本的实测系统、后端/框架版本与实际命中候选，不能从构建或主机测试推断设备兼容性。

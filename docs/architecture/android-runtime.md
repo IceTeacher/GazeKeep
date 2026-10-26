@@ -10,7 +10,7 @@ GazeService 适配生命周期，BackendSession 拥有 backend、oracle、engine
 
 无障碍服务初始化 backend 后发布可观察的实例状态；运行会话持续跟踪实例及 readiness，覆盖服务后连接、断开和重连。断开同步摘除窗口，再清除实例；同类型的新实例也必须释放旧后端并重新选择、配置 oracle。旧服务延迟销毁不能清除新服务的实例状态，取消会话后不再注册后端。
 
-服务在 onCreate 与每次 onStartCommand 提升前核对相机授权，并处理权限撤销或 while-in-use 条件变化造成的平台拒绝。失败时清理会话、发布停止状态、尝试异常通知并 stopSelf，各项清理彼此隔离；失败启动返回 START_NOT_STICKY，不在权限缺失时反复粘性重启，也不创建采集会话。保存的启用配置与自检资格保留，重新授权后由前台页面正常重配。有效的每次 onStartCommand 都兑现 startForeground。息屏保持 camera 前台服务空转，只释放检测资源；后台亮屏广播直接重启 camera FGS 的限制不能靠猜测绕过。保留空转服务是为了避免依赖后台广播重新启动 camera FGS；仍须验证存活与冷启动恢复。RuntimeStatusStore 只发布状态，不驱动保亮或采集避让；自检避让由 AppGraph 注入的进程共享采集协调器负责。
+服务在 onCreate 与每次 onStartCommand 提升前核对相机授权，并处理权限撤销或 while-in-use 条件变化造成的平台拒绝。失败时清理会话、发布停止状态、尝试异常通知并 stopSelf，各项清理彼此隔离；失败启动返回 START_NOT_STICKY，不在权限缺失时反复粘性重启，也不创建采集会话。保存的启用配置与自检资格保留；前台页面刷新时若相机权限由未授权变为已授权、且启用与自检资格仍在，控制器自动重配，不要求手动关开总开关（首次读取只记录基线）。有效的每次 onStartCommand 都兑现 startForeground。息屏保持 camera 前台服务空转，只释放检测资源；后台亮屏广播直接重启 camera FGS 的限制不能靠猜测绕过。保留空转服务是为了避免依赖后台广播重新启动 camera FGS；仍须验证存活与冷启动恢复。RuntimeStatusStore 只发布状态，不驱动保亮或采集避让；自检避让由 AppGraph 注入的进程共享采集协调器负责。
 
 ## 配置与迁移
 
@@ -32,9 +32,9 @@ AppLocales 不引入 AppCompat：Android 13+ 写入系统 LocaleManager，与系
 
 ## 当前清单与通知
 
-applicationId 为 cn.rainafter.app.gazekeep；相机、camera 前台服务和通知是现有申请能力，Shizuku Provider 与 Xposed 打包入口保持稳定。无障碍配置 canRetrieveWindowContent=false。
+applicationId 为 cn.rainafter.app.gazekeep；相机、camera 前台服务、通知和开机广播是现有申请能力，Shizuku Provider 与 Xposed 打包入口保持稳定。无障碍配置 canRetrieveWindowContent=false。
 
-当前未声明 WAKE_LOCK、GET_USAGE_STATS 和电池优化权限，未实现 BootRecoveryReceiver。最终权限必须从 APK 检查。
+当前未声明 WAKE_LOCK、GET_USAGE_STATS 和电池优化权限。TimeoutRestoreBootReceiver 只在存在 Shizuku 临时超时恢复记录时连接 shell 写回原值，不启动检测服务或相机；ROM 的自启动管控可能拦截开机广播，此时仍在下次连接时恢复。最终权限必须从 APK 检查。
 
 GazeNotifier 的异常通知按同类 10 分钟限频；不在可信 Looking 时提示。DecisionRecord 包含 uptime、包名、Attention、决策/门控/中止/分类原因、后端、extend 和耗时，运行状态另保存 lastDecision（服务重配时保留，仅在显式关闭总开关时清空）。
 
@@ -44,6 +44,6 @@ GazeNotifier 的异常通知按同类 10 分钟限频；不在可信 Looking 时
 
 ## 详细日志
 
-DecisionLogs 是应用进程单例，通过有界 IO 队列串行处理配置、写入、读取与清理，并对外发布最新日志列表；默认关闭，设置页「详细日志」开关进入 ConfigStore。文件位于 noBackupFilesDir/decisions，统一记录引擎状态、门控、采样、保亮判定与后端事件（含级别、时间戳、Tag、来源/目标标识与消息正文），只保存允许字段，不保存传感器值、图像或人脸特征。
+DecisionLogs 是应用进程单例，通过无界 IO 队列串行处理配置、写入、读取与清理，并对外发布最新在前的日志列表；记录时间取调用 record/log 的时刻，排队写盘不改变时间，写入后只把新条目插到列表前端，不重读全部文件；默认关闭，设置页「详细日志」开关进入 ConfigStore。文件位于 noBackupFilesDir/decisions，统一记录引擎状态、门控、采样、保亮判定与后端事件（含级别、时间戳、Tag、来源/目标标识与消息正文），只保存允许字段，不保存传感器值、图像或人脸特征。
 
-每条记录单独保存，写入、启动及每分钟清理超过 24 小时记录，关闭开关或点击「立即清空日志」清除文件。进程停止期间无法执行定时删除，下次启动先清理再写入。队列满时丢弃日志而不阻塞引擎；文件错误不影响 Release 与默认熄屏。
+每条记录单独保存，启动、读取及每分钟清理超过 24 小时记录（写入不扫描目录），关闭开关或点击「立即清空日志」清除文件。进程停止期间无法执行定时删除，下次启动先清理再写入。入队不阻塞引擎；文件错误不影响 Release 与默认熄屏。导出文件为 .txt，日志与导出内容包含前台应用包名，设置页说明中注明。

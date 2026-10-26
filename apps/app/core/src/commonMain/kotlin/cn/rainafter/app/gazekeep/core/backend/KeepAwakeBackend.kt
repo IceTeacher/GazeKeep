@@ -9,6 +9,9 @@ interface KeepAwakeBackend {
   val readiness: StateFlow<Readiness>
   suspend fun extend(token: ExtendToken): ExtendResult
   suspend fun release()
+
+  /** 放弃保亮（到达上限、被切换走）时的释放，不得推迟恢复临时设置；默认与 [release] 相同。 */
+  suspend fun forceRelease() = release()
   suspend fun attach()
   suspend fun detach()
 }

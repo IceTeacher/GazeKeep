@@ -4,6 +4,57 @@
 
 当前按[v1 稳定性与发布规划](20261014-v1-stability-release.md)推进，先复查自检及后台切换时的相机释放与取消链路，再完成异常恢复和正式产物验收。
 
+## 真机矩阵（2026-10-25）
+
+环境：Xiaomi 12 Pro Dimensity（2207122MC），Android 14/API 34，HyperOS `OS2.0.6.0.ULGCNXM`，KernelSU + LSPosed 2.2.1（7912，API 102）+ Sui；Wi-Fi ADB。被测为 `1734c1c` 的 arm64 Debug 包（SHA-256 `5a3de1d8…5aa0`，开发签名，经核心破解覆盖原正式签名 1.1.2 安装，数据保留），用户确认以 Debug 包代替签名 Release；R8/资源压缩相关风险不在本轮覆盖范围。安装后重启，模块日志 `entry=modern_102 startup=Accepted/Installed`，AbstractMethodError 为 0。测试用系统超时 15 s、提前量 8 s，未注明时为宽松灵敏度、上限无限制、后端 Auto（LSPosed）。判定依据为 DecisionRecord 顺序、deadline uptime 与系统 Wakefulness；日志时间戳不可信（见下方缺陷），不用于计时。
+
+| 场景                               | 结果                                                                                                                                                         |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 正视（LSPosed，系统设置前台）      | 通过：64 s 内 11/11 Looking/Extended，持续 Awake；单次 559–637 ms                                                                                            |
+| 转头                               | 通过：2/2 Away(NoFace)，不 Extend，15 s 熄屏                                                                                                                 |
+| 闭眼                               | 宽松模式 6/6 Looking（设计跳过眼睛检查）；标准模式 2/2 Away(EyesClosed)，熄屏，通过                                                                          |
+| 采样中真实触摸                     | 通过：3 次命中，2 次 StaleExtend 未延长，1 次 Capturing 中作废重计                                                                                           |
+| 朝下 / 口袋                        | 通过：GateSkipped FaceDown，不开相机；口袋因倒放先命中 FaceDown，Pocket 分支未单独触发                                                                       |
+| 遮挡前摄 / 多脸                    | 通过：TooDark→Unknown ×2 后 TooDarkRepeatedly 门控；MultipleFaces→Unknown ×2，均熄屏                                                                         |
+| 真实暗光                           | 用户人工确认无异常，无本机日志证据                                                                                                                           |
+| 视频自身保亮 / 通话                | 通过：B 站自身 SCREEN_BRIGHT 锁，无采样、无相机客户端；通话记录 GateSkipped InCall                                                                           |
+| 相机抢占                           | 让出与不崩溃通过；默认「智能」省电策略下失败（见缺陷）；「无限制」下 CameraBusy 门控，退出后 5/5 Extended 恢复                                               |
+| 保亮上限 1 分钟（LSPosed、无障碍） | 通过：连续 Extend 后 MaxHold，熄一次；无障碍 Hold 窗口无 KEEP_SCREEN_ON、无亮屏锁；解锁后新一轮 6 次 Extended                                                |
+| Shizuku 正视/转头                  | 通过：6 Extended 后 Away 熄屏，系统超时无残留                                                                                                                |
+| Shizuku UserService 被杀           | 失败（见缺陷）；手动重选后端后恢复                                                                                                                           |
+| 主进程 kill -9 / 划掉任务          | 通过：GazeService 1 s 后重启，Shizuku 重连，检测继续，超时无残留                                                                                             |
+| 无障碍运行中关闭                   | 通过：撤销采集与 Hold 后 Disabled，无窗口与亮屏锁残留，16 s 熄屏                                                                                             |
+| 隐私指示器                         | 通过：关闭隐藏时自检有绿点；开启后自检与后台采样无绿点；系统相机绿点正常                                                                                     |
+| 自检退出                           | 通过：采集中 Home/返回/移除任务，客户端首次缺席 1287/1385/1315 ms、连续 3 次确认 1743/1471/1414 ms；重进后步骤未被迟到结果推进；旋转打断后释放且可完成第一步 |
+| 自检中撤权                         | 释放与不崩溃通过，服务停止不循环重启；界面原因与恢复见缺陷                                                                                                   |
+| 禁用/恢复 LSPosed 作用域           | 通过：禁用后开机正常、钩子未加载、Auto 回落 Shizuku；恢复后重启入口重新加载                                                                                  |
+| 白名单                             | 通过：不在名单时 NotWhitelisted，不开相机                                                                                                                    |
+| 页面                               | 通过：浅色/深色/1.3 倍字体/横屏下主页、设置、后端、自检可用，返回逐级退出；应用列表搜索空结果文案正常；导出 6573 行且与卡片时间一致（两者均为写盘时间）      |
+| 实机套件                           | BackendReadinessTest 修复后连续 2 次通过；其余 3 项见缺陷                                                                                                    |
+
+未执行：Sui/Shizuku 服务端重启；旧 seq；legacy；命中候选（当前 APK 不记录死线钩子候选）；应用列表加载失败重试；Pocket 分支。测试后已恢复系统超时 60000 ms、无障碍列表、夜间模式、字体、旋转、应用语言、相机权限与应用配置；保留用户改动：省电策略「无限制」、Debug 包安装。
+
+### 修复（fix/device-matrix-issues，2026-10-25）
+
+上述缺陷在本分支修复，主机门禁：`pnpm --filter @gazekeep/app verify`、仓库工具 41 项、架构/文档/资产/格式检查通过；新增或调整的用例均先在旧实现上失败。真机为同一 Xiaomi 12 Pro，安装本分支 arm64 Debug 包覆盖（数据保留），回归后已恢复配置与系统设置。
+
+- HyperOS 冻结：真机对照确认「智能」策略下后台闲置 90 s 后开系统相机 3–6 s 内冻结、回桌面不解冻；加入 deviceidle 白名单（等同忽略电池优化）仍冻结；「无限制」同条件不冻结。修改策略会强停应用，前台服务不自动重启。小米设备设置页新增「后台运行」入口，真机从应用内打开 powerkeeper 后台配置页；使用说明与 README 同步启用步骤。
+- Shizuku：UserServiceReconnector 退避重绑；真机杀 UserService 后 1.67 s 重新拉起，引擎 1.64 s 内从 Disabled 回到 Shizuku/Armed。
+- 主页与权限：真机撤权后主页显示「等待相机授权」，重新授权回到应用后服务自动恢复为工作中。
+- 日志：真机日志时间与 logcat 事件时间一致到毫秒，列表与导出最新在前、导出为 .txt。
+- 锁屏空转：reducer 不再对同一截止周期内的微调重新门控（主机用例）。2026-10-27 以 1.1.3 Debug 包（`be40c97`）真机复现原触发条件：锁屏亮屏时 0.4 s 内 55 次 deadline 更新、每次后推 4–5 ms，只门控跳过 2 次（原为 27 s 内 53 次）；另一轮锁屏 30 s 内 3 次更新、跳过 1 次，无采集。
+- 隐藏 API 豁免崩溃：模块日志显示 10-25 跑 `test:device` 期间进程原生崩溃 7 次，6 次位于 `SystemPowerBinderResolver.resolve` → `HiddenApiBypass.addHiddenApiExemptions`（CheckJNI：`GetStringUTFChars received NULL jstring`），1 次为相机回调中的野地址访问，疑同源；服务自动重启，套件未暴露。原因是库内前缀集合非线程安全、每次探测都调用；改为进程内串行且只成功一次（主机并发与重试用例先在旧行为上失败）。修复后（`e7c735c` Debug 包）真机连跑 `test:device` 10 轮：第 1 轮 Wi-Fi ADB 掉线失败，其余 9 轮 BackendReadinessTest 与 CameraPermissionTest 通过，ConfigPersistenceTest 因当前保亮上限为无限制按设计跳过，ScreenTimeoutRestoreTest 因安全锁屏跳过；模块日志无新增 GazeKeep 原生崩溃。
+- Shizuku 临时超时退路：本机 root/shell 身份均有 DEVICE_POWER，退路无法自然触发，改用 Debug 专用注入（`debug.gazekeep.deny_user_activity=1`，Release 不含，APK 门禁核对）。首轮以 `3f4b204` 发现：持续注视约 45–60 s 后熄屏（序号不变被判 STALE、延长值固定为原值 + 60 s，迟到发现的活动触发写回后立即按原值熄屏）；延长期间用户手动修改的超时被写回覆盖；重启后延长值保留到打开应用。修复后以 Debug 包（arm64，后端固定 Shizuku，系统超时 15000，均已恢复）复测：S1 延长并先落盘原值；S4 持续注视 150 s 屏幕始终亮，超时 63316→98216→132993→170803→208580，原值保持 15000；S2 熄屏、S3 关闭总开关均写回并清记录；S5 强停保留记录、重新打开后亮屏推迟写回并继续延长；S6 杀 UserService 后重连推迟写回、屏幕保持亮并继续延长；S8 延长期间改为 30000，熄屏后保留 30000 并清记录；S7 延长期间重启，开机广播拉起进程连接 shell 写回 15000，未启动服务与相机，HyperOS 未拦截该广播。Sui/Shizuku 服务端重启未执行。
+- R8 压缩包（2026-10-27，`cfd055d` 的 arm64 Release，本地 Android 开发密钥签名副本，证书 SHA-256 `767c4d84…bfc423c0`，非正式签名）：Debug 与 Release 各 4 个 ABI 包通过 `verify:apk`，Release 不含调试故障注入；覆盖安装保留配置，重启后模块日志 `entry=modern_102 startup=Accepted/Installed`。注意：apksigner 默认生成 `.idsig`，adb 随之改用增量安装，LSPosed 未更新模块路径、重启后不加载，须用 `--no-incremental` 安装（用户经系统安装器安装不受影响）。冒烟：启动与三后端就绪显示、后台运行跳转 powerkeeper、撤权显示等待相机授权且授权后自动恢复、日志导出 `.txt`、语言切换、杀 UserService 后重连、LSPosed 采集无 MIUISafety 指示器状态均正常；注视计数 LSPosed 连续 8 次延长后转头（HeadTurned）熄屏，Shizuku 与无障碍各 10/10 延长；用户手动自检通过；全程崩溃缓冲区无 GazeKeep。发现并修复：详细日志与 dumpsys 的引擎状态在 Release 中显示为混淆名（如 `state=zn0`），改为保留相关类名并按二进制名取短名，真机复测显示 `Yielded`/`Ready`/`WaitingDeadline`，APK 门禁新增检查。
+- 正式签名包（2026-10-27，维护者本机以正式密钥库构建 `192e32b`，4 个 ABI 包证书 SHA-256 均为 `bbf8c24e…14d94f`，均通过 `verify:apk`；arm64 SHA-256 前缀 `961bc5308f0bcd6c`）：先降级安装 GitHub 预发布的正式签名 1.1.2 arm64（校验 SHA-256 与证书一致），配置与自检状态保留并正常运行；再以正式签名 1.1.3 覆盖升级（签名一致，无需核心破解），配置文件升级前后一致，重启后模块日志 `entry=modern_102 startup=Accepted/Installed`；主页工作中、三后端就绪显示、后台运行跳转、杀 UserService 后重连、日志可读均正常；系统超时 15 s 下注视 65 s 连续 11 次延长，首条为唤醒产生新活动后的 StaleExtend；崩溃缓冲区无 GazeKeep。未执行：armeabi-v7a 与 x86_64 包的真机安装、R8/正式签名包上的完整页面矩阵与暗光等人工场景。
+- PR #10 评审跟进（Codex 两条 P1，2026-10-27）：UserServiceReconnector 在 bindUserService 同步抛错后不再重试（确认属实，改为失败继续退避，主机用例覆盖，真机未构造绑定异常）；Shizuku 退路在放弃保亮时推迟写回（确认：后端切换后恢复记录无人处理、保亮上限可超出最多 60 s；未注视等路径影响很小，保持推迟）。到达上限改发 ForceRelease、切换后端强制释放。复测时另发现：释放写回原超时后 oracle 未重读，引擎沿用延长 deadline，延长期间的用户活动可能导致注视中熄屏；改为释放后立即重读。Debug 注入真机复测：上限 1 分钟时 MaxHold 后 1 s 内写回并熄屏（修复前按延长值约 35 s 后熄）；延长中切回自动立即写回 15000 并清记录，LSPosed 接手继续延长；延长期间三次按键产生用户活动，屏幕均保持亮且继续延长。未精确复现「检测窗口内活动被立即发现并直接写回」的时序，该路径以执行器用例覆盖。当前设备安装的正式签名包为 `192e32b` 构建，不含上述修复，正式产物需按最终提交重建。
+- ScreenTimeoutRestoreTest：2026-10-27 用户临时关闭锁屏密码后，以 `e7c735c` Debug 包在本机执行，测试前临时关闭服务，结束后恢复。Auto（实际 LSPosed）与固定 Shizuku 各 3 轮全部通过、无跳过；每轮实际按电源键息屏并唤醒一次，系统超时始终为用户原值 60000。Shizuku 临时超时退路仍未触发，原值写回路径不在本项覆盖内。
+- 触摸作废记录：补记 Aborted(Cancelled)（主机用例）。
+- 实机套件：迁至自插桩模块 `e2e`；`test:device` 在本机连续 10 轮 3 项通过、ScreenTimeoutRestoreTest 因安全锁屏跳过；修复异步查杀、同名文案与落盘时序导致的偶发失败。
+
+- [ ] 开机后首屏短暂显示「LSPosed 已就绪」且引擎先选用 LSPosed、约 45 s 后改为 Shizuku，而该次开机模块日志无加载记录；就绪探测为实时 Binder 查询、无缓存，原因未定位。2026-10-27 以 `e7c735c` Debug 包复测未复现：禁用作用域重启后，解锁即打开应用、75 s 内每约 2 s 采样，首屏始终为 LSPosed 未就绪，引擎开机 114.6 s 起直接使用 Shizuku、未出现 LSPosed，模块日志无 GazeKeep 加载；恢复作用域重启后首屏即为 LSPosed 已就绪，引擎使用 LSPosed，模块日志 `entry=modern_102 startup=Accepted/Installed`。原次现象仍无解释，后续禁用作用域场景继续观察。
+- [ ] HyperOS 冻结只能引导，无法检测当前策略或冻结状态；其他 ROM 的后台限制未验证。
+
 ## 应用内语言（2026-10-24）
 
 - 文案继续使用 Compose Multiplatform Resources，不引入 i18n 框架或 AppCompat；设置页新增「语言」（跟随系统默认、简体中文、English），Android 13+ 走系统 LocaleManager 与 `localeConfig`，12 及以下用独立偏好在 attachBaseContext 套用；android 与 a11y 模块补齐英文原生资源：通知随应用内语言切换；Xposed 描述与无障碍描述由 LSPosed 管理器与系统设置读取，只随系统语言切换。官网演示不显示该项。
@@ -36,7 +87,7 @@
 - Kotlin/JS 依赖安装已修复：Kotlin Gradle 插件下载的 Yarn 1.22.22 会向上查找第一个声明 `packageManager` 的 package.json，原先读到仓库根的 `pnpm@11.7.0` 后中止 `:kotlinNpmInstall`/`:kotlinWasmNpmInstall`，阻断 `:core:allTests` 的 JS/Wasm 任务。根构建脚本在生成的 `build/js`、`build/wasm` 根 package.json 中写入 `packageManager: yarn@1.22.22`，`yarn.lock` 不变。删除生成目录后不设任何绕过变量重跑 `:core:allTests`，JS、Wasm 与主机各 41 项通过；`pnpm --filter @gazekeep/app verify` 通过。
 - app 界面与视觉：`shared/androidHostTest` 新增 22 项交互用例与 11 张 Roborazzi 1.76.0 截图（Robolectric 4.17、androidx Compose ui-test 1.12.1，均只进入测试配置），驱动真实 `App` 入口。已用临时改坏实现确认失败（离页不取消自检、首页工作态配色）；校验模式连续两次通过。`pnpm --filter @gazekeep/app verify`（275 项主机测试，失败 0）与 Debug APK 静态门禁通过。未执行：真实 ROM 渲染、厂商字体、系统栏与大字号实机对比。
 - app 实机套件：`android/src/androidTest` 新增 4 项 UiAutomator 旅程（配置冷启动回读、相机权限撤销与拒绝、无障碍就绪一致性、熄屏超时恢复），`verify` 纳入 `:android:assembleDebugAndroidTest`，新增 `test:device` 入口；测试依赖只进入测试 APK，主 APK 静态门禁通过。
-- [ ] 在已授权设备上运行 `pnpm --filter @gazekeep/app test:device` 并记录设备、ROM、后端与结果；本次只编译，未在任何设备上执行，不计作通过。
+- 实机套件已在 Xiaomi 12 Pro / HyperOS OS2.0.6 上执行，结果见「真机矩阵（2026-10-25）」的修复记录。
 
 ## pnpm 升级（2026-10-22）
 
@@ -131,12 +182,9 @@
 
 ## 未完成事项
 
-- [ ] 补齐当前 APK 的多 ROM、真实相机与传感器异常矩阵：长时间连续注视、多脸、触摸、口袋/朝下、视频自身保亮、相机抢占、后端切换/掉线和服务被杀。
-- [ ] 验证无障碍 Hold 达到上限后实际熄屏：用短系统超时与 1 分钟保亮上限连续注视，确认自身 Extend 不重置累计、到点释放并熄一次，真实触摸后可开始新一轮。
-- [ ] 补齐自检其他退出路径和重复测量的真机释放基线；本轮模拟器 Home、真机 Home/工具栏返回的结果见下文，关闭 Activity 等仍待验证。不能以没有前摄实例时的无客户端状态证明释放成功。
-- [ ] 补本轮页面验收：导航方向、返回与旋转、明暗/大字体、日志卡片与分享/导出时间一致、应用列表空结果/失败重试、自检两步与资源释放。
-- [ ] 完成 Shizuku 原系统超时恢复实机验收：临时延长、屏灭、进程被杀、Binder 重连及 Shizuku 重启；同步持久化和恢复读回已由主机测试覆盖。
-- [ ] 补齐 LSPosed 隐私指示器的多 ROM、开关恢复、后台/自检采样、其他应用绿点不受影响及异常降级场景，并记录当前 APK 实际命中候选。
+- [ ] 在 Xiaomi 12 Pro 以外的 ROM 与 Android 版本上补齐相机与传感器异常矩阵（本机结果见「真机矩阵（2026-10-25）」）。
+- [ ] Shizuku 服务端重启（Sui 重启）时的超时恢复未在真机执行；其余退路场景见「真机矩阵（2026-10-25）」的 2026-10-27 复测。
+- [ ] 补齐 LSPosed 隐私指示器的多 ROM 与异常降级场景，并让 APK 记录或可查询实际命中候选。
 - [ ] 补齐两台设备的作用域配置和实际命中候选；完成确实选择旧登记的 legacy 框架独立回归。当前真机环境与 APK 已经直接核对，见本轮真机调试记录。
 - [ ] 完成正式签名 Release 的设备运行验收（开发签名旧版需卸载重装），通过后再把预发布转为正式版。
 
@@ -161,7 +209,7 @@
 | HOLD-01    | 短系统超时、1 分钟保亮上限，持续注视至上限再触摸                        | 自身 Extend 不重置累计；到点实际熄一次，真实触摸开启新轮次       | 未执行；需可信注视输入及无障碍真实窗口                                                                                                           |
 | SAFE-01    | 采帧触摸、手动息屏/亮屏、暗光、多脸、口袋/朝下、视频/通话               | 取消/Unknown 不保亮；息屏不采帧，门控和系统策略正确              | 本轮待验收；触摸、暗光/多脸/传感器及通话等仍待补                                                                                                 |
 | BACK-01    | 切换/掉线、关闭无障碍、划掉任务及服务被杀/重连                          | 不 Extend、无 Hold 残留；通知及恢复状态可解释                    | 未执行；需三后端就绪及临时配置恢复记录                                                                                                           |
-| SHIZ-01    | 实际触发临时超时退路，息屏/销毁/Binder 断开重连或 Shizuku 重启          | 原值先持久化；写回并读回成功才清记录，离线保留待恢复状态         | 未执行；需实际触发退路与可恢复环境                                                                                                               |
+| SHIZ-01    | 实际触发临时超时退路，息屏/销毁/Binder 断开重连或 Shizuku 重启          | 原值先持久化；写回并读回成功才清记录，离线保留待恢复状态         | Debug 注入下通过（2026-10-27，见真机矩阵）；Sui/Shizuku 重启未执行                                                                               |
 | XPOSED-01  | 旧 seq、作用域关闭/恢复、指示器开/关及其他应用用相机                    | 过期请求不 userActivity，其他应用绿点不受影响，恢复准确          | 未执行；需完整框架/候选记录，错误签名使用隔离测试                                                                                                |
 | RELEASE-01 | 对实际压缩签名 APK 覆盖升级，回读配置，自检/后台/异常与页面矩阵         | 签名兼容、配置保留，导航/日志时间/大字体等正常                   | 本轮待验收；正式签名产物与完整页面矩阵未完成                                                                                                     |
 

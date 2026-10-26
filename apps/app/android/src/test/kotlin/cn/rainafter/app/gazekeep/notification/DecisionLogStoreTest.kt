@@ -69,19 +69,47 @@ class DecisionLogStoreTest {
           latencyMs = 120L,
         ),
       )
+      // 最新记录在前。
       val entries = store.readEntries()
       assertEquals(2, entries.size)
-      assertEquals(LogLevel.Info, entries[0].level)
-      assertEquals("GazeEngine", entries[0].tag)
-      assertEquals("system", entries[0].target)
-      assertTrue(entries[0].message.contains("state=Armed"))
       assertEquals(LogLevel.Info, entries[1].level)
-      assertEquals("example.reader", entries[1].target)
-      assertTrue(entries[1].message.contains("Extended"))
-      assertTrue(entries[1].message.contains("Looking"))
+      assertEquals("GazeEngine", entries[1].tag)
+      assertEquals("system", entries[1].target)
+      assertTrue(entries[1].message.contains("state=Armed"))
+      assertEquals(LogLevel.Info, entries[0].level)
+      assertEquals("example.reader", entries[0].target)
+      assertTrue(entries[0].message.contains("Extended"))
+      assertTrue(entries[0].message.contains("Looking"))
 
       store.clear()
       assertTrue(store.readEntries().isEmpty())
+    } finally {
+      dir.deleteRecursively()
+    }
+  }
+
+  @Test fun keepsEventTimeWhenWrittenLaterAndReturnsTheWrittenEntry() {
+    val dir = Files.createTempDirectory("gaze-log").toFile()
+    try {
+      // 写盘时钟已到 90 s，但事件分别发生在 10 s 与 40 s，不能因排队写入而挤到同一时刻。
+      val store = DecisionLogStore(dir) { 90_000L }
+      store.setEnabled(true)
+      val first = store.appendLog(LogLevel.Verbose, "GazeKeepEngine", "system", "deadline a", atMs = 10_000L)
+      val second = store.appendLog(LogLevel.Verbose, "GazeKeepEngine", "system", "deadline b", atMs = 40_000L)
+      assertEquals(10_000L, first?.timestampMs)
+      assertEquals(40_000L, second?.timestampMs)
+      assertEquals(listOf(40_000L, 10_000L), store.readEntries().map { it.timestampMs })
+      assertEquals(listOf(second, first), store.readEntries())
+    } finally {
+      dir.deleteRecursively()
+    }
+  }
+
+  @Test fun disabledStoreReturnsNoEntryOnWrite() {
+    val dir = Files.createTempDirectory("gaze-log").toFile()
+    try {
+      val store = DecisionLogStore(dir) { 1_000L }
+      assertEquals(null, store.appendLog(LogLevel.Info, "GazeKeepEngine", "system", "ignored"))
     } finally {
       dir.deleteRecursively()
     }

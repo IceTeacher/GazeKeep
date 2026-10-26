@@ -17,6 +17,7 @@ class ShellService : IGazeKeepShell.Stub() {
   override fun version(): Int = IGazeKeepShell.Stub.PROTOCOL_VERSION
 
   override fun userActivity(uptime: Long) {
+    ShellFaultInjection.beforeUserActivity()
     power.userActivity(uptime)
   }
 

@@ -9,7 +9,7 @@ description: 设计、运行或评审 GazeKeep 实机完整旅程时加载；覆
 
 验证 APK 安装后页面、相机、引擎与后端连接的真实行为，包括实际熄屏与恢复。按[实机矩阵](../../../docs/development/testing.md#实机完整矩阵)选择场景并读取目标后端架构；发布验收覆盖完整矩阵，局部修复聚焦受影响路径。web 为纯静态站点，没有 E2E 层。
 
-- 自动化：`android/src/androidTest` 使用 androidx.test 与 UiAutomator，覆盖可脚本化旅程，如冷启动与配置回读、权限拒绝/撤销、后端切换与未就绪原因、Shizuku 原系统超时写回。断言读取用户可见状态与系统实际值（`settings`、Wakefulness），不读取帧或人脸数据。
+- 自动化：自插桩模块 `e2e`（独立进程，可撤权与强停被测应用）使用 androidx.test 与 UiAutomator，覆盖可脚本化旅程，如冷启动与配置回读、权限拒绝/撤销、后端切换与未就绪原因、Shizuku 原系统超时写回。断言读取用户可见状态与系统实际值（`settings`、Wakefulness），不读取帧或人脸数据。
 - 人工矩阵：需要真人注视、闭眼、多脸、暗光、口袋、相机抢占或 ROM 特有行为的场景，按矩阵记录计数与耗时。
 - 实机套件不进入默认 `pnpm test`，入口见[测试规范](../../../docs/development/testing.md#实机入口)。fake 与主机测试不证明硬件兼容。
 

@@ -4,6 +4,8 @@ import { cli, context, isMain, report, walk } from "./common.ts";
 
 const ALLOWED: Record<string, string[]> = {
   android: ["shared", "engine", "backend:a11y", "backend:shizuku", "backend:lsposed", "xposed"],
+  // 自插桩实机套件只通过 targetProjectPath 指向 :android，不引入任何模块依赖。
+  e2e: [],
   shared: ["core"],
   core: [],
   engine: ["core"],

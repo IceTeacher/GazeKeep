@@ -17,6 +17,8 @@
     <string name="settings_backend">Backend</string>
     <string name="settings_privacy">Privacy</string>
     <string name="settings_self_test">Camera self-test</string>
+    <string name="settings_background_policy">Background activity</string>
+    <string name="settings_background_policy_summary">Set battery saver to “No restrictions”, otherwise gaze keep-awake may stop after using the system camera</string>
     <string name="settings_back">Back</string>
     <string name="settings_loading">Loading settings…</string>
     <string name="settings_off">Off</string>
@@ -146,7 +148,7 @@
     name="settings_debug_log_summary"
   >Off by default. When enabled, retain the last 24 hours. Turning off clears recorded logs.</string>
     <string name="settings_view_logs">View logs</string>
-    <string name="settings_view_logs_summary">View, filter, share or export recorded logs</string>
+    <string name="settings_view_logs_summary">View, filter, share or export recorded logs, which include foreground app package names</string>
     <string name="logs_title">Logs</string>
     <string name="logs_search_placeholder">Search</string>
     <string name="logs_empty">No logs yet</string>
@@ -176,6 +178,8 @@
     <string name="home_decision_pending">No recent check</string>
     <string name="home_status_tap_to_start">Enable GazeKeep</string>
     <string name="home_status_waiting_hint">Check backend permissions and service status</string>
+    <string name="home_status_waiting_camera">Waiting for camera access</string>
+    <string name="home_status_waiting_camera_hint">Resumes automatically once camera access is granted</string>
     <string name="home_info_app_version">App version</string>
     <string name="home_info_backend_status">Backend readiness</string>
     <string name="home_info_camera_selftest">Camera and self-test</string>

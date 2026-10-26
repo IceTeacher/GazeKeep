@@ -63,6 +63,8 @@ import gazekeep.shared.generated.resources.home_status_decision
 import gazekeep.shared.generated.resources.home_status_stopped
 import gazekeep.shared.generated.resources.home_status_tap_to_start
 import gazekeep.shared.generated.resources.home_status_waiting
+import gazekeep.shared.generated.resources.home_status_waiting_camera
+import gazekeep.shared.generated.resources.home_status_waiting_camera_hint
 import gazekeep.shared.generated.resources.home_status_waiting_hint
 import gazekeep.shared.generated.resources.home_status_working
 import gazekeep.shared.generated.resources.m0_result_unknown
@@ -172,7 +174,10 @@ internal fun HomeScreen(
 private fun StatusBannerCard(state: ControllerState, statusSubtitleOverride: String?, onToggle: () -> Unit) {
   val status = when {
     !state.config.enabled -> HomeRunStatus.Stopped
-    state.serviceRunning -> HomeRunStatus.Working
+
+    // 服务进程存活不代表引擎连着后端；掉线或撤权时引擎处于 Disabled，activeBackend 为空。
+    state.serviceRunning && state.activeBackend != null -> HomeRunStatus.Working
+
     else -> HomeRunStatus.Waiting
   }
   val isDark = MiuixTheme.colorScheme.surface.luminance() < 0.5f
@@ -194,9 +199,14 @@ private fun StatusBannerCard(state: ControllerState, statusSubtitleOverride: Str
     HomeRunStatus.Stopped -> MiuixTheme.colorScheme.onSurfaceVariantActions.copy(alpha = 0.35f)
   }
 
+  val waitingForCamera = status == HomeRunStatus.Waiting && !state.cameraGranted
   val statusTitle = when (status) {
     HomeRunStatus.Working -> stringResource(Res.string.home_status_working)
-    HomeRunStatus.Waiting -> stringResource(Res.string.home_status_waiting)
+
+    HomeRunStatus.Waiting -> stringResource(
+      if (waitingForCamera) Res.string.home_status_waiting_camera else Res.string.home_status_waiting,
+    )
+
     HomeRunStatus.Stopped -> stringResource(Res.string.home_status_stopped)
   }
   val statusSubtitle = when (status) {
@@ -210,7 +220,9 @@ private fun StatusBannerCard(state: ControllerState, statusSubtitleOverride: Str
       statusSubtitleOverride ?: stringResource(Res.string.home_status_decision, decisionLabel)
     }
 
-    HomeRunStatus.Waiting -> stringResource(Res.string.home_status_waiting_hint)
+    HomeRunStatus.Waiting -> stringResource(
+      if (waitingForCamera) Res.string.home_status_waiting_camera_hint else Res.string.home_status_waiting_hint,
+    )
 
     HomeRunStatus.Stopped -> stringResource(Res.string.home_status_tap_to_start)
   }

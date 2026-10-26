@@ -17,6 +17,8 @@
     <string name="settings_backend">当前后端</string>
     <string name="settings_privacy">隐私</string>
     <string name="settings_self_test">相机自检</string>
+    <string name="settings_background_policy">后台运行</string>
+    <string name="settings_background_policy_summary">请将省电策略设为「无限制」，否则使用系统相机后注视保亮可能失效</string>
     <string name="settings_back">返回</string>
     <string name="settings_loading">正在读取设置…</string>
     <string name="settings_off">已关闭</string>
@@ -116,7 +118,7 @@
     name="settings_debug_log_summary"
   >默认关闭日志，打开时保留最近24小时的日志，关闭后清除已经记录的日志</string>
     <string name="settings_view_logs">查看日志</string>
-    <string name="settings_view_logs_summary">查看、筛选、分享或导出已记录的详细日志</string>
+    <string name="settings_view_logs_summary">查看、筛选、分享或导出已记录的详细日志；内容包含前台应用包名</string>
     <string name="logs_title">日志</string>
     <string name="logs_search_placeholder">搜索</string>
     <string name="logs_empty">暂无日志记录</string>
@@ -146,6 +148,8 @@
     <string name="home_decision_pending">尚无检测结果</string>
     <string name="home_status_tap_to_start">点击开启注视保亮</string>
     <string name="home_status_waiting_hint">请检查所选后端授权或服务状态</string>
+    <string name="home_status_waiting_camera">等待相机授权</string>
+    <string name="home_status_waiting_camera_hint">授予相机权限后会自动恢复</string>
     <string name="home_info_app_version">应用版本</string>
     <string name="home_info_backend_status">后端就绪状态</string>
     <string name="home_info_camera_selftest">相机与自检状态</string>

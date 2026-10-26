@@ -37,6 +37,8 @@ class DefaultEngineEffectRunner(
   private val onExtended: () -> Unit,
   private val onRecord: (DecisionRecord) -> Unit,
   private val onNotify: (Alert) -> Unit,
+  // 释放可能写回临时超时（Shizuku 退路），由会话重新读取 deadline。
+  private val onReleased: () -> Unit = {},
 ) : EngineEffectRunner,
   AutoCloseable {
   private val jobs = kotlinx.coroutines.SupervisorJob(parentScope.coroutineContext[Job])
@@ -47,7 +49,7 @@ class DefaultEngineEffectRunner(
   private var holdJob: Job? = null
   private val backendLock = kotlinx.coroutines.sync.Mutex()
   override suspend fun run(effect: EngineEffect, emit: (EngineEvent) -> Unit) {
-    if (config.debugLogEnabled) Log.d(TAG, "effect=${effect::class.simpleName}")
+    if (config.debugLogEnabled) Log.d(TAG, "effect=${logName(effect)}")
     when (effect) {
       is EngineEffect.ScheduleWake -> {
         scheduler.cancel()
@@ -77,7 +79,7 @@ class DefaultEngineEffectRunner(
             Log.d(
               TAG,
               "gates interactive=${input.interactive} locked=${input.keyguardLocked} " +
-                "foreground=${input.foregroundPackage != null} decision=${decision::class.simpleName}",
+                "foreground=${input.foregroundPackage != null} decision=${logName(decision)}",
             )
           }
           emit(EngineEvent.GateResult(decision, input.foregroundPackage, effect.deadline))
@@ -140,7 +142,7 @@ class DefaultEngineEffectRunner(
               ExtendResult.Failed(error)
             }
               ?: ExtendResult.Failed(IllegalStateException("backend unavailable"))
-          if (config.debugLogEnabled) Log.d(TAG, "extend result=${result::class.simpleName}")
+          if (config.debugLogEnabled) Log.d(TAG, "extend result=${logName(result)}")
           currentCoroutineContext().ensureActive()
           emit(EngineEvent.ExtendFinished(result, effect.token))
           if (result === ExtendResult.Done) {
@@ -152,6 +154,13 @@ class DefaultEngineEffectRunner(
       EngineEffect.Release -> {
         val selected = backend()
         backendLock.withLock { selected?.release() }
+        onReleased()
+      }
+
+      EngineEffect.ForceRelease -> {
+        val selected = backend()
+        backendLock.withLock { selected?.forceRelease() }
+        onReleased()
       }
 
       is EngineEffect.Record -> onRecord(effect.record)

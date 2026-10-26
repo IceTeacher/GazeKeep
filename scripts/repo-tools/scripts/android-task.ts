@@ -18,8 +18,9 @@ await cli(() => {
     lint: [":android:lintDebug"],
     test: TEST_TASKS,
     // 综合验证编译实机套件，确保其随实现演进；实际运行需设备与授权，单独由 device 执行。
-    verify: [":android:assembleDebug", ":android:lintDebug", ":android:assembleDebugAndroidTest", ...TEST_TASKS],
-    device: [":android:connectedDebugAndroidTest"],
+    verify: [":android:assembleDebug", ":android:lintDebug", ":e2e:assembleDebug", ...TEST_TASKS],
+    // 实机套件为独立进程的自插桩模块；保留安装，避免 AGP 在结束后卸载被测应用并清空用户数据。
+    device: [":e2e:connectedDebugAndroidTest", "-Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true"],
   };
   if (positionals.length !== 1 || !Object.hasOwn(tasks, positionals[0]))
     throw new Error("用法：android-task.ts build|lint|test|verify|device");

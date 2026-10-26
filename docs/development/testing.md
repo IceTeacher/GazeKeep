@@ -21,14 +21,14 @@
 
 ## 测试分层
 
-| 层次      | 对象                                 | 框架与位置                                                          | 规则 Skill     |
-| --------- | ------------------------------------ | ------------------------------------------------------------------- | -------------- |
-| 单元      | Kotlin 规则与模块隔离协作            | kotlin.test、JUnit4；`commonTest`、`src/test`                       | `testing-unit` |
-| 单元      | web 纯逻辑与构建脚本                 | Vitest `unit` project；`apps/web/tests/{src,scripts}/` 镜像源码     | `testing-unit` |
-| 单元      | 仓库工具：路径、索引、Hook、架构守卫 | `node:test`；`scripts/repo-tools/tests/`，临时隔离 fixture          | `testing-unit` |
-| 界面/视觉 | Android miuix 页面、交互与截图       | Robolectric、Compose UI 测试、Roborazzi；`shared/androidHostTest`   | `testing-ui`   |
-| 界面/视觉 | web DOM、滚动、生命周期与截图        | Vitest `browser` project（Chromium）；`apps/web/tests/scenarios/`   | `testing-ui`   |
-| 完整旅程  | 相机、ROM、三后端与超时恢复          | androidx.test、UiAutomator；`android/src/androidTest`，另加人工矩阵 | `testing-e2e`  |
+| 层次      | 对象                                 | 框架与位置                                                        | 规则 Skill     |
+| --------- | ------------------------------------ | ----------------------------------------------------------------- | -------------- |
+| 单元      | Kotlin 规则与模块隔离协作            | kotlin.test、JUnit4；`commonTest`、`src/test`                     | `testing-unit` |
+| 单元      | web 纯逻辑与构建脚本                 | Vitest `unit` project；`apps/web/tests/{src,scripts}/` 镜像源码   | `testing-unit` |
+| 单元      | 仓库工具：路径、索引、Hook、架构守卫 | `node:test`；`scripts/repo-tools/tests/`，临时隔离 fixture        | `testing-unit` |
+| 界面/视觉 | Android miuix 页面、交互与截图       | Robolectric、Compose UI 测试、Roborazzi；`shared/androidHostTest` | `testing-ui`   |
+| 界面/视觉 | web DOM、滚动、生命周期与截图        | Vitest `browser` project（Chromium）；`apps/web/tests/scenarios/` | `testing-ui`   |
+| 完整旅程  | 相机、ROM、三后端与超时恢复          | androidx.test、UiAutomator；自插桩模块 `e2e`，另加人工矩阵        | `testing-e2e`  |
 
 上表是目标分层，正在按[任务清单](../plans/todo.md)迁移；各入口当前是否已建立以下方小节为准，未建立的套件不能计作通过。
 
@@ -66,7 +66,7 @@ pnpm --filter web test:browser                   # 本机调试，截图可能�
 pnpm --filter @gazekeep/app test:device  # 安装测试 APK 并在已连接设备上运行，先核对授权
 ```
 
-`android/src/androidTest` 使用 androidx.test 1.7.0 与 UiAutomator 2.4.0，按资源键读取 shared 默认中文文案（打包为测试 APK 资源），并用按应用语言把被测应用切到 zh-CN（需要 Android 13+，结束后恢复）。当前覆盖：单次最长保亮在强制停止后冷启动回读、撤销相机权限后自检只提供授权入口且拒绝后仍未授权、后端页无障碍就绪状态与系统设置一致、启用→息屏/亮屏→关闭后系统熄屏超时回到原值。测试只改动自身登记的设置并在结束时恢复；前提不满足（非预设保亮值、服务已开启、未完成自检或无就绪后端）时以 assumption 跳过，跳过和未运行都按未执行记录。需要真人注视、闭眼、多脸、暗光、口袋或相机抢占的场景仍按[实机矩阵](#实机完整矩阵)人工执行。实机套件不进入默认 `pnpm test`；`verify` 只编译测试 APK，编译通过不代表实机通过。
+`e2e` 为 `com.android.test` 自插桩模块（`targetProjectPath = :android`），测试运行在独立进程，撤销权限或强停被测应用不会连带结束 instrumentation；使用 androidx.test 1.7.0 与 UiAutomator 2.4.0，按资源键读取 shared 默认中文文案（打包为测试 APK 资源），并用按应用语言把被测应用切到 zh-CN（需要 Android 13+，结束后恢复）。当前覆盖：单次最长保亮在强制停止后冷启动回读、撤销相机权限后自检只提供授权入口且拒绝后仍未授权、后端页无障碍就绪状态与系统设置一致、启用→息屏/亮屏→关闭后系统熄屏超时回到原值。测试只改动自身登记的设置并在结束时恢复；前提不满足（非预设保亮值、服务已开启、未完成自检、无就绪后端，或息屏旅程遇到安全锁屏）时以 assumption 跳过，跳过和未运行都按未执行记录。需要真人注视、闭眼、多脸、暗光、口袋或相机抢占的场景仍按[实机矩阵](#实机完整矩阵)人工执行。实机套件不进入默认 `pnpm test`；`verify` 只编译测试 APK，编译通过不代表实机通过。`test:device` 以保留安装方式运行，结束后不卸载被测应用；它会把被测应用替换为当前 Debug 构建，签名不同的已安装版本需先由用户决定处置。
 
 ## 七条必守不变量
 
@@ -86,7 +86,7 @@ pnpm --filter @gazekeep/app test:device  # 安装测试 APK 并在已连接设�
 | -------------------------------- | ------------------------------------------- |
 | 白名单内正视超过超时             | 可信结果延后一次超时，连续周期不先降亮      |
 | 转头/离开                        | 本轮或下一轮正常熄屏                        |
-| 闭眼 >2 秒                       | 不保亮                                      |
+| 闭眼 >2 秒（标准灵敏度）         | 不保亮；宽松模式按设计不检查眼睛            |
 | 第二张脸、极暗                   | Unknown，不保亮，不持续连拍                 |
 | 口袋、朝下                       | 门控休眠，正常熄屏；未落地输入单列缺口      |
 | 系统相机/扫码抢占                | 立即让出，不崩溃                            |
@@ -97,10 +97,11 @@ pnpm --filter @gazekeep/app test:device  # 安装测试 APK 并在已连接设�
 | 拒绝/撤销相机权限                | 无法开启或中止，释放资源并说明原因          |
 | 无障碍关闭、后端切换/掉线        | 无 overlay 残留，切换期不 Extend，降级/通知 |
 | Shizuku 重启/重连/息屏           | 原系统超时恢复，记录只在恢复成功后清理      |
+| Shizuku 临时超时退路（Debug）    | 原值+60 s，熄屏/关闭/重连/重启后写回原值    |
 | 页面导航/返回/字体/明暗/旋转     | 状态、可访问文字和布局可用                  |
 | 自检离页/后台、快速开关/冷启动   | 相机与任务释放，配置回读，关闭不意外重启    |
 
-按 Android 版本、ROM、相机与后端能力选择设备，不以单一机型代表兼容范围。对不同系统超时分别验证降亮前检测、连续周期与停止注视后的熄屏。
+按 Android 版本、ROM、相机与后端能力选择设备，不以单一机型代表兼容范围。Shizuku 临时超时退路在 Debug 包上以 `setprop debug.gazekeep.deny_user_activity 1` 触发，结束后执行 `setprop debug.gazekeep.deny_user_activity 0` 并确认系统超时与恢复记录。对不同系统超时分别验证降亮前检测、连续周期与停止注视后的熄屏。
 
 ## 分类与页面场景
 

@@ -91,6 +91,24 @@ class AndroidPlatformActions(
 
   override fun setAppLanguage(language: AppLanguage) = AppLocales.set(activity, language)
 
+  // Xiaomi 12 Pro / HyperOS OS2.0.6 实测：默认「智能」策略会在系统相机使用后冻结前台服务进程，只有「无限制」可避免。
+  override fun hasRomBackgroundPolicy(): Boolean = Build.MANUFACTURER.equals("Xiaomi", ignoreCase = true)
+
+  override fun openRomBackgroundPolicy() {
+    val policy = Intent()
+      .setClassName("com.miui.powerkeeper", "com.miui.powerkeeper.ui.HiddenAppsConfigActivity")
+      .putExtra("package_name", activity.packageName)
+      .putExtra("package_label", activity.applicationInfo.loadLabel(activity.packageManager).toString())
+    // 省电策略页属于 ROM 私有入口，不可用时退回应用详情页，由用户手动进入省电策略。
+    runCatching { activity.startActivity(policy) }.onFailure {
+      runCatching {
+        activity.startActivity(
+          Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", activity.packageName, null)),
+        )
+      }
+    }
+  }
+
   override fun shareLogs(text: String) {
     if (text.isBlank()) return
     runCatching {
@@ -106,7 +124,7 @@ class AndroidPlatformActions(
     if (text.isBlank()) return
     pendingExportText = text
     runCatching {
-      exportLauncher.launch("gazekeep-logs-${System.currentTimeMillis()}.log")
+      exportLauncher.launch("gazekeep-logs-${System.currentTimeMillis()}.txt")
     }
   }
 

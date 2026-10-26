@@ -106,6 +106,11 @@ class EngineReducerTest {
     assertEquals(EngineState.Yielded(YieldReason.WaitingDeadline), transition.snapshot.state)
     assertTrue(transition.effects.any { it is EngineEffect.CancelCapture })
     assertTrue(transition.effects.none { it is EngineEffect.Extend })
+    // 作废的这一轮必须留下记录，否则日志无法解释这次采样去向。
+    val record = transition.effects.filterIsInstance<EngineEffect.Record>().single().record
+    assertEquals(DecisionReason.Aborted, record.reason)
+    assertEquals(AbortReason.Cancelled, record.abortReason)
+    assertFalse(record.extended)
   }
 
   @Test
@@ -136,7 +141,9 @@ class EngineReducerTest {
     )
     assertEquals(EngineState.Yielded(YieldReason.MaxHold), gate.snapshot.state)
     assertTrue(gate.effects.none { it is EngineEffect.StartCapture })
-    assertTrue(EngineEffect.Release in gate.effects)
+    // 到达上限是放弃保亮，后端不得推迟恢复临时设置。
+    assertTrue(EngineEffect.ForceRelease in gate.effects)
+    assertTrue(EngineEffect.Release !in gate.effects)
     assertTrue(gate.snapshot.context.forcedYieldPending)
   }
 
@@ -148,6 +155,42 @@ class EngineReducerTest {
       12_000L,
     )
     assertTrue(EngineEffect.Release in result.effects)
+  }
+
+  @Test
+  fun jitteredDeadlineAfterSkippedGateDoesNotGateAgain() {
+    // 锁屏亮屏时系统每次只把截止时间推后几毫秒，不能每次都重新门控。
+    val skipped = EngineReducer.reduce(
+      EngineReducer.reduce(ready(), EngineEvent.DeadlineUpdated(deadline), 15_000L).snapshot,
+      EngineEvent.GateResult(GateDecision.Skip(SkipReason.Locked)),
+      15_010L,
+    ).snapshot
+    val jitter = EngineReducer.reduce(
+      skipped,
+      EngineEvent.DeadlineUpdated(deadline.copy(screenOffAtUptime = deadline.screenOffAtUptime + 5L)),
+      15_200L,
+    )
+    assertIs<EngineState.Yielded>(jitter.snapshot.state)
+    assertTrue(jitter.effects.isEmpty())
+  }
+
+  @Test
+  fun newDeadlineCycleOrTouchAfterSkippedGateGatesAgain() {
+    val skipped = EngineReducer.reduce(
+      EngineReducer.reduce(ready(), EngineEvent.DeadlineUpdated(deadline), 15_000L).snapshot,
+      EngineEvent.GateResult(GateDecision.Skip(SkipReason.Locked)),
+      15_010L,
+    ).snapshot
+    val extended = deadline.copy(screenOffAtUptime = 31_000L)
+    val nextCycle = EngineReducer.reduce(skipped, EngineEvent.DeadlineUpdated(extended), 26_000L)
+    assertEquals(listOf(EngineEffect.RunGates(extended)), nextCycle.effects)
+
+    val touched = deadline.copy(
+      screenOffAtUptime = deadline.screenOffAtUptime + 5L,
+      lastExternalActivityUptime = 15_100L,
+    )
+    val afterTouch = EngineReducer.reduce(skipped, EngineEvent.DeadlineUpdated(touched), 15_200L)
+    assertIs<EngineState.Gating>(afterTouch.snapshot.state)
   }
 
   @Test
@@ -190,7 +233,7 @@ class EngineReducerTest {
     val active = capturing(ready(context = EngineContext(holdStartUptime = 100L)))
     val expired = EngineReducer.reduce(active, EngineEvent.HoldLimitReached(100L), 1_800_100L)
     assertEquals(EngineState.Yielded(YieldReason.MaxHold), expired.snapshot.state)
-    assertTrue(EngineEffect.Release in expired.effects)
+    assertTrue(EngineEffect.ForceRelease in expired.effects)
     val late = EngineReducer.reduce(
       expired.snapshot,
       EngineEvent.CaptureFinished(Attention.Looking, emptyList(), 10L),

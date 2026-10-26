@@ -55,6 +55,7 @@ class DefaultEngineEffectRunnerTest {
     },
     onExtended: () -> Unit = { error("must not extend") },
     backend: KeepAwakeBackend? = null,
+    onReleased: () -> Unit = {},
   ) = DefaultEngineEffectRunner(
     parentScope = scope,
     config = GazeConfig(),
@@ -64,6 +65,7 @@ class DefaultEngineEffectRunnerTest {
     backend = { backend },
     capture = capture,
     onExtended = onExtended,
+    onReleased = onReleased,
     onRecord = {},
     onNotify = {},
   )
@@ -139,6 +141,35 @@ class DefaultEngineEffectRunnerTest {
       late.resume(ExtendResult.Done)
       assertTrue(events.isEmpty())
       assertEquals(0, extensions)
+    } finally {
+      runner.close()
+      scope.cancel()
+    }
+  }
+
+  @Test
+  fun forceReleaseUsesTheBackendsNonDeferringRelease() = runBlocking {
+    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+    val calls = mutableListOf<String>()
+    val backend = object : KeepAwakeBackend {
+      override val id = BackendId.Shizuku
+      override val readiness = MutableStateFlow<Readiness>(Readiness.Ready)
+      override suspend fun extend(token: ExtendToken): ExtendResult = ExtendResult.Done
+      override suspend fun release() {
+        calls += "release"
+      }
+      override suspend fun forceRelease() {
+        calls += "force"
+      }
+      override suspend fun attach() = Unit
+      override suspend fun detach() = Unit
+    }
+    // 释放可能写回临时超时；之后须重新读取 deadline，否则引擎按旧超时安排检测。
+    val runner = runner(scope, backend = backend, onReleased = { calls += "reread" })
+    try {
+      runner.run(EngineEffect.Release) {}
+      runner.run(EngineEffect.ForceRelease) {}
+      assertEquals(listOf("release", "reread", "force", "reread"), calls)
     } finally {
       runner.close()
       scope.cancel()

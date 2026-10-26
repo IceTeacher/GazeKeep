@@ -10,6 +10,7 @@ import cn.rainafter.app.gazekeep.backend.shizuku.protocol.IGazeKeepShell
 import cn.rainafter.app.gazekeep.backend.shizuku.protocol.PowerSnapshot
 import cn.rainafter.app.gazekeep.backend.shizuku.restore.PendingTimeoutRestoreStore
 import cn.rainafter.app.gazekeep.backend.shizuku.restore.TimeoutRestoreCoordinator
+import cn.rainafter.app.gazekeep.backend.shizuku.restore.TimeoutRestorePolicy
 import cn.rainafter.app.gazekeep.core.backend.ExtendResult
 import cn.rainafter.app.gazekeep.core.backend.ExtendToken
 import cn.rainafter.app.gazekeep.core.backend.KeepAwakeBackend
@@ -38,13 +39,25 @@ class ShizukuKeepAwakeBackend(
   private var lastSequence = Long.MIN_VALUE
 
   @Volatile private var ownActivityUptime: Long? = null
-  fun isExternalActivity(uptime: Long): Boolean = uptime != ownActivityUptime
+
+  // 退路不产生用户活动；延长前已发生的活动已计入延长后的超时，不能再当作新的外部活动。
+  @Volatile private var fallbackExtendedUptime: Long = Long.MIN_VALUE
+  fun isExternalActivity(uptime: Long): Boolean = uptime != ownActivityUptime && uptime > fallbackExtendedUptime
   private val restoreStore = PendingTimeoutRestoreStore.get(context)
   private val operations = timeoutOperations
 
   // 恢复任务归后端所有，不随检测会话取消。
   private val recoveryScope = kotlinx.coroutines.CoroutineScope(
     kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO,
+  )
+
+  // 重连只在 UserService 掉线时调度，detach 只取消待执行的重绑而不废弃作用域。
+  private val reconnector = UserServiceReconnector(
+    scope = kotlinx.coroutines.CoroutineScope(
+      kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main,
+    ),
+    binderAlive = Shizuku::pingBinder,
+    bind = ::refresh,
   )
 
   private fun coordinator(remote: IGazeKeepShell) = TimeoutRestoreCoordinator(
@@ -72,10 +85,11 @@ class ShizukuKeepAwakeBackend(
         return
       }
       shell = remote
+      reconnector.onConnected()
       _readiness.value = Readiness.Unavailable("restoring original timeout")
       recoveryScope.launch {
         operations.withLock {
-          val restored = runCatching { coordinator(remote).restore() }.isSuccess
+          val restored = runCatching { coordinator(remote).restore(deferWhileWatched(remote)) }.isSuccess
           if (shell ===
             remote
           ) {
@@ -90,11 +104,13 @@ class ShizukuKeepAwakeBackend(
       shell = null
       bound = false
       _readiness.value = Readiness.NeedsSetup(SetupStep.StartShizuku)
+      reconnector.onLost()
     }
   }
 
-  private val binderReceived = Shizuku.OnBinderReceivedListener { refresh() }
+  private val binderReceived = Shizuku.OnBinderReceivedListener { if (!refresh()) reconnector.onLost() }
   private val binderDead = Shizuku.OnBinderDeadListener {
+    reconnector.cancel()
     shell = null
     bound = false
     _readiness.value = Readiness.NeedsSetup(SetupStep.StartShizuku)
@@ -107,6 +123,11 @@ class ShizukuKeepAwakeBackend(
   }
 
   override suspend fun detach() {
+    reconnector.cancel()
+    // 停止后不再有熄屏释放，推迟中的恢复必须在断开前完成。
+    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+      operations.withLock { shell?.let { remote -> runCatching { coordinator(remote).restore() } } }
+    }
     runCatching {
       if (bound) Shizuku.unbindUserService(args, connection, true)
     }
@@ -127,7 +148,11 @@ class ShizukuKeepAwakeBackend(
 
   private fun extendLocked(token: ExtendToken): ExtendResult {
     if (_readiness.value != Readiness.Ready) return ExtendResult.Failed(IllegalStateException("shell not ready"))
-    if (token is ExtendToken.Seq && token.value <= lastSequence) return ExtendResult.Stale
+    if (token is ExtendToken.Seq &&
+      ExtendSequence.isStale(token.value, lastSequence, timeoutFallbackActive = restoreStore.read() != null)
+    ) {
+      return ExtendResult.Stale
+    }
     val remote = shell ?: return ExtendResult.Failed(IllegalStateException("Shizuku shell unavailable"))
     if (token is ExtendToken.Seq) lastSequence = token.value
     return try {
@@ -137,7 +162,7 @@ class ShizukuKeepAwakeBackend(
       ExtendResult.Done
     } catch (error: Throwable) {
       if (error is SecurityException) {
-        extendWithTimeout(remote)
+        extendWithTimeout(remote, token)
       } else {
         _readiness.value = Readiness.NeedsSetup(SetupStep.StartShizuku)
         ExtendResult.Failed(error)
@@ -158,6 +183,28 @@ class ShizukuKeepAwakeBackend(
     operations.withLock {
       val remote = shell ?: return@withLock
       try {
+        coordinator(remote).restore(deferWhileWatched(remote))
+      } catch (error: Exception) {
+        _readiness.value = Readiness.Unavailable("timeout restore failed")
+        throw error
+      }
+    }
+  }
+
+  /** 推迟条件在恢复时即时读取电源状态；读取失败按不推迟处理。 */
+  private fun deferWhileWatched(remote: IGazeKeepShell): (Int) -> Boolean = { original ->
+    TimeoutRestorePolicy.wouldExpireImmediately(
+      runCatching { remote.readPower() }.getOrNull(),
+      android.os.SystemClock.uptimeMillis(),
+      original,
+    )
+  }
+
+  /** 放弃保亮或被切走时不推迟：临时延长不能留给之后不再经过本后端的熄屏释放。 */
+  override suspend fun forceRelease() = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+    operations.withLock {
+      val remote = shell ?: return@withLock
+      try {
         coordinator(remote).restore()
       } catch (error: Exception) {
         _readiness.value = Readiness.Unavailable("timeout restore failed")
@@ -166,30 +213,35 @@ class ShizukuKeepAwakeBackend(
     }
   }
 
-  private fun extendWithTimeout(remote: IGazeKeepShell): ExtendResult = runCatching {
-    coordinator(remote).extend(fallbackExtensionMs)
+  private fun extendWithTimeout(remote: IGazeKeepShell, token: ExtendToken): ExtendResult = runCatching {
+    val now = android.os.SystemClock.uptimeMillis()
+    // PowerDumpOracle 的序号即系统上次用户活动时间。
+    val elapsed = (token as? ExtendToken.Seq)?.let { now - it.value } ?: 0L
+    coordinator(remote).extend(fallbackExtensionMs, elapsed)
+    fallbackExtendedUptime = now
     ExtendResult.Done
   }.getOrElse { fallbackError ->
     _readiness.value = Readiness.Unavailable("userActivity denied; timeout fallback failed")
     ExtendResult.Failed(fallbackError)
   }
 
-  private fun refresh() {
+  /** 仅在调用 bindUserService 失败时返回 false；未就绪或已绑定都无需重试绑定。 */
+  private fun refresh(): Boolean {
     if (!Shizuku.pingBinder()) {
       _readiness.value = Readiness.NeedsSetup(SetupStep.StartShizuku)
-      return
+      return true
     }
     if (Shizuku.isPreV11() || Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
       _readiness.value = Readiness.NeedsSetup(SetupStep.GrantShizukuPermission)
-      return
+      return true
     }
-    if (bound) return
+    if (bound) return true
     bound = true
-    runCatching { Shizuku.bindUserService(args, connection) }
+    return runCatching { Shizuku.bindUserService(args, connection) }
       .onFailure {
         bound = false
         _readiness.value = Readiness.Unavailable("bind user service failed")
-      }
+      }.isSuccess
   }
   private companion object {
     val timeoutOperations = kotlinx.coroutines.sync.Mutex()

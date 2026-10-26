@@ -22,6 +22,7 @@ import gazekeep.shared.generated.resources.about_website
 import gazekeep.shared.generated.resources.nav_settings
 import gazekeep.shared.generated.resources.settings_about
 import gazekeep.shared.generated.resources.settings_back
+import gazekeep.shared.generated.resources.settings_background_policy
 import gazekeep.shared.generated.resources.settings_hold_10
 import gazekeep.shared.generated.resources.settings_hold_unlimited
 import gazekeep.shared.generated.resources.settings_language
@@ -70,6 +71,21 @@ class SettingsUiTest {
     app.choose(text(Res.string.settings_language), text(Res.string.settings_language_english))
     assertEquals(listOf("setAppLanguage:English"), app.actions.calls)
     assertEquals(AppLanguage.English, app.actions.appLanguage())
+  }
+
+  @Test
+  fun backgroundPolicyEntryOpensRomSettingsWhenPlatformHasIt() {
+    val app = rule.launchApp(readyState(), romBackgroundPolicy = true)
+    app.openTab(text(Res.string.nav_settings))
+    app.click(text(Res.string.settings_background_policy))
+    assertEquals(listOf("openRomBackgroundPolicy"), app.actions.calls)
+  }
+
+  @Test
+  fun backgroundPolicyEntryHiddenWithoutRomSettings() {
+    val app = rule.launchApp(readyState())
+    app.openTab(text(Res.string.nav_settings))
+    app.assertNotShown(text(Res.string.settings_background_policy))
   }
 
   @Test

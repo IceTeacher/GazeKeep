@@ -8,7 +8,10 @@ import java.io.File
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 
-/** 每条记录独立保存，清理不需读取包名或其他记录内容。调用方使用单一 IO 队列。 */
+/**
+ * 每条记录独立保存，清理不需读取包名或其他记录内容。调用方使用单一 IO 队列。
+ * 时间戳取事件发生时刻（由调用方传入），排队写盘不改变记录时间；保留期清理由调用方定期触发，写入不扫描目录。
+ */
 class DecisionLogStore(private val directory: File, private val clock: () -> Long = System::currentTimeMillis) {
   private var enabled = false
   private val sequence = AtomicLong(0L)
@@ -34,8 +37,8 @@ class DecisionLogStore(private val directory: File, private val clock: () -> Lon
     }
   }
 
-  @Synchronized fun append(record: DecisionRecord) {
-    if (!enabled) return
+  @Synchronized fun append(record: DecisionRecord, atMs: Long = clock()): LogEntry? {
+    if (!enabled) return null
     val packageName = record.foregroundPackage?.takeIf { PACKAGE.matches(it) }
     val target = packageName ?: record.backend?.name ?: "system"
     val level = when (record.reason) {
@@ -58,7 +61,8 @@ class DecisionLogStore(private val directory: File, private val clock: () -> Lon
       record.abortReason?.let { add("abort=$it") }
       record.frameReason?.let { add("frame=$it") }
     }.joinToString(" ")
-    writeEntry(
+    return writeEntry(
+      atMs = atMs,
       level = level,
       tag = "Decision",
       target = target,
@@ -66,12 +70,18 @@ class DecisionLogStore(private val directory: File, private val clock: () -> Lon
     )
   }
 
-  @Synchronized fun appendLog(level: LogLevel, tag: String, target: String? = "system", message: String) {
-    if (!enabled) return
+  @Synchronized fun appendLog(
+    level: LogLevel,
+    tag: String,
+    target: String? = "system",
+    message: String,
+    atMs: Long = clock(),
+  ): LogEntry? {
+    if (!enabled) return null
     val safeTag = tag.replace(UNSAFE_CHARS, " ").trim().ifEmpty { "GazeKeep" }
     val safeTarget = target?.takeIf { TARGET.matches(it) } ?: "system"
     val safeMessage = message.replace(UNSAFE_CHARS, " ").trim()
-    writeEntry(level = level, tag = safeTag, target = safeTarget, message = safeMessage)
+    return writeEntry(atMs = atMs, level = level, tag = safeTag, target = safeTarget, message = safeMessage)
   }
 
   @Synchronized fun readEntries(): List<LogEntry> {
@@ -80,26 +90,33 @@ class DecisionLogStore(private val directory: File, private val clock: () -> Lon
     val files = directory.listFiles()?.filter { it.extension == "log" } ?: return emptyList()
     return files
       .mapNotNull { file -> parseFile(file) }
-      .sortedWith(compareBy<ParsedFile>({ it.entry.timestampMs }, { it.seq }, { it.entry.id }))
+      .sortedWith(compareBy<ParsedFile>({ it.entry.timestampMs }, { it.seq }, { it.entry.id }).reversed())
       .map { it.entry }
   }
 
-  private fun writeEntry(level: LogLevel, tag: String, target: String, message: String) {
-    cleanup()
+  private fun writeEntry(atMs: Long, level: LogLevel, tag: String, target: String, message: String): LogEntry {
     check(directory.isDirectory || directory.mkdirs())
-    val now = clock()
     val seq = sequence.incrementAndGet()
-    val id = "$now-$seq-${UUID.randomUUID()}"
+    val id = "$atMs-$seq-${UUID.randomUUID()}"
     directory.resolve("$id.log").writeText(
       listOf(
         FORMAT_V2,
-        now.toString(),
+        atMs.toString(),
         level.name,
         tag,
         SOURCE_PACKAGE,
         target,
         message,
       ).joinToString("\t") + "\n",
+    )
+    return LogEntry(
+      id = id,
+      timestampMs = atMs,
+      level = level,
+      tag = tag,
+      source = SOURCE_PACKAGE,
+      target = target,
+      message = message,
     )
   }
 

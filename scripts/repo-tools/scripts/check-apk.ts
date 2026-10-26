@@ -6,6 +6,16 @@ import { pngPixelHash } from "./png-pixels.ts";
 import { cli, context, isMain, report, run, walk } from "./common.ts";
 
 const PREFIX = "cn.rainafter.app.gazekeep.xposed.entry.";
+const FAULT_INJECTION = "cn.rainafter.app.gazekeep.backend.shizuku.UserActivityFaultInjection";
+// 详细日志与 dumpsys 以 simpleName 输出这些类型；Release 混淆后用户导出的日志不可读。
+const LOG_NAMES = [
+  "engine.EngineState$Yielded",
+  "engine.EngineEffect$Release",
+  "engine.YieldReason$NotLooking",
+  "backend.ExtendResult$Done",
+  "policy.GateDecision$Skip",
+  "model.Readiness$Ready",
+].map((name) => `cn.rainafter.app.gazekeep.core.${name}`);
 const parser = new XMLParser({ ignoreAttributes: false, parseAttributeValue: false });
 // fast-xml-parser 的结果没有固定结构，节点按 any 处理，缺失字段由下方断言兜底。
 type XmlNode = any;
@@ -165,6 +175,10 @@ export function validateApk(snapshot: ApkSnapshot, expected: ApkExpectation) {
     if (name === "android.app.ActivityThread" || name.startsWith("android.app.ActivityThread$"))
       errors.push(`DEX 打包了隐藏存根：${name}`);
   }
+  // 调试故障注入只来自 debug 源码集；不可调试包中出现说明构建类型串入了测试代码。
+  if (app["@_android:debuggable"] !== "true" && definedClasses.includes(FAULT_INJECTION))
+    errors.push(`不可调试包含调试故障注入：${FAULT_INJECTION}`);
+  for (const name of LOG_NAMES) if (!definedClasses.includes(name)) errors.push(`日志类名被混淆或缺失：${name}`);
   for (const [attr, name] of [
     ["icon", "mipmap/ic_launcher"],
     ["roundIcon", "mipmap/ic_launcher_round"],

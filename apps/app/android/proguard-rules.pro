@@ -8,6 +8,14 @@
 -keep class cn.rainafter.app.gazekeep.backend.shizuku.ShellService { *; }
 -keep class cn.rainafter.app.gazekeep.backend.shizuku.protocol.** { *; }
 -keep class rikka.shizuku.ShizukuProvider { *; }
+
+# 详细日志与 dumpsys 按类名输出引擎状态等类型（engine 的 logName）；只保留类名，仍允许裁剪与优化。
+-keepnames class * implements cn.rainafter.app.gazekeep.core.engine.EngineState
+-keepnames class * implements cn.rainafter.app.gazekeep.core.engine.EngineEffect
+-keepnames class * implements cn.rainafter.app.gazekeep.core.engine.YieldReason
+-keepnames class * implements cn.rainafter.app.gazekeep.core.backend.ExtendResult
+-keepnames class * implements cn.rainafter.app.gazekeep.core.policy.GateDecision
+-keepnames class * implements cn.rainafter.app.gazekeep.core.model.Readiness
 # 框架提供 compileOnly API；只抑制这两组已明确由框架加载的缺失类。
 -dontwarn de.robv.android.xposed.**
 -dontwarn io.github.libxposed.**

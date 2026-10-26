@@ -13,6 +13,9 @@ import gazekeep.shared.generated.resources.home_decision_looking
 import gazekeep.shared.generated.resources.home_status_decision
 import gazekeep.shared.generated.resources.home_status_stopped
 import gazekeep.shared.generated.resources.home_status_waiting
+import gazekeep.shared.generated.resources.home_status_waiting_camera
+import gazekeep.shared.generated.resources.home_status_waiting_camera_hint
+import gazekeep.shared.generated.resources.home_status_working
 import gazekeep.shared.generated.resources.m0_result_unknown
 import gazekeep.shared.generated.resources.self_test_looking
 import gazekeep.shared.generated.resources.settings_loading
@@ -61,5 +64,22 @@ class HomeUiTest {
     app.controller.state.value = app.controller.state.value.copy(lastDecision = Attention.Unknown)
     rule.waitForIdle()
     app.assertShown(text(Res.string.home_status_decision, text(Res.string.m0_result_unknown)))
+  }
+
+  @Test
+  fun runningServiceWithoutActiveBackendIsNotShownAsWorking() {
+    val running = readyState().copy(serviceRunning = true, activeBackend = null)
+    val app = rule.launchApp(running.copy(config = running.config.copy(enabled = true)))
+    app.assertShown(text(Res.string.home_status_waiting))
+    app.assertNotShown(text(Res.string.home_status_working))
+  }
+
+  @Test
+  fun missingCameraPermissionExplainsTheRealReason() {
+    val stopped = readyState().copy(cameraGranted = false, serviceRunning = false)
+    val app = rule.launchApp(stopped.copy(config = stopped.config.copy(enabled = true)))
+    app.assertShown(text(Res.string.home_status_waiting_camera))
+    app.assertShown(text(Res.string.home_status_waiting_camera_hint))
+    app.assertNotShown(text(Res.string.home_status_waiting))
   }
 }
