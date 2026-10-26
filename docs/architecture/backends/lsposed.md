@@ -21,6 +21,8 @@ DeadlineResolver 按真实返回值/参数签名解析候选；当前优先 A，
 
 同一绝对 off deadline 去重，避免重复 Hook 回调推动 seq 使当前采集失效。修改系统侧协议/入口后必须重启使新代码生效，验证前核对设备授权。
 
+App 侧经 HiddenApiBypass 豁免 ServiceManager 后解析 power 服务。该库以非线程安全的集合拼接前缀，设置页探测、运行服务注册与指示器同步可能并发，并发调用会把 null 传入 VMRuntime 原生方法使进程崩溃；豁免在进程内串行执行、成功一次后不再调用，失败时下次解析重试。
+
 ## API 102 入口设计
 
 唯一 APK 保留 LegacyEntry 与 ModernEntry。现代登记为 `META-INF/xposed/java_init.list`，最低/目标版本均为 102，静态作用域仅 `system`，关闭热重载；旧登记 `assets/xposed_init` 保留，推荐作用域仅 `android`，最低版本沿用 93。API 100 框架不在支持范围：识别现代登记的框架可能优先加载现代入口，失败不会自动切回 legacy；legacy 只用于确实选择旧登记的框架。不增加独立 legacy 产物或第三种适配。

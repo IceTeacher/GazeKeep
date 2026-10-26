@@ -42,13 +42,14 @@
 - Shizuku：UserServiceReconnector 退避重绑；真机杀 UserService 后 1.67 s 重新拉起，引擎 1.64 s 内从 Disabled 回到 Shizuku/Armed。
 - 主页与权限：真机撤权后主页显示「等待相机授权」，重新授权回到应用后服务自动恢复为工作中。
 - 日志：真机日志时间与 logcat 事件时间一致到毫秒，列表与导出最新在前、导出为 .txt。
-- 锁屏空转：reducer 不再对同一截止周期内的微调重新门控（主机用例）；真机锁屏 25 s 内门控 0 次，但本次未复现原有的毫秒级 deadline 连续微调，原触发条件仍待复现。
+- 锁屏空转：reducer 不再对同一截止周期内的微调重新门控（主机用例）。2026-10-27 以 1.1.3 Debug 包（`be40c97`）真机复现原触发条件：锁屏亮屏时 0.4 s 内 55 次 deadline 更新、每次后推 4–5 ms，只门控跳过 2 次（原为 27 s 内 53 次）；另一轮锁屏 30 s 内 3 次更新、跳过 1 次，无采集。
+- 隐藏 API 豁免崩溃：模块日志显示 10-25 跑 `test:device` 期间进程原生崩溃 7 次，6 次位于 `SystemPowerBinderResolver.resolve` → `HiddenApiBypass.addHiddenApiExemptions`（CheckJNI：`GetStringUTFChars received NULL jstring`），1 次为相机回调中的野地址访问，疑同源；服务自动重启，套件未暴露。原因是库内前缀集合非线程安全、每次探测都调用；改为进程内串行且只成功一次（主机并发与重试用例先在旧行为上失败）。
 - 触摸作废记录：补记 Aborted(Cancelled)（主机用例）。
 - 实机套件：迁至自插桩模块 `e2e`；`test:device` 在本机连续 10 轮 3 项通过、ScreenTimeoutRestoreTest 因安全锁屏跳过；修复异步查杀、同名文案与落盘时序导致的偶发失败。
 
 - [ ] 开机后首屏短暂显示「LSPosed 已就绪」且引擎先选用 LSPosed、约 45 s 后改为 Shizuku，而该次开机模块日志无加载记录；就绪探测为实时 Binder 查询、无缓存，原因未定位，需在禁用作用域并重启的场景复现。
-- [ ] 锁屏毫秒级 deadline 微调的原触发条件待复现，以确认真机空转已消除。
 - [ ] ScreenTimeoutRestoreTest 需在无安全锁屏的设备上执行。
+- [ ] 豁免修复后需在真机重跑 `test:device` 并核对模块日志无 GazeKeep 原生崩溃。
 - [ ] HyperOS 冻结只能引导，无法检测当前策略或冻结状态；其他 ROM 的后台限制未验证。
 
 ## 应用内语言（2026-10-24）
