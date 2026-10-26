@@ -55,6 +55,7 @@ class DefaultEngineEffectRunnerTest {
     },
     onExtended: () -> Unit = { error("must not extend") },
     backend: KeepAwakeBackend? = null,
+    onReleased: () -> Unit = {},
   ) = DefaultEngineEffectRunner(
     parentScope = scope,
     config = GazeConfig(),
@@ -64,6 +65,7 @@ class DefaultEngineEffectRunnerTest {
     backend = { backend },
     capture = capture,
     onExtended = onExtended,
+    onReleased = onReleased,
     onRecord = {},
     onNotify = {},
   )
@@ -162,11 +164,12 @@ class DefaultEngineEffectRunnerTest {
       override suspend fun attach() = Unit
       override suspend fun detach() = Unit
     }
-    val runner = runner(scope, backend = backend)
+    // 释放可能写回临时超时；之后须重新读取 deadline，否则引擎按旧超时安排检测。
+    val runner = runner(scope, backend = backend, onReleased = { calls += "reread" })
     try {
       runner.run(EngineEffect.Release) {}
       runner.run(EngineEffect.ForceRelease) {}
-      assertEquals(listOf("release", "force"), calls)
+      assertEquals(listOf("release", "reread", "force", "reread"), calls)
     } finally {
       runner.close()
       scope.cancel()

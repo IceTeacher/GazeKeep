@@ -37,6 +37,8 @@ class DefaultEngineEffectRunner(
   private val onExtended: () -> Unit,
   private val onRecord: (DecisionRecord) -> Unit,
   private val onNotify: (Alert) -> Unit,
+  // 释放可能写回临时超时（Shizuku 退路），由会话重新读取 deadline。
+  private val onReleased: () -> Unit = {},
 ) : EngineEffectRunner,
   AutoCloseable {
   private val jobs = kotlinx.coroutines.SupervisorJob(parentScope.coroutineContext[Job])
@@ -152,11 +154,13 @@ class DefaultEngineEffectRunner(
       EngineEffect.Release -> {
         val selected = backend()
         backendLock.withLock { selected?.release() }
+        onReleased()
       }
 
       EngineEffect.ForceRelease -> {
         val selected = backend()
         backendLock.withLock { selected?.forceRelease() }
+        onReleased()
       }
 
       is EngineEffect.Record -> onRecord(effect.record)

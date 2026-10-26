@@ -147,6 +147,8 @@ class BackendSession(
         record.attention?.let(RuntimeStatusStore::recordDecision)
       },
       onNotify = notifier::notifyAlert,
+      // Shizuku 退路写回原超时后，按真实熄屏点重新安排检测。
+      onReleased = { powerOracle?.requestRead() },
     )
     effects = runner
     engine = GazeEngine(
