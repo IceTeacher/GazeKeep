@@ -4,7 +4,7 @@ backend:shizuku 分为 client、protocol、oracle、restore。ShellService 的�
 
 ## 保亮与恢复
 
-首选 shell 身份调用 power userActivity，隐藏 API 运行时解析。退路临时增加 screen_off_timeout 60000 ms；用 Long 计算后限制到 Int 最大值。
+首选 shell 身份调用 power userActivity，隐藏 API 运行时解析。userActivity 抛出 SecurityException 时走退路，临时增加 screen_off_timeout 60000 ms；用 Long 计算后限制到 Int 最大值。Sui 的 root 与 Shizuku 的 shell 身份通常都有 DEVICE_POWER，退路难以自然触发；Debug 构建在 ShellService 调用前读取系统属性 `debug.gazekeep.deny_user_activity`，为 1 时抛出 SecurityException 以实机验证退路与写回。注入只在 debug 源码集，release 源码集为空实现，APK 门禁拒绝不可调试包中出现注入类。
 
 原值保存在独立 gazekeep_timeout_restore SharedPreferences 的 pendingTimeoutRestore。写入与清理使用有 Boolean 结果的同步 commit，操作在 IO 调度器及互斥锁内串行执行。原值未成功落盘不修改系统设置，重复退路不覆盖原值。写入失败后的内存读取也不会伪装成已持久化成功。
 

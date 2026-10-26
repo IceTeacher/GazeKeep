@@ -11,9 +11,9 @@
 | `../docs/index.md`                    | 读者导航   | 调整文档入口或内容归属时                                                                                                                                                   | 持续维护 | 2026-10-17 |
 | `workflow.md`                         | Agent 流程 | 维护协作规则、Skills、执行边界或交接时                                                                                                                                     | 持续维护 | 2026-10-22 |
 | `../docs/development/contributing.md` | 开发流程   | 修改工具链（含 pnpm 版本）、格式（含 Tailwind 类名排序样式表）、构建、Kotlin/JS 依赖安装与锁文件、Hook、CI 流水线的 job 依赖、复用判断、步骤与缓存、tag 发版或工作区目录时 | 持续维护 | 2026-10-22 |
-| `../docs/development/testing.md`      | 测试规范   | 选择测试分层、测试目录布局、门禁、测试依赖（含 android 的 Robolectric）、实机套件、容器截图基线与验收矩阵时                                                                | 持续维护 | 2026-10-25 |
+| `../docs/development/testing.md`      | 测试规范   | 选择测试分层、测试目录布局、门禁、测试依赖（含 android 的 Robolectric）、实机套件、容器截图基线与验收矩阵时                                                                | 持续维护 | 2026-10-27 |
 | `../docs/product/privacy-security.md` | 隐私与安全 | 修改帧、权限、日志、系统设置或隐私文案时                                                                                                                                   | 持续维护 | 2026-10-18 |
-| `../docs/development/release.md`      | 发布规范   | 准备签名、Release、ABI 拆分与原生库打包、tag 构建、发布说明、APK 权限与分发验收时                                                                                          | 持续维护 | 2026-10-22 |
+| `../docs/development/release.md`      | 发布规范   | 准备签名、Release、ABI 拆分与原生库打包、tag 构建、发布说明、APK 权限与分发验收时                                                                                          | 持续维护 | 2026-10-27 |
 
 ## 产品与使用
 
@@ -33,7 +33,7 @@
 | `../docs/architecture/web/website.md`            | 官网架构 | 修改 Astro 双语官网、组件与样式拆分、颜色令牌与主题切换、图标、入场与滚动动效、连续叙事、立体设备、KMP 展示、视觉联动、桌面与移动端滚动吸附、滚动性能、首屏加载、分享元数据、站点统计、Cloudflare Pages 托管部署或官网 CI 发布时 | 持续维护 | 2026-10-23 |
 | `../docs/architecture/ui.md`                     | UI 架构  | 修改页面、导航、日志、自检、平台契约、应用列表、应用内语言或界面截图基线时                                                                                                                                                       | 持续维护 | 2026-10-25 |
 | `../docs/architecture/backends/a11y.md`          | 后端架构 | 修改无障碍事件、Hold 或空闲时钟时                                                                                                                                                                                                | 持续维护 | 2026-10-13 |
-| `../docs/architecture/backends/shizuku.md`       | 后端架构 | 修改 shell Binder、独立前台来源或同步超时恢复时                                                                                                                                                                                  | 持续维护 | 2026-10-25 |
+| `../docs/architecture/backends/shizuku.md`       | 后端架构 | 修改 shell Binder、独立前台来源或同步超时恢复时                                                                                                                                                                                  | 持续维护 | 2026-10-27 |
 | `../docs/architecture/backends/lsposed.md`       | 后端架构 | 修改系统候选、入口兼容、前台来源、seq、指示器、隐藏 API 豁免或打包时                                                                                                                                                             | 持续维护 | 2026-10-27 |
 
 ## 发布说明

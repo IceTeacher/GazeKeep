@@ -6,6 +6,7 @@ import { pngPixelHash } from "./png-pixels.ts";
 import { cli, context, isMain, report, run, walk } from "./common.ts";
 
 const PREFIX = "cn.rainafter.app.gazekeep.xposed.entry.";
+const FAULT_INJECTION = "cn.rainafter.app.gazekeep.backend.shizuku.UserActivityFaultInjection";
 const parser = new XMLParser({ ignoreAttributes: false, parseAttributeValue: false });
 // fast-xml-parser 的结果没有固定结构，节点按 any 处理，缺失字段由下方断言兜底。
 type XmlNode = any;
@@ -165,6 +166,9 @@ export function validateApk(snapshot: ApkSnapshot, expected: ApkExpectation) {
     if (name === "android.app.ActivityThread" || name.startsWith("android.app.ActivityThread$"))
       errors.push(`DEX 打包了隐藏存根：${name}`);
   }
+  // 调试故障注入只来自 debug 源码集；不可调试包中出现说明构建类型串入了测试代码。
+  if (app["@_android:debuggable"] !== "true" && definedClasses.includes(FAULT_INJECTION))
+    errors.push(`不可调试包含调试故障注入：${FAULT_INJECTION}`);
   for (const [attr, name] of [
     ["icon", "mipmap/ic_launcher"],
     ["roundIcon", "mipmap/ic_launcher_round"],

@@ -47,6 +47,17 @@ test("现代框架调用的前后置拦截器必须保留完整回调签名", ()
   }
 });
 
+test("调试故障注入只允许出现在可调试包", () => {
+  const injection = "cn.rainafter.app.gazekeep.backend.shizuku.UserActivityFaultInjection";
+  const release = fixture();
+  release.dex += `C d 1 1 1 ${injection}\n`;
+  assert.match(validateApk(release, expected).join("\n"), /不可调试包含调试故障注入/);
+  const debug = fixture();
+  debug.dex = release.dex;
+  debug.manifest = debug.manifest.replace("<application", '<application android:debuggable="true"');
+  assert.deepEqual(validateApk(debug, expected), []);
+});
+
 test("完整双入口、中文简介与品牌资源通过", () => {
   assert.deepEqual(validateApk(fixture(), expected), []);
 });
