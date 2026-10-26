@@ -32,9 +32,9 @@ AppLocales 不引入 AppCompat：Android 13+ 写入系统 LocaleManager，与系
 
 ## 当前清单与通知
 
-applicationId 为 cn.rainafter.app.gazekeep；相机、camera 前台服务和通知是现有申请能力，Shizuku Provider 与 Xposed 打包入口保持稳定。无障碍配置 canRetrieveWindowContent=false。
+applicationId 为 cn.rainafter.app.gazekeep；相机、camera 前台服务、通知和开机广播是现有申请能力，Shizuku Provider 与 Xposed 打包入口保持稳定。无障碍配置 canRetrieveWindowContent=false。
 
-当前未声明 WAKE_LOCK、GET_USAGE_STATS 和电池优化权限，未实现 BootRecoveryReceiver。最终权限必须从 APK 检查。
+当前未声明 WAKE_LOCK、GET_USAGE_STATS 和电池优化权限。TimeoutRestoreBootReceiver 只在存在 Shizuku 临时超时恢复记录时连接 shell 写回原值，不启动检测服务或相机；ROM 的自启动管控可能拦截开机广播，此时仍在下次连接时恢复。最终权限必须从 APK 检查。
 
 GazeNotifier 的异常通知按同类 10 分钟限频；不在可信 Looking 时提示。DecisionRecord 包含 uptime、包名、Attention、决策/门控/中止/分类原因、后端、extend 和耗时，运行状态另保存 lastDecision（服务重配时保留，仅在显式关闭总开关时清空）。
 

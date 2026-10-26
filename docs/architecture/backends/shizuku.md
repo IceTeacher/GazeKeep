@@ -4,11 +4,11 @@ backend:shizuku 分为 client、protocol、oracle、restore。ShellService 的�
 
 ## 保亮与恢复
 
-首选 shell 身份调用 power userActivity，隐藏 API 运行时解析。userActivity 抛出 SecurityException 时走退路，临时增加 screen_off_timeout 60000 ms；用 Long 计算后限制到 Int 最大值。Sui 的 root 与 Shizuku 的 shell 身份通常都有 DEVICE_POWER，退路难以自然触发；Debug 构建在 ShellService 调用前读取系统属性 `debug.gazekeep.deny_user_activity`，为 1 时抛出 SecurityException 以实机验证退路与写回。注入只在 debug 源码集，release 源码集为空实现，APK 门禁拒绝不可调试包中出现注入类。
+首选 shell 身份调用 power userActivity，隐藏 API 运行时解析。userActivity 抛出 SecurityException 时走退路，临时把 screen_off_timeout 设为「距上次用户活动已过时间 + 60000 ms」，不低于原值，用 Long 计算后限制到 Int 最大值。系统从上次用户活动起计时，退路不产生活动，序号（上次活动时间）不变；因此退路生效期间允许同一序号再次延长，延长前已发生的活动也不再视为外部活动，持续注视才能连续延长。Sui 的 root 与 Shizuku 的 shell 身份通常都有 DEVICE_POWER，退路难以自然触发；Debug 构建在 ShellService 调用前读取系统属性 `debug.gazekeep.deny_user_activity`，为 1 时抛出 SecurityException 以实机验证退路与写回。注入只在 debug 源码集，release 源码集为空实现，APK 门禁拒绝不可调试包中出现注入类。
 
-原值保存在独立 gazekeep_timeout_restore SharedPreferences 的 pendingTimeoutRestore。写入与清理使用有 Boolean 结果的同步 commit，操作在 IO 调度器及互斥锁内串行执行。原值未成功落盘不修改系统设置，重复退路不覆盖原值。写入失败后的内存读取也不会伪装成已持久化成功。
+原值保存在独立 gazekeep_timeout_restore SharedPreferences 的 pendingTimeoutRestore，同时记录本应用最近两次写入的延长值；恢复时当前值不是本应用写入的值，视为用户在延长期间手动修改，保留用户值、只清记录，下一次延长以该值为原值。保留两次写入值是为了覆盖落盘后、写入系统前进程退出的窗口。写入与清理使用有 Boolean 结果的同步 commit，操作在 IO 调度器及互斥锁内串行执行。原值未成功落盘不修改系统设置，重复退路不覆盖原值。写入失败后的内存读取也不会伪装成已持久化成功。
 
-恢复写回后读回确认原值，再同步清记录；任一步失败保留恢复记录并报告未就绪。连接先恢复再 Ready，息屏/释放及销毁共用恢复流程；恢复任务独立于检测会话 scope。Binder 不可用时只能保留记录，待连接恢复再写回，不能宣称离线时已恢复系统设置。
+恢复写回后读回确认原值，再同步清记录；任一步失败保留恢复记录并报告未就绪。连接先恢复再 Ready，息屏/释放及销毁共用恢复流程。亮屏时若写回后系统会立即按上次活动熄屏（已超过原值），连接与释放推迟恢复、保留记录与延长值，由熄屏释放或 detach 完成；detach 不推迟。退路延长期间重启时，开机接收器发现记录后单独连接 shell 写回；Shizuku 未就绪或 20 s 内未连上则保留记录，待下次连接恢复。恢复任务独立于检测会话 scope。Binder 不可用时只能保留记录，待连接恢复再写回，不能宣称离线时已恢复系统设置。
 
 UserService 进程单独退出而 Shizuku 仍在线时不会再收到 binderReceived，由 UserServiceReconnector 按 1/2/5/10/30 s 退避重新绑定，连接成功后重置；Shizuku 自身离线或后端 detach 时取消待执行的重绑，等待 binderReceived 正常刷新。
 
