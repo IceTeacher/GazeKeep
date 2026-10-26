@@ -33,6 +33,7 @@ import cn.rainafter.app.gazekeep.engine.oracle.IdleClockOracle
 import cn.rainafter.app.gazekeep.engine.runtime.DefaultEngineEffectRunner
 import cn.rainafter.app.gazekeep.engine.runtime.GazeEngine
 import cn.rainafter.app.gazekeep.engine.runtime.HandlerWakeScheduler
+import cn.rainafter.app.gazekeep.engine.runtime.logName
 import cn.rainafter.app.gazekeep.notification.GazeNotifier
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -165,7 +166,7 @@ class BackendSession(
       engine?.snapshot?.collectLatest { snapshot ->
         RuntimeStatusStore.updateRunning(running = true, backend = snapshot.backend)
         if (config.debugLogEnabled) {
-          val stateName = snapshot.state::class.simpleName ?: "Unknown"
+          val stateName = logName(snapshot.state)
           val target = snapshot.context.foregroundPackage ?: snapshot.backend?.name ?: "system"
           Log.d(
             TAG,
@@ -213,8 +214,8 @@ class BackendSession(
     writer.println("maxHoldMinutes=${snapshot?.config?.maxHoldMinutes}")
     writer.println("hideCameraIndicator=${snapshot?.config?.hideCameraIndicator}")
     writer.println("backend=${snapshot?.backend}")
-    writer.println("state=${snapshot?.state?.let { it::class.simpleName }}")
-    writer.println("backendReadiness=${backend?.readiness?.value?.let { it::class.simpleName }}")
+    writer.println("state=${snapshot?.state?.let(::logName)}")
+    writer.println("backendReadiness=${backend?.readiness?.value?.let(::logName)}")
     when (val state = snapshot?.state) {
       is EngineState.Armed -> {
         writer.println("wakeAt=${state.wakeAt}")
@@ -222,7 +223,7 @@ class BackendSession(
         writer.println("screenOffAt=${state.deadline.screenOffAtUptime}")
       }
 
-      is EngineState.Yielded -> writer.println("yieldReason=${state.reason::class.simpleName}")
+      is EngineState.Yielded -> writer.println("yieldReason=${logName(state.reason)}")
 
       else -> Unit
     }

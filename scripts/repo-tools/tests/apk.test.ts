@@ -3,6 +3,15 @@ import test from "node:test";
 import { type ApkSnapshot, validateApk, zipCompression } from "../scripts/check-apk.ts";
 
 const PREFIX = "cn.rainafter.app.gazekeep.xposed.entry.";
+const CORE = "cn.rainafter.app.gazekeep.core.";
+const LOG_NAMES = [
+  `${CORE}engine.EngineState$Yielded`,
+  `${CORE}engine.EngineEffect$Release`,
+  `${CORE}engine.YieldReason$NotLooking`,
+  `${CORE}backend.ExtendResult$Done`,
+  `${CORE}policy.GateDecision$Skip`,
+  `${CORE}model.Readiness$Ready`,
+];
 const description = "注视屏幕时延后熄屏；看不清或离开时按系统超时熄屏。";
 function fixture(): ApkSnapshot {
   return {
@@ -21,7 +30,7 @@ function fixture(): ApkSnapshot {
     },
     brandedBitmaps: { "res/foreground.png": true },
     nativeLibs: { "lib/arm64-v8a/libface.so": true, "lib/arm64-v8a/libutil.so": true },
-    dex: `C d 1 1 1 ${PREFIX}ModernEntry\nM d 1 1 1 ${PREFIX}ModernEntry <init>()\nC d 1 1 1 ${PREFIX}LegacyEntry\nM d 1 1 1 ${PREFIX}LegacyEntry <init>()\n${["BeforeHooker", "AfterHooker"].map((name) => `C d 1 1 1 ${PREFIX}ModernHookFacade$${name}\nM d 1 1 1 ${PREFIX}ModernHookFacade$${name} java.lang.Object intercept(io.github.libxposed.api.XposedInterface$Chain)\n`).join("")}`,
+    dex: `${LOG_NAMES.map((name) => `C d 1 1 1 ${name}\n`).join("")}C d 1 1 1 ${PREFIX}ModernEntry\nM d 1 1 1 ${PREFIX}ModernEntry <init>()\nC d 1 1 1 ${PREFIX}LegacyEntry\nM d 1 1 1 ${PREFIX}LegacyEntry <init>()\n${["BeforeHooker", "AfterHooker"].map((name) => `C d 1 1 1 ${PREFIX}ModernHookFacade$${name}\nM d 1 1 1 ${PREFIX}ModernHookFacade$${name} java.lang.Object intercept(io.github.libxposed.api.XposedInterface$Chain)\n`).join("")}`,
   };
 }
 const expected = { versionName: "1.1.0", versionCode: "2", description, abis: ["arm64-v8a"] };
@@ -56,6 +65,14 @@ test("调试故障注入只允许出现在可调试包", () => {
   debug.dex = release.dex;
   debug.manifest = debug.manifest.replace("<application", '<application android:debuggable="true"');
   assert.deepEqual(validateApk(debug, expected), []);
+});
+
+test("详细日志输出的引擎类型名不得被混淆", () => {
+  for (const name of LOG_NAMES) {
+    const data = fixture();
+    data.dex = data.dex.replace(`C d 1 1 1 ${name}\n`, "");
+    assert.match(validateApk(data, expected).join("\n"), new RegExp(`日志类名被混淆.*${name.replaceAll("$", "\\$")}`));
+  }
 });
 
 test("完整双入口、中文简介与品牌资源通过", () => {

@@ -47,7 +47,7 @@ class DefaultEngineEffectRunner(
   private var holdJob: Job? = null
   private val backendLock = kotlinx.coroutines.sync.Mutex()
   override suspend fun run(effect: EngineEffect, emit: (EngineEvent) -> Unit) {
-    if (config.debugLogEnabled) Log.d(TAG, "effect=${effect::class.simpleName}")
+    if (config.debugLogEnabled) Log.d(TAG, "effect=${logName(effect)}")
     when (effect) {
       is EngineEffect.ScheduleWake -> {
         scheduler.cancel()
@@ -77,7 +77,7 @@ class DefaultEngineEffectRunner(
             Log.d(
               TAG,
               "gates interactive=${input.interactive} locked=${input.keyguardLocked} " +
-                "foreground=${input.foregroundPackage != null} decision=${decision::class.simpleName}",
+                "foreground=${input.foregroundPackage != null} decision=${logName(decision)}",
             )
           }
           emit(EngineEvent.GateResult(decision, input.foregroundPackage, effect.deadline))
@@ -140,7 +140,7 @@ class DefaultEngineEffectRunner(
               ExtendResult.Failed(error)
             }
               ?: ExtendResult.Failed(IllegalStateException("backend unavailable"))
-          if (config.debugLogEnabled) Log.d(TAG, "extend result=${result::class.simpleName}")
+          if (config.debugLogEnabled) Log.d(TAG, "extend result=${logName(result)}")
           currentCoroutineContext().ensureActive()
           emit(EngineEvent.ExtendFinished(result, effect.token))
           if (result === ExtendResult.Done) {

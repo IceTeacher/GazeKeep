@@ -32,7 +32,7 @@
 | 页面                               | 通过：浅色/深色/1.3 倍字体/横屏下主页、设置、后端、自检可用，返回逐级退出；应用列表搜索空结果文案正常；导出 6573 行且与卡片时间一致（两者均为写盘时间）      |
 | 实机套件                           | BackendReadinessTest 修复后连续 2 次通过；其余 3 项见缺陷                                                                                                    |
 
-未执行：Sui/Shizuku 服务端重启；旧 seq；legacy；命中候选（当前 APK 不记录死线钩子候选）；应用列表加载失败重试；Pocket 分支；R8 压缩产物与正式签名。测试后已恢复系统超时 60000 ms、无障碍列表、夜间模式、字体、旋转、应用语言、相机权限与应用配置；保留用户改动：省电策略「无限制」、Debug 包安装。
+未执行：Sui/Shizuku 服务端重启；旧 seq；legacy；命中候选（当前 APK 不记录死线钩子候选）；应用列表加载失败重试；Pocket 分支；正式签名产物。测试后已恢复系统超时 60000 ms、无障碍列表、夜间模式、字体、旋转、应用语言、相机权限与应用配置；保留用户改动：省电策略「无限制」、Debug 包安装。
 
 ### 修复（fix/device-matrix-issues，2026-10-25）
 
@@ -45,6 +45,7 @@
 - 锁屏空转：reducer 不再对同一截止周期内的微调重新门控（主机用例）。2026-10-27 以 1.1.3 Debug 包（`be40c97`）真机复现原触发条件：锁屏亮屏时 0.4 s 内 55 次 deadline 更新、每次后推 4–5 ms，只门控跳过 2 次（原为 27 s 内 53 次）；另一轮锁屏 30 s 内 3 次更新、跳过 1 次，无采集。
 - 隐藏 API 豁免崩溃：模块日志显示 10-25 跑 `test:device` 期间进程原生崩溃 7 次，6 次位于 `SystemPowerBinderResolver.resolve` → `HiddenApiBypass.addHiddenApiExemptions`（CheckJNI：`GetStringUTFChars received NULL jstring`），1 次为相机回调中的野地址访问，疑同源；服务自动重启，套件未暴露。原因是库内前缀集合非线程安全、每次探测都调用；改为进程内串行且只成功一次（主机并发与重试用例先在旧行为上失败）。修复后（`e7c735c` Debug 包）真机连跑 `test:device` 10 轮：第 1 轮 Wi-Fi ADB 掉线失败，其余 9 轮 BackendReadinessTest 与 CameraPermissionTest 通过，ConfigPersistenceTest 因当前保亮上限为无限制按设计跳过，ScreenTimeoutRestoreTest 因安全锁屏跳过；模块日志无新增 GazeKeep 原生崩溃。
 - Shizuku 临时超时退路：本机 root/shell 身份均有 DEVICE_POWER，退路无法自然触发，改用 Debug 专用注入（`debug.gazekeep.deny_user_activity=1`，Release 不含，APK 门禁核对）。首轮以 `3f4b204` 发现：持续注视约 45–60 s 后熄屏（序号不变被判 STALE、延长值固定为原值 + 60 s，迟到发现的活动触发写回后立即按原值熄屏）；延长期间用户手动修改的超时被写回覆盖；重启后延长值保留到打开应用。修复后以 Debug 包（arm64，后端固定 Shizuku，系统超时 15000，均已恢复）复测：S1 延长并先落盘原值；S4 持续注视 150 s 屏幕始终亮，超时 63316→98216→132993→170803→208580，原值保持 15000；S2 熄屏、S3 关闭总开关均写回并清记录；S5 强停保留记录、重新打开后亮屏推迟写回并继续延长；S6 杀 UserService 后重连推迟写回、屏幕保持亮并继续延长；S8 延长期间改为 30000，熄屏后保留 30000 并清记录；S7 延长期间重启，开机广播拉起进程连接 shell 写回 15000，未启动服务与相机，HyperOS 未拦截该广播。Sui/Shizuku 服务端重启未执行。
+- R8 压缩包（2026-10-27，`cfd055d` 的 arm64 Release，本地 Android 开发密钥签名副本，证书 SHA-256 `767c4d84…bfc423c0`，非正式签名）：Debug 与 Release 各 4 个 ABI 包通过 `verify:apk`，Release 不含调试故障注入；覆盖安装保留配置，重启后模块日志 `entry=modern_102 startup=Accepted/Installed`。注意：apksigner 默认生成 `.idsig`，adb 随之改用增量安装，LSPosed 未更新模块路径、重启后不加载，须用 `--no-incremental` 安装（用户经系统安装器安装不受影响）。冒烟：启动与三后端就绪显示、后台运行跳转 powerkeeper、撤权显示等待相机授权且授权后自动恢复、日志导出 `.txt`、语言切换、杀 UserService 后重连、LSPosed 采集无 MIUISafety 指示器状态均正常；注视计数 LSPosed 连续 8 次延长后转头（HeadTurned）熄屏，Shizuku 与无障碍各 10/10 延长；用户手动自检通过；全程崩溃缓冲区无 GazeKeep。发现并修复：详细日志与 dumpsys 的引擎状态在 Release 中显示为混淆名（如 `state=zn0`），改为保留相关类名并按二进制名取短名，真机复测显示 `Yielded`/`Ready`/`WaitingDeadline`，APK 门禁新增检查。
 - ScreenTimeoutRestoreTest：2026-10-27 用户临时关闭锁屏密码后，以 `e7c735c` Debug 包在本机执行，测试前临时关闭服务，结束后恢复。Auto（实际 LSPosed）与固定 Shizuku 各 3 轮全部通过、无跳过；每轮实际按电源键息屏并唤醒一次，系统超时始终为用户原值 60000。Shizuku 临时超时退路仍未触发，原值写回路径不在本项覆盖内。
 - 触摸作废记录：补记 Aborted(Cancelled)（主机用例）。
 - 实机套件：迁至自插桩模块 `e2e`；`test:device` 在本机连续 10 轮 3 项通过、ScreenTimeoutRestoreTest 因安全锁屏跳过；修复异步查杀、同名文案与落盘时序导致的偶发失败。

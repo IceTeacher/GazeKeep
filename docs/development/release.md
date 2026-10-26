@@ -6,7 +6,7 @@
 
 APK 内 assets/THIRD_PARTY_NOTICES.txt 记录当前 Release 解析的外部运行依赖、版本、许可链接，以及 Apache、MIT、BSD 必要文本和声明。依据实际 android-classes-jar artifact view，排除未打包的编译存根与 Xposed API；依赖变化后重新核对。Google SDK 与 ML Kit 条款独立适用，不能将项目 MIT 许可推广至它们。
 
-最终 APK 必须检查权限、Xposed assets/META-INF、反射入口、Shizuku Provider、AIDL 和 Binder 字段顺序。ML Kit 注册器由 Manifest metadata 反射发现；库的 consumer 规则保留类，应用额外保留这些注册器的 public 无参构造器，防止 R8 full mode 移除构造器后检测组件缺失。APK 门禁从实际 metadata 推导登记类并核对 DEX 类与无参构造器，压缩运行验收仍需设备补证。现代 API 102 和 legacy 同 APK 登记；现代最低/目标版本为 102，API 100 不支持，legacy 仅用于选择旧登记的框架。更新后重启生效，关闭热重载；实际入口与钩点按设备记录，不从徽标猜测兼容性。
+最终 APK 必须检查权限、Xposed assets/META-INF、反射入口、Shizuku Provider、AIDL 和 Binder 字段顺序。ML Kit 注册器由 Manifest metadata 反射发现；库的 consumer 规则保留类，应用额外保留这些注册器的 public 无参构造器，防止 R8 full mode 移除构造器后检测组件缺失。详细日志与 dumpsys 按类名输出引擎状态、效果、门控与就绪等类型，Release 只保留这些类的名称（仍可裁剪），日志短名取二进制名末段，不依赖会被 R8 移除的内部类元数据。APK 门禁从实际 metadata 推导登记类并核对 DEX 类与无参构造器，压缩运行验收仍需设备补证。现代 API 102 和 legacy 同 APK 登记；现代最低/目标版本为 102，API 100 不支持，legacy 仅用于选择旧登记的框架。更新后重启生效，关闭热重载；实际入口与钩点按设备记录，不从徽标猜测兼容性。
 
 ## Release 签名
 
@@ -20,7 +20,7 @@ Release 启用 R8 与资源压缩，原生库压缩存放（`useLegacyPackaging`
 
 - 每次交付保持 versionCode 递增，避免同版本覆盖安装复用管理器图标缓存。
 - 核对七条不变量、完整实机矩阵和最新 APK；按 Android、ROM 与三后端能力记录实测范围。
-- 对 Debug 与压缩 Release 的每个 ABI 包执行 `pnpm verify:apk --apk <APK路径> --abi <ABI>`（通用包列出全部 ABI）：检查双登记与作用域、版本与中文简介、图标引用和位图、无参入口保留、禁止权限、compileOnly 类未打包、不可调试包不含调试故障注入、ABI 集合与原生库压缩；另核对运行依赖。
+- 对 Debug 与压缩 Release 的每个 ABI 包执行 `pnpm verify:apk --apk <APK路径> --abi <ABI>`（通用包列出全部 ABI）：检查双登记与作用域、版本与中文简介、图标引用和位图、无参入口保留、禁止权限、compileOnly 类未打包、不可调试包不含调试故障注入、详细日志输出的引擎类型保留类名、ABI 集合与原生库压缩；另核对运行依赖。
 - 记录代码/APK 标识、设备与 ROM、后端/框架版本、系统超时、实际命中候选和未执行项，不从主机测试推断硬件通过。
 - 每个 Release 附实测范围、未测声明、隐私三句话、Root/非 Root 启用步骤、已知限制及需要重启的入口更新。
 
