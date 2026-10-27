@@ -32,10 +32,17 @@ jobs:
       name: lsposed-repo
       url: https://github.com/${{ env.MODULE_REPO }}/releases
     steps:
+      # WHY：工具与模块仓库元数据取自本流程所在提交（手动触发为 main，正式版触发为该 tag）；
+      # 被同步 tag 的源码另放子目录，只读取版本号与发布说明，补发早于本流程的旧 tag 时它不含工具与元数据。
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
+      - name: Checkout release sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
           ref: refs/tags/${{ env.TAG }}
+          path: release-src
           persist-credentials: false
       - name: Set up workspace
         uses: ./.github/actions/setup
@@ -47,8 +54,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          node scripts/repo-tools/scripts/lsposed-repo.ts --tag "$TAG" --output "$GITHUB_OUTPUT"
-          test -s "docs/releases/$TAG.md"
+          node scripts/repo-tools/scripts/lsposed-repo.ts --release-root release-src --tag "$TAG" --output "$GITHUB_OUTPUT"
+          test -s "release-src/docs/releases/$TAG.md"
           # WHY：手动补发同样只接受正式版，避免把未完成设备验收的预发布推给 LSPosed 用户。
           state="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease)"
           if ! jq -e '.isDraft == false and .isPrerelease == false' <<<"$state" >/dev/null; then
@@ -126,7 +133,7 @@ jobs:
           set -euo pipefail
           body="$RUNNER_TEMP/module-notes.md"
           {
-            cat "docs/releases/$TAG.md"
+            cat "release-src/docs/releases/$TAG.md"
             echo
             echo "---"
             echo
