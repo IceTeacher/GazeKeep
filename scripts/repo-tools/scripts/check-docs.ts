@@ -92,6 +92,21 @@ function validDate(date: string) {
   const parsed = new Date(`${date}T00:00:00Z`);
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date;
 }
+// 发布说明作为 GitHub Release 正文：安装包一节由 release.yml 生成，验收记录维护在任务清单，不进入正文。
+const RELEASE_SECTIONS = ["更新日志", "启用步骤"];
+function releaseNotesErrors(name: string, text: string) {
+  const errors: string[] = [];
+  if (!/^docs\/releases\/v\d+\.\d+\.\d+\.md$/.test(name)) errors.push(`${name}: 发布说明文件名必须为 v<版本>.md`);
+  let fenced = false;
+  const headings: string[] = [];
+  for (const line of text.split("\n")) {
+    if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
+    else if (!fenced && /^#{1,2} /.test(line)) headings.push(line);
+  }
+  if (headings.join("\n") !== RELEASE_SECTIONS.map((s) => `## ${s}`).join("\n"))
+    errors.push(`${name}: 发布说明只能依次包含「## 更新日志」「## 启用步骤」两节，不含一级标题`);
+  return errors;
+}
 const INDEX = ".agents/docs-index.md";
 function isManagedDocument(name: string) {
   return name.endsWith(".md") && name !== INDEX && (name.startsWith("docs/") || /^\.agents\/[^/]+\.md$/.test(name));
@@ -123,6 +138,7 @@ export function violations(root: string) {
   for (const page of active) {
     const name = relative(root, page).split(sep).join("/");
     if (isManagedDocument(name) && !registrations.has(page)) errors.push(`活动文档未登记：${name}`);
+    if (name.startsWith("docs/releases/")) errors.push(...releaseNotesErrors(name, readFileSync(page, "utf8")));
     if (!name.startsWith("docs/plans/") || name === "docs/plans/todo.md") continue;
     const match = /^(\d{8})-[a-z0-9-]+\.md$/.exec(name.split("/").at(-1)!);
     const dates = [...readFileSync(page, "utf8").matchAll(/^最后维护：(\d{4}-\d{2}-\d{2})\s*$/gm)].map((m) => m[1]);
