@@ -1,0 +1,153 @@
+name: lsposed-repo
+
+# 把已转为正式版的 GitHub Release 同步到 LSPosed 官方模块仓库（Xposed-Modules-Repo），供 LSPosed 管理器检索与更新。
+# 预发布不会触发：设备验收前只在本仓库提供预发布，维护者转为正式版后才进入模块仓库。
+on:
+  release:
+    types: [released]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 要同步的正式版 tag（如 v1.1.3）
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lsposed-repo-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+env:
+  MODULE_REPO: Xposed-Modules-Repo/cn.rainafter.app.gazekeep
+  TAG: ${{ github.event.release.tag_name || inputs.tag }}
+
+jobs:
+  sync:
+    name: Sync module repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # 模块仓库写入凭据只放在 lsposed-repo 环境，部署范围限定 main 分支与 v*.*.* tag。
+    environment:
+      name: lsposed-repo
+      url: https://github.com/${{ env.MODULE_REPO }}/releases
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ env.TAG }}
+          persist-credentials: false
+      - name: Set up workspace
+        uses: ./.github/actions/setup
+        with:
+          java: "true"
+      - name: Verify version, metadata and source release
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          node scripts/repo-tools/scripts/lsposed-repo.ts --tag "$TAG" --output "$GITHUB_OUTPUT"
+          test -s "docs/releases/$TAG.md"
+          # WHY：手动补发同样只接受正式版，避免把未完成设备验收的预发布推给 LSPosed 用户。
+          state="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease)"
+          if ! jq -e '.isDraft == false and .isPrerelease == false' <<<"$state" >/dev/null; then
+            echo "$TAG 不是正式版：$state" >&2
+            exit 1
+          fi
+      - name: Download and verify release APKs
+        id: apk
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SIGNING_CERT_SHA256: ${{ vars.GAZEKEEP_SIGNING_CERT_SHA256 }}
+          VERSION: ${{ steps.version.outputs.version_name }}
+        run: |
+          set -euo pipefail
+          if [ -z "$SIGNING_CERT_SHA256" ]; then
+            echo "lsposed-repo 环境缺少配置：GAZEKEEP_SIGNING_CERT_SHA256" >&2
+            exit 1
+          fi
+          dist="$RUNNER_TEMP/dist"
+          mkdir -p "$dist"
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir "$dist" \
+            --pattern '*.apk' --pattern '*.apk.sha256'
+          build_tools="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          expected="$(tr -d ':[:space:]' <<<"$SIGNING_CERT_SHA256" | tr '[:upper:]' '[:lower:]')"
+          variants=(arm64-v8a armeabi-v7a x86_64 universal)
+          test "$(find "$dist" -maxdepth 1 -name '*.apk' | wc -l)" -eq "${#variants[@]}"
+          # WHY：Release 资产可在发布后被替换；推送前重新核对摘要与证书，防止把被替换的包分发给 LSPosed 用户。
+          for variant in "${variants[@]}"; do
+            name="gazekeep-$VERSION-$variant.apk"
+            (cd "$dist" && sha256sum -c "$name.sha256")
+            "$build_tools/apksigner" verify "$dist/$name"
+            mapfile -t certs < <("$build_tools/apksigner" verify --print-certs "$dist/$name" |
+              sed -nE 's/^.*[Ss]igner.* certificate SHA-256 digest: ([0-9a-f]+)$/\1/p' | sort -u)
+            if [ "${#certs[@]}" -ne 1 ] || [ "${certs[0]}" != "$expected" ]; then
+              echo "$name 签名证书与登记值不一致：${certs[*]}" >&2
+              exit 1
+            fi
+          done
+          echo "dist=$dist" >>"$GITHUB_OUTPUT"
+      - name: Push module metadata
+        id: metadata
+        env:
+          GH_TOKEN: ${{ secrets.LSPOSED_REPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$GH_TOKEN" ]; then
+            echo "lsposed-repo 环境缺少配置：LSPOSED_REPO_TOKEN" >&2
+            exit 1
+          fi
+          gh auth setup-git
+          branch="$(gh api "repos/$MODULE_REPO" --jq .default_branch)"
+          repo="$RUNNER_TEMP/module-repo"
+          git clone "https://github.com/$MODULE_REPO.git" "$repo"
+          # 模块仓库只放元数据，不放源码；新建的空仓库也能直接推送到默认分支。
+          git -C "$repo" checkout -B "$branch"
+          cp apps/app/distribution/lsposed/{README.md,SCOPE,SOURCE_URL,SUMMARY} "$repo/"
+          git -C "$repo" add README.md SCOPE SOURCE_URL SUMMARY
+          if git -C "$repo" diff --cached --quiet; then
+            echo "元数据无变化"
+          else
+            git -C "$repo" -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -m "Sync metadata from IceTeacher/GazeKeep@$GITHUB_SHA"
+            git -C "$repo" push origin "HEAD:$branch"
+          fi
+          echo "sha=$(git -C "$repo" rev-parse HEAD)" >>"$GITHUB_OUTPUT"
+      - name: Publish module release
+        env:
+          GH_TOKEN: ${{ secrets.LSPOSED_REPO_TOKEN }}
+          DIST: ${{ steps.apk.outputs.dist }}
+          TARGET: ${{ steps.metadata.outputs.sha }}
+          MODULE_TAG: ${{ steps.version.outputs.module_tag }}
+          VERSION: ${{ steps.version.outputs.version_name }}
+        run: |
+          set -euo pipefail
+          body="$RUNNER_TEMP/module-notes.md"
+          {
+            cat "docs/releases/$TAG.md"
+            echo
+            echo "---"
+            echo
+            echo "各架构安装包的 SHA-256、签名证书与构建信息见 [GitHub Release](https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG)。"
+          } >"$body"
+          assets=("$DIST"/*.apk)
+          if gh release view "$MODULE_TAG" --repo "$MODULE_REPO" >/dev/null 2>&1; then
+            # WHY：索引 bot 校验失败时会把 Release 改为草稿，gh release view 也能按待定 tag 找到草稿；
+            # gh release edit 不传 --draft 会保留草稿状态，重跑须显式发布。先覆盖 APK 再编辑，
+            # 让编辑触发的 bot 校验读取新包；仅替换 APK 不会通知 bot。
+            gh release upload "$MODULE_TAG" "${assets[@]}" --repo "$MODULE_REPO" --clobber
+            gh release edit "$MODULE_TAG" --repo "$MODULE_REPO" --title "$VERSION" --notes-file "$body" \
+              --draft=false --prerelease=false
+          else
+            gh release create "$MODULE_TAG" "${assets[@]}" --repo "$MODULE_REPO" \
+              --target "$TARGET" --title "$VERSION" --notes-file "$body"
+          fi
+          {
+            echo "## LSPosed 模块仓库"
+            echo
+            echo "- Release：https://github.com/$MODULE_REPO/releases/tag/$MODULE_TAG"
+            echo "- 索引 bot 会另行校验 APK，通过后约 5～60 分钟在 LSPosed 管理器中可见；校验失败时 Release 会被改为草稿。"
+            echo "- 模块仓库可见不代表实机验收。"
+          } >>"$GITHUB_STEP_SUMMARY"

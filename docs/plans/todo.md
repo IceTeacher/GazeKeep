@@ -180,6 +180,16 @@
 - [ ] 补 Safari/Firefox、实体手机触摸、地址栏伸缩与系统缩放矩阵；当前移动布局采用 Chromium 设备模拟。
 - [ ] 持续评估 KMP/Skiko 与 Three.js 资源体积及加载体验。
 
+## LSPosed 模块仓库（2026-10-27）
+
+- 新增 `apps/app/distribution/lsposed/` 元数据、`verify:lsposed-repo` 检查（接入 `repo` job）与 `lsposed-repo.yml` 同步流程，规则见[发布规范](../development/release.md#lsposed-模块仓库)。
+- 主机验证：新增 8 项 `lsposed.test.ts` 用例（先确认缺少实现时失败），51 项仓库工具测试、repo-tools lint 与 `tsc`、`verify:lsposed-repo`、文档/Agent 资产/架构检查、全仓 `format:check` 通过；actionlint 1.7.12（含 shellcheck）检查三个 workflow 通过。CLI 对 `v1.1.3` 输出 `module_tag=5-1.1.3`，对不一致的 tag 失败退出。
+- 未执行：workflow 尚未在 GitHub 上运行，同步、证书复核与模块仓库写入都未经真实验证。
+- 2026-10-27：`rainafter.cn` 根域 TXT `lsposed-modules-repo-verification=IceTeacher` 已生效（权威 DNS 与 8.8.8.8 均可查到）；已提交 [submission #2326](https://github.com/Xposed-Modules-Repo/submission/issues/2326)；已创建 `lsposed-repo` 环境（部署范围 `main` 与 `v*.*.*` tag）并配置 `GAZEKEEP_SIGNING_CERT_SHA256`（与 `release` 环境相同）。
+- 2026-10-27：提审通过，bot 建立 `Xposed-Modules-Repo/cn.rainafter.app.gazekeep` 并授予 maintain；已推送四个元数据文件（空仓库网页不显示 About 设置，API 修改返回 404），维护者在网页上设置 Description 为 `GazeKeep`、Homepage 为源码地址；`lsposed-repo` 环境已配置 `LSPOSED_REPO_TOKEN`。
+- [ ] 手动触发同步 `v1.1.3`，确认模块仓库 Release 为 `5-1.1.3` 且不是草稿，索引 bot 的 Tag/Build 运行成功。
+- [ ] 在 LSPosed 管理器的仓库页检索、下载并安装 GazeKeep；下一个正式版确认管理器能提示更新。
+
 ## 未完成事项
 
 - [ ] 在 Xiaomi 12 Pro 以外的 ROM 与 Android 版本上补齐相机与传感器异常矩阵（本机结果见「真机矩阵（2026-10-25）」）。

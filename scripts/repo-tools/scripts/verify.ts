@@ -4,7 +4,7 @@ import { cli, context, run } from "./common.ts";
 await cli(() => {
   const { root } = context();
   const directory = join(root, "scripts/repo-tools");
-  for (const script of ["check-docs", "check-agent-assets", "check-architecture"])
+  for (const script of ["check-docs", "check-agent-assets", "check-architecture", "lsposed-repo"])
     run(process.execPath, [join(directory, `scripts/${script}.ts`), "--root", root], {
       cwd: root,
     });
