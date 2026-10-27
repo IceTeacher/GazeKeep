@@ -37,7 +37,7 @@ jobs:
             exit 1
           fi
           git merge-base --is-ancestor "$GITHUB_SHA" origin/main
-          # 发布说明须在打 tag 前随代码评审合入，缺失时不发版。
+          # 发布说明须在打 tag 前随代码评审合入，缺失时不发版；格式由 verify:docs 在 pipeline 中检查。
           test -s "docs/releases/$GITHUB_REF_NAME.md"
       # WHY：通常合并后立即打 tag，main 的运行可能仍在进行；等待其结束，失败或缺失时不发版。
       - name: Wait for pipeline success on main
@@ -186,6 +186,7 @@ jobs:
             cat "$table"
             echo
             echo "- 签名证书 SHA-256：\`$expected\`"
+            echo "- 提交：\`$GITHUB_SHA\`"
             echo "- 静态门禁通过不代表实机验收。"
           } >>"$GITHUB_STEP_SUMMARY"
       - name: Upload Release APKs
@@ -196,14 +197,13 @@ jobs:
           if-no-files-found: error
           retention-days: 7
       # 设备验收未完成前只发预发布；转正式版由维护者在 GitHub 上手动操作。
+      # 正文只含发布说明的「更新日志」「启用步骤」与此处生成的「安装包」；证书与提交见 Step summary，验收记录在任务清单。
       - name: Publish GitHub pre-release
         env:
           GH_TOKEN: ${{ github.token }}
           DIST: ${{ steps.apk.outputs.dist }}
           TABLE: ${{ steps.apk.outputs.table }}
-          CERT_SHA256: ${{ steps.apk.outputs.cert }}
           NOTES: ${{ steps.version.outputs.notes }}
-          VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
           body="$RUNNER_TEMP/release-notes.md"
@@ -215,23 +215,15 @@ jobs:
             echo "多数手机选择 \`arm64-v8a\`；较旧的 32 位手机选择 \`armeabi-v7a\`；不确定设备架构时选择体积较大的 \`universal\`。各包签名与版本相同，可互相覆盖安装。"
             echo
             cat "$TABLE"
-            echo
-            echo "## 构建信息"
-            echo
-            echo "| 项目 | 内容 |"
-            echo "| --- | --- |"
-            echo "| 签名证书 SHA-256 | \`$CERT_SHA256\` |"
-            echo "| 提交 | \`$GITHUB_SHA\` |"
-            echo
-            echo "APK 由 CI 构建并通过静态门禁（权限、入口登记、保留规则、ABI 与签名），不代表实机验收。"
           } >"$body"
           shopt -s nullglob
           assets=("$DIST"/*.apk "$DIST"/*.apk.sha256)
           # 重跑时更新已有 Release，而不是因重复创建失败。
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --prerelease --notes-file "$body"
+            gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --prerelease --title "$GITHUB_REF_NAME" \
+              --notes-file "$body"
             gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --clobber
           else
             gh release create "$GITHUB_REF_NAME" "${assets[@]}" --repo "$GITHUB_REPOSITORY" \
-              --verify-tag --prerelease --title "GazeKeep $VERSION" --notes-file "$body"
+              --verify-tag --prerelease --title "$GITHUB_REF_NAME" --notes-file "$body"
           fi

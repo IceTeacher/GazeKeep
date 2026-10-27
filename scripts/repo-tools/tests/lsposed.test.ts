@@ -3,7 +3,13 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test, { type TestContext } from "node:test";
-import { moduleRelease, moduleTag, readAppVersion, validateMetadata } from "../scripts/lsposed-repo.ts";
+import {
+  moduleRelease,
+  moduleTag,
+  readAppVersion,
+  renderModuleReadme,
+  validateMetadata,
+} from "../scripts/lsposed-repo.ts";
 import { run, SOURCE_ROOT } from "../scripts/common.ts";
 
 const PRIVACY = [
@@ -35,7 +41,12 @@ function fixture(t: TestContext) {
       .map((line, i) => `${i + 1}. ${line}`)
       .join("\n")}\n\n## 数据与权限边界\n`,
   );
-  write("apps/app/distribution/lsposed/README.md", `# GazeKeep\n\n${PRIVACY.map((line) => `- ${line}`).join("\n")}\n`);
+  write(
+    "README.md",
+    `# GazeKeep\n\n${PRIVACY.slice(0, 3)
+      .map((line, i) => `${i + 1}. ${line}`)
+      .join("\n")}\n`,
+  );
   write("apps/app/distribution/lsposed/SUMMARY", "注视屏幕时延后熄屏。\n");
   write("apps/app/distribution/lsposed/SCOPE", '["android"]\n');
   write("apps/app/distribution/lsposed/SOURCE_URL", "https://github.com/IceTeacher/GazeKeep\n");
@@ -84,12 +95,14 @@ test("元数据通过校验", (t) => {
   assert.deepEqual(validateMetadata(root), []);
 });
 
-test("元数据文件集合必须恰为模块仓库要求的四个", (t) => {
+test("元数据目录只放 SCOPE、SOURCE_URL 与 SUMMARY，README 由根 README 生成", (t) => {
   const { root, write } = fixture(t);
   write("apps/app/distribution/lsposed/LICENSE", "MIT\n");
+  write("apps/app/distribution/lsposed/README.md", "# 另一份\n");
   rmSync(join(root, "apps/app/distribution/lsposed/SUMMARY"));
   const errors = validateMetadata(root).join("\n");
   assert.match(errors, /多余.*LICENSE/);
+  assert.match(errors, /多余.*README\.md/);
   assert.match(errors, /缺少.*SUMMARY/);
 });
 
@@ -121,17 +134,40 @@ test("SCOPE 必须是字符串数组且与模块作用域登记一致", (t) => {
   assert.deepEqual(validateMetadata(root), []);
 });
 
-test("README 必须逐字包含隐私文案真源的中英文三句", (t) => {
+test("根 README 必须逐字包含隐私文案真源的中文三句", (t) => {
   const { root, write } = fixture(t);
-  write(
-    "apps/app/distribution/lsposed/README.md",
-    `# GazeKeep\n\n${PRIVACY.map((line) => `- ${line}`)
-      .join("\n")
-      .replace("不保存、不上传", "不保存")}\n`,
-  );
+  write("README.md", `# GazeKeep\n\n${PRIVACY.slice(0, 3).join("\n").replace("不保存、不上传", "不保存")}\n`);
   assert.match(validateMetadata(root).join("\n"), /README.*不保存、不上传/);
   write("docs/product/privacy-security.md", "# 隐私与安全\n");
   assert.match(validateMetadata(root).join("\n"), /隐私文案/);
+});
+
+test("模块 README 与根 README 一致，相对图片与链接改为固定提交的绝对地址", () => {
+  const sha = "0123456789abcdef0123456789abcdef01234567";
+  const raw = `https://raw.githubusercontent.com/IceTeacher/GazeKeep/${sha}`;
+  const blob = `https://github.com/IceTeacher/GazeKeep/blob/${sha}`;
+  const source = [
+    '<img src="docs/assets/app-icon.png" width="120" alt="GazeKeep" />',
+    "[![License](https://img.shields.io/badge/MIT-yellow.svg)](LICENSE) [English](./README_en.md)",
+    "![截图](docs/assets/home.png) 见[隐私](docs/product/privacy-security.md#隐私文案真源)与[本节](#下载)。",
+    '<a href="docs/index.md">文档</a> [官网](https://gazekeep.rainafter.cn) [邮件](mailto:a@b.c)',
+    "```",
+    "[代码块](docs/keep.md)",
+    "```",
+  ].join("\n");
+  assert.equal(
+    renderModuleReadme(source, sha),
+    [
+      `<img src="${raw}/docs/assets/app-icon.png" width="120" alt="GazeKeep" />`,
+      `[![License](https://img.shields.io/badge/MIT-yellow.svg)](${blob}/LICENSE) [English](${blob}/README_en.md)`,
+      `![截图](${raw}/docs/assets/home.png) 见[隐私](${blob}/docs/product/privacy-security.md#隐私文案真源)与[本节](#下载)。`,
+      `<a href="${blob}/docs/index.md">文档</a> [官网](https://gazekeep.rainafter.cn) [邮件](mailto:a@b.c)`,
+      "```",
+      "[代码块](docs/keep.md)",
+      "```",
+    ].join("\n"),
+  );
+  assert.throws(() => renderModuleReadme(source, "main"), /提交/);
 });
 
 test("仓库内的模块仓库元数据通过校验", () => {

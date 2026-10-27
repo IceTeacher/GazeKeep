@@ -255,3 +255,32 @@ test("活动文档变更必须同步 Agent 登记，修改读者导航不能代�
     writeFileSync(index, registration);
   }
 });
+
+test("发布说明只含更新日志与启用步骤两节，文件名为 tag", (t) => {
+  const f = fixture(t);
+  f.docs();
+  const index = join(f.root, ".agents/docs-index.md");
+  const register = (name: string) =>
+    writeFileSync(
+      index,
+      readFileSync(index, "utf8") + `| \`../${name}\` | 发布说明 | 发布时 | 已发布后冻结 | 2026-10-08 |\n`,
+    );
+  const valid = "## 更新日志\n\n### 修复\n\n- 修复问题。\n\n## 启用步骤\n\n- 打开总开关。\n";
+  f.write("docs/releases/v1.2.0.md", valid);
+  register("docs/releases/v1.2.0.md");
+  assert.equal(f.check("check-docs.ts").status, 0, f.check("check-docs.ts").stderr);
+  for (const notes of [
+    `# GazeKeep 1.2.0 预发布说明\n\n${valid}`,
+    `${valid}\n## 安装包\n\n由 CI 生成。\n`,
+    `${valid}\n## 实测范围\n\n- 某设备。\n`,
+    "## 启用步骤\n\n- 打开总开关。\n\n## 更新日志\n\n- 修复问题。\n",
+    "## 更新日志\n\n- 修复问题。\n",
+  ]) {
+    f.write("docs/releases/v1.2.0.md", notes);
+    assert.match(f.check("check-docs.ts").stderr, /v1\.2\.0\.md.*更新日志.*启用步骤/, notes);
+  }
+  f.write("docs/releases/v1.2.0.md", valid);
+  f.write("docs/releases/GazeKeep-1.2.1.md", valid);
+  register("docs/releases/GazeKeep-1.2.1.md");
+  assert.match(f.check("check-docs.ts").stderr, /GazeKeep-1\.2\.1\.md.*v<版本>/);
+});
