@@ -13,7 +13,7 @@
 | `../docs/development/contributing.md` | 开发流程   | 修改工具链（含 pnpm 版本）、格式（含 Tailwind 类名排序样式表）、构建、Kotlin/JS 依赖安装与锁文件、Hook、CI 流水线的 job 依赖、复用判断、步骤与缓存、tag 发版、LSPosed 模块仓库同步或工作区目录时 | 持续维护 | 2026-10-27 |
 | `../docs/development/testing.md`      | 测试规范   | 选择测试分层、测试目录布局、门禁、测试依赖（含 android 的 Robolectric）、实机套件、容器截图基线与验收矩阵时                                                                                      | 持续维护 | 2026-10-27 |
 | `../docs/product/privacy-security.md` | 隐私与安全 | 修改帧、权限、日志、系统设置或隐私文案时                                                                                                                                                         | 持续维护 | 2026-10-18 |
-| `../docs/development/release.md`      | 发布规范   | 准备签名、Release、ABI 拆分与原生库打包、R8 保留规则、tag 构建、发布说明格式与 Release 正文、APK 权限、LSPosed 模块仓库同步与 README 生成、旧 tag 补发与草稿恢复、分发验收时                     | 持续维护 | 2026-10-27 |
+| `../docs/development/release.md`      | 发布规范   | 准备签名、Release、ABI 拆分与原生库打包、R8 保留规则、tag 构建、发布说明格式与 Release 正文、APK 权限、LSPosed 模块仓库同步（README 生成与正文复制）、旧 tag 补发与草稿恢复、分发验收时          | 持续维护 | 2026-10-27 |
 
 ## 产品与使用
 
