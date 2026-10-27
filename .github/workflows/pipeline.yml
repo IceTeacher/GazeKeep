@@ -84,12 +84,13 @@ jobs:
           pnpm tools:setup
           pnpm hooks:install
           pnpm verify:hooks
-      - name: Verify docs, agent assets and architecture
+      - name: Verify docs, agent assets architecture and LSPosed metadata
         run: |
           set -euo pipefail
           pnpm verify:docs
           pnpm verify:agent-assets
           pnpm verify:architecture
+          pnpm verify:lsposed-repo
       - name: Check formatting, lint and tool tests
         run: |
           set -euo pipefail

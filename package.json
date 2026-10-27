@@ -12,6 +12,7 @@
     "verify:docs": "turbo run verify:docs --filter=@gazekeep/repo-tools",
     "verify:agent-assets": "turbo run verify:agent-assets --filter=@gazekeep/repo-tools",
     "verify:architecture": "turbo run verify:architecture --filter=@gazekeep/repo-tools",
+    "verify:lsposed-repo": "node scripts/repo-tools/scripts/lsposed-repo.ts",
     "test:tools": "turbo run test --filter=@gazekeep/repo-tools",
     "format:check": "node scripts/repo-tools/scripts/hook-files.ts all --check",
     "format": "node scripts/repo-tools/scripts/hook-files.ts all",
