@@ -134,9 +134,12 @@ jobs:
           } >"$body"
           assets=("$DIST"/*.apk)
           if gh release view "$MODULE_TAG" --repo "$MODULE_REPO" >/dev/null 2>&1; then
-            # WHY：索引 bot 只在 Release 发布或编辑时校验；仅替换 APK 不会通知 bot，重跑后需确认模块页已更新。
-            gh release edit "$MODULE_TAG" --repo "$MODULE_REPO" --title "$VERSION" --notes-file "$body"
+            # WHY：索引 bot 校验失败时会把 Release 改为草稿，gh release view 也能按待定 tag 找到草稿；
+            # gh release edit 不传 --draft 会保留草稿状态，重跑须显式发布。先覆盖 APK 再编辑，
+            # 让编辑触发的 bot 校验读取新包；仅替换 APK 不会通知 bot。
             gh release upload "$MODULE_TAG" "${assets[@]}" --repo "$MODULE_REPO" --clobber
+            gh release edit "$MODULE_TAG" --repo "$MODULE_REPO" --title "$VERSION" --notes-file "$body" \
+              --draft=false --prerelease=false
           else
             gh release create "$MODULE_TAG" "${assets[@]}" --repo "$MODULE_REPO" \
               --target "$TARGET" --title "$VERSION" --notes-file "$body"

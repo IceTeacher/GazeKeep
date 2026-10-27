@@ -30,7 +30,7 @@ Release 启用 R8 与资源压缩，原生库压缩存放（`useLegacyPackaging`
 
 LSPosed 官方模块仓库（Xposed-Modules-Repo）为每个模块单独建立仓库，GazeKeep 对应 `Xposed-Modules-Repo/cn.rainafter.app.gazekeep`，提审通过后由其 bot 创建。该仓库只放元数据，不放源码：`README.md`、`SUMMARY`、`SCOPE`、`SOURCE_URL` 在本仓库 `apps/app/distribution/lsposed/` 维护并随代码评审修改，`pnpm verify:lsposed-repo` 检查文件集合、单行摘要、作用域与 `scope.list` 一致（`system` 对应 `android`）、源码地址，以及 README 逐字包含中英文隐私三句。仓库 Description 与 Homepage 无法通过 API 修改，由维护者在网页上设置。
 
-`.github/workflows/lsposed-repo.yml` 在本仓库 Release 转为正式版时同步，预发布不会触发；也可以手动触发并输入 tag 补发，同样只接受正式版。流程：校验 tag 等于 `v<versionName>`、发布说明存在；下载四个 APK，重新核对 SHA-256 与签名证书指纹；推送元数据到模块仓库默认分支；以 `<versionCode>-<versionName>` 为 tag、versionName 为标题、发布说明为正文创建 Release，附四个 APK。tag 规则与索引 bot 一致，bot 会另行解析 APK 的 Manifest 与 Xposed 登记，校验失败时把 Release 改为草稿；通过后约 5～60 分钟在 LSPosed 管理器中可见。重跑时若 Release 已存在则更新正文并覆盖 APK，但仅替换 APK 不会通知 bot，需要核对模块页。
+`.github/workflows/lsposed-repo.yml` 在本仓库 Release 转为正式版时同步，预发布不会触发；也可以手动触发并输入 tag 补发，同样只接受正式版。流程：校验 tag 等于 `v<versionName>`、发布说明存在；下载四个 APK，重新核对 SHA-256 与签名证书指纹；推送元数据到模块仓库默认分支；以 `<versionCode>-<versionName>` 为 tag、versionName 为标题、发布说明为正文创建 Release，附四个 APK。tag 规则与索引 bot 一致，bot 会另行解析 APK 的 Manifest 与 Xposed 登记，校验失败时把 Release 改为草稿；通过后约 5～60 分钟在 LSPosed 管理器中可见。重跑时若 Release 已存在（含被 bot 改成的草稿），先覆盖 APK，再更新正文并显式发布（`--draft=false`），由这次编辑触发 bot 重新校验；仅替换 APK 不会通知 bot。
 
 凭据放在 `lsposed-repo` 环境（部署范围为 `main` 与 `v*.*.*` tag）：`LSPOSED_REPO_TOKEN` 为维护者账号的 classic PAT，只授予 `public_repo`（模块仓库属于外部组织，fine-grained token 需要组织批准）；该 token 能写维护者的全部公开仓库，泄露时立即吊销。`GAZEKEEP_SIGNING_CERT_SHA256` 与 `release` 环境登记值相同。模块仓库可见或可下载只说明分发链路可用，不代表实机验收。
 
