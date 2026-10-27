@@ -22,15 +22,19 @@ Release 启用 R8 与资源压缩，原生库压缩存放（`useLegacyPackaging`
 - 核对七条不变量、完整实机矩阵和最新 APK；按 Android、ROM 与三后端能力记录实测范围。
 - 对 Debug 与压缩 Release 的每个 ABI 包执行 `pnpm verify:apk --apk <APK路径> --abi <ABI>`（通用包列出全部 ABI）：检查双登记与作用域、版本与中文简介、图标引用和位图、无参入口保留、禁止权限、compileOnly 类未打包、不可调试包不含调试故障注入、详细日志输出的引擎类型保留类名、ABI 集合与原生库压缩；另核对运行依赖。
 - 记录代码/APK 标识、设备与 ROM、后端/框架版本、系统超时、实际命中候选和未执行项，不从主机测试推断硬件通过。
-- 每个 Release 附实测范围、未测声明、隐私三句话、Root/非 Root 启用步骤、已知限制及需要重启的入口更新。
+- 实测范围、未测声明与已知限制记录在[任务清单](../plans/todo.md)，不进入 Release 正文。
 
-未授权发布时交付本地可审查结果，不创建下载链接或上传安装包。`v*.*.*` tag 须指向 `main` 上的提交，并先合入 `docs/releases/<tag>.md` 发布说明（包含上文要求的实测范围、未测声明、隐私三句话、启用步骤与已知限制）；流水线以正式签名构建 Release，确认 `main` 上同一提交的流水线已通过，各 ABI 包通过 APK 静态门禁与证书指纹核对后创建 GitHub 预发布，附各 APK、SHA-256、体积表与构建信息。设备验收未完成前不转为正式版。规则见[持续集成](contributing.md#持续集成)。
+未授权发布时交付本地可审查结果，不创建下载链接或上传安装包。`v*.*.*` tag 须指向 `main` 上的提交，并先合入发布说明 `docs/releases/<tag>.md`；流水线以正式签名构建 Release，确认 `main` 上同一提交的流水线已通过，各 ABI 包通过 APK 静态门禁与证书指纹核对后创建标题为 tag（如 `v1.1.3`）的 GitHub 预发布，附各 APK 与 SHA-256 文件。设备验收未完成前不转为正式版。规则见[持续集成](contributing.md#持续集成)。
+
+## 发布说明
+
+发布说明 `docs/releases/v<版本>.md` 就是 GitHub Release 正文的前两节，只依次包含「## 更新日志」与「## 启用步骤」，不写一级标题；`verify:docs` 检查文件名与章节。更新日志按「新增 / 优化 / 修复」分组，面向用户描述可感知的变化，涉及签名或权限变化时在更新日志中单列说明，不把未验证能力写成已验证；启用步骤写 Root 与非 Root 环境的启用、自检与必要的 ROM 设置。「## 安装包」（架构选择说明与 APK、ABI、大小、SHA-256 表）由 `release.yml` 生成追加；签名证书与提交只写入 CI 的 Step summary。发布后如在 GitHub 上修改正文，同步修改该文件。
 
 ## LSPosed 模块仓库
 
-LSPosed 官方模块仓库（Xposed-Modules-Repo）为每个模块单独建立仓库，GazeKeep 对应 `Xposed-Modules-Repo/cn.rainafter.app.gazekeep`，提审通过后由其 bot 创建。该仓库只放元数据，不放源码：`README.md`、`SUMMARY`、`SCOPE`、`SOURCE_URL` 在本仓库 `apps/app/distribution/lsposed/` 维护并随代码评审修改，`pnpm verify:lsposed-repo` 检查文件集合、单行摘要、作用域与 `scope.list` 一致（`system` 对应 `android`）、源码地址，以及 README 逐字包含中英文隐私三句。仓库 Description 与 Homepage 无法通过 API 修改，由维护者在网页上设置。
+LSPosed 官方模块仓库（Xposed-Modules-Repo）为每个模块单独建立仓库，GazeKeep 对应 `Xposed-Modules-Repo/cn.rainafter.app.gazekeep`，提审通过后由其 bot 创建。该仓库只放元数据，不放源码：`SUMMARY`、`SCOPE`、`SOURCE_URL` 在本仓库 `apps/app/distribution/lsposed/` 维护并随代码评审修改；`README.md` 由根 `README.md` 生成，与源码仓库一致，相对图片改为 `raw.githubusercontent.com`、相对文档链接改为 `blob` 地址并固定到同步提交，不另行维护。`pnpm verify:lsposed-repo` 检查文件集合、单行摘要、作用域与 `scope.list` 一致（`system` 对应 `android`）、源码地址，以及根 README 逐字包含中文隐私三句。仓库 Description 与 Homepage 无法通过 API 修改，由维护者在网页上设置。
 
-`.github/workflows/lsposed-repo.yml` 在本仓库 Release 转为正式版时同步，预发布不会触发；也可以手动触发并输入 tag 补发，同样只接受正式版。工具与元数据取自本流程所在提交（手动触发为 `main`），被同步 tag 的源码另行检出，只读取版本号与发布说明，因此可补发早于本流程的旧 tag。流程：校验 tag 等于该 tag 源码中的 `v<versionName>`、发布说明存在；下载四个 APK，重新核对 SHA-256 与签名证书指纹；推送元数据到模块仓库默认分支；以 `<versionCode>-<versionName>` 为 tag、versionName 为标题、发布说明为正文创建 Release，附四个 APK。tag 规则与索引 bot 一致，bot 会另行解析 APK 的 Manifest 与 Xposed 登记，校验失败时把 Release 改为草稿；通过后约 5～60 分钟在 LSPosed 管理器中可见。重跑时若 Release 已存在（含被 bot 改成的草稿），先覆盖 APK，再更新正文并显式发布（`--draft=false`），由这次编辑触发 bot 重新校验；仅替换 APK 不会通知 bot。
+`.github/workflows/lsposed-repo.yml` 在本仓库 Release 转为正式版时同步，预发布不会触发；也可以手动触发并输入 tag 补发，同样只接受正式版。工具与元数据取自本流程所在提交（手动触发为 `main`），被同步 tag 的源码另行检出，只读取版本号与发布说明，因此可补发早于本流程的旧 tag。流程：校验 tag 等于该 tag 源码中的 `v<versionName>`、发布说明存在；下载四个 APK，重新核对 SHA-256 与签名证书指纹；生成 README 并与其余元数据一起推送到模块仓库默认分支；以 `<versionCode>-<versionName>` 为 tag、versionName 为标题、发布说明为正文创建 Release，附四个 APK。tag 规则与索引 bot 一致，bot 会另行解析 APK 的 Manifest 与 Xposed 登记，校验失败时把 Release 改为草稿；通过后在索引下一次构建后出现在 modules.lsposed.org 与 LSPosed 管理器中（2026-10-27 观察到构建为每日定时运行）。重跑时若 Release 已存在（含被 bot 改成的草稿），先覆盖 APK，再更新正文并显式发布（`--draft=false`），由这次编辑触发 bot 重新校验；仅替换 APK 不会通知 bot。
 
 凭据放在 `lsposed-repo` 环境（部署范围为 `main` 与 `v*.*.*` tag）：`LSPOSED_REPO_TOKEN` 为维护者账号的 classic PAT，只授予 `public_repo`（模块仓库属于外部组织，fine-grained token 需要组织批准）；该 token 能写维护者的全部公开仓库，泄露时立即吊销。`GAZEKEEP_SIGNING_CERT_SHA256` 与 `release` 环境登记值相同。模块仓库可见或可下载只说明分发链路可用，不代表实机验收。
 
@@ -50,7 +54,7 @@ LSPosed 官方模块仓库（Xposed-Modules-Repo）为每个模块单独建立�
 
 当前压缩候选使用本地 Android 开发密钥签名，启用 R8 与资源压缩，用于运行验证。正式签名已配置（见上文），首个正式签名 APK 由 `v1.1.2` tag 构建并以预发布提供，尚未在设备上验收。二进制 SHA-256、签名证书摘要、构建环境、门禁与设备结果集中记录在[任务清单](../plans/todo.md)，不能以开发签名候选或 1.1.0 的人工反馈宣称正式产物已通过。
 
-拟发布说明须保留上述修复、该 APK 对应的实测范围、未测 ROM/legacy/异常路径和已知限制。Root 环境启用 LSPosed 对应作用域并重启后，确认桥接就绪；非 Root 环境先启用无障碍或授权 Shizuku 并确认后端就绪。两种环境均需完成正视→转头自检、选择白名单并打开总开关。覆盖升级先核对签名，禁止卸载或清空用户数据；系统入口更新仍需重启生效。
+发布说明须保留上述修复；该 APK 对应的实测范围、未测 ROM/legacy/异常路径和已知限制记录在任务清单。Root 环境启用 LSPosed 对应作用域并重启后，确认桥接就绪；非 Root 环境先启用无障碍或授权 Shizuku 并确认后端就绪。两种环境均需完成正视→转头自检、选择白名单并打开总开关。覆盖升级先核对签名，禁止卸载或清空用户数据；系统入口更新仍需重启生效。
 
 发布隐私文案逐字使用以下三句：
 
