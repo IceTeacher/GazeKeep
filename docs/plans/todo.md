@@ -187,6 +187,7 @@
 - 未执行：workflow 尚未在 GitHub 上运行，同步、证书复核与模块仓库写入都未经真实验证。
 - 2026-10-27：`rainafter.cn` 根域 TXT `lsposed-modules-repo-verification=IceTeacher` 已生效（权威 DNS 与 8.8.8.8 均可查到）；已提交 [submission #2326](https://github.com/Xposed-Modules-Repo/submission/issues/2326)；已创建 `lsposed-repo` 环境（部署范围 `main` 与 `v*.*.*` tag）并配置 `GAZEKEEP_SIGNING_CERT_SHA256`（与 `release` 环境相同）。
 - 2026-10-27：提审通过，bot 建立 `Xposed-Modules-Repo/cn.rainafter.app.gazekeep` 并授予 maintain；已推送四个元数据文件（空仓库网页不显示 About 设置，API 修改返回 404），维护者在网页上设置 Description 为 `GazeKeep`、Homepage 为源码地址；`lsposed-repo` 环境已配置 `LSPOSED_REPO_TOKEN`。
+- 2026-10-27：PR #15 合入 `dev` 并快进 `main`（`8a948e2`）后手动触发同步 `v1.1.3`（run 40529884312）失败：流程检出 tag 本身，而 `v1.1.3` 早于同步流程、不含工具与元数据，首步即退出，未写入模块仓库。改为工具与元数据取自流程所在提交、tag 源码另检出到子目录，新增 CLI 回归用例（先确认旧实现失败），并用 `v1.1.3` 的版本文件与发布说明本地模拟得到 `5-1.1.3`。
 - [ ] 手动触发同步 `v1.1.3`，确认模块仓库 Release 为 `5-1.1.3` 且不是草稿，索引 bot 的 Tag/Build 运行成功。
 - [ ] 在 LSPosed 管理器的仓库页检索、下载并安装 GazeKeep；下一个正式版确认管理器能提示更新。
 

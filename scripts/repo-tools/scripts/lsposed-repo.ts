@@ -1,5 +1,5 @@
 import { appendFileSync, existsSync, readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { cli, context, isMain, report } from "./common.ts";
 
 // LSPosed 官方模块仓库（Xposed-Modules-Repo）的发布元数据，由 .github/workflows/lsposed-repo.yml 推送到模块仓库根目录。
@@ -86,10 +86,15 @@ export function validateMetadata(root: string) {
 
 if (isMain(import.meta.url))
   await cli(() => {
-    const { root, values } = context({ tag: { type: "string" }, output: { type: "string" } });
+    const { root, values } = context({
+      tag: { type: "string" },
+      output: { type: "string" },
+      "release-root": { type: "string" },
+    });
     report(validateMetadata(root), "LSPosed 模块仓库元数据检查通过");
     if (!values.tag) return;
-    const release = moduleRelease(root, values.tag);
+    // 元数据与工具取自同步流程所在提交；版本取自被同步 tag 的源码，补发早于同步流程的旧 tag 时二者不同。
+    const release = moduleRelease(resolve(values["release-root"] ?? root), values.tag);
     const lines = [
       `module_tag=${release.moduleTag}`,
       `version_code=${release.versionCode}`,

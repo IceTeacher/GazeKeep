@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test, { type TestContext } from "node:test";
 import { moduleRelease, moduleTag, readAppVersion, validateMetadata } from "../scripts/lsposed-repo.ts";
-import { SOURCE_ROOT } from "../scripts/common.ts";
+import { run, SOURCE_ROOT } from "../scripts/common.ts";
 
 const PRIVACY = [
   "只在快要熄屏时打开前置摄像头，看完立刻关闭。",
@@ -56,6 +56,27 @@ test("同步前要求 tag 与当前 versionName 一致", (t) => {
   const { root } = fixture(t);
   assert.deepEqual(moduleRelease(root, "v1.1.3"), { versionCode: "5", versionName: "1.1.3", moduleTag: "5-1.1.3" });
   for (const tag of ["v1.1.2", "1.1.3", "v1.1.3-rc"]) assert.throws(() => moduleRelease(root, tag), /versionName/, tag);
+});
+
+test("补发旧 tag 时元数据取自当前仓库，版本取自 tag 的源码", (t) => {
+  const { root } = fixture(t);
+  // WHY：早于同步流程的 tag 不含元数据与工具，只提供版本号与发布说明。
+  const release = mkdtempSync(join(tmpdir(), "gazekeep-lsposed-tag-"));
+  t.after(() => rmSync(release, { recursive: true, force: true }));
+  mkdirSync(join(release, "apps/app/android"), { recursive: true });
+  writeFileSync(join(release, "apps/app/android/build.gradle.kts"), 'versionCode = 4\nversionName = "1.1.2"\n');
+  const cli = (...args: string[]) =>
+    run(process.execPath, [join(SOURCE_ROOT, "scripts/repo-tools/scripts/lsposed-repo.ts"), "--root", root, ...args], {
+      capture: true,
+      check: false,
+    });
+  const ok = cli("--release-root", release, "--tag", "v1.1.2");
+  assert.equal(ok.status, 0, ok.stderr);
+  assert.match(ok.stdout, /^module_tag=4-1\.1\.2$/m);
+  assert.match(ok.stdout, /^version_name=1\.1\.2$/m);
+  const mismatch = cli("--release-root", release, "--tag", "v1.1.3");
+  assert.notEqual(mismatch.status, 0);
+  assert.match(mismatch.stderr, /versionName 1\.1\.2/);
 });
 
 test("元数据通过校验", (t) => {
