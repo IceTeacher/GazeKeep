@@ -84,7 +84,7 @@ oxfmt 与 oxlint 配置位于仓库根（`.oxfmtrc.json`、`.oxlintrc.json`）�
 
 ## 持续集成
 
-`.github/workflows/pipeline.yml` 在 PR、`dev`/`main` 推送和手动触发时运行，`v*.*.*` tag 只触发 `.github/workflows/release.yml`；全部使用 GitHub 托管 runner，不使用自建 runner。公共安装步骤位于 `.github/actions/setup`；第三方 action 固定到提交 SHA，workflow 默认只授予 `contents: read`。job 依次为 `changes` → `repo` → `app`/`web` → 发布 job；`repo` 需要 `changes` 的复用判断，发布 job 只依赖 `app` 与 `web`。仓库门禁失败时不再消耗长构建，任务图也不出现跨层连线。job 与 step 名称使用英文，便于在 Actions 页面阅读。
+`.github/workflows/pipeline.yml` 在 PR、`dev`/`main` 推送和手动触发时运行，`v*.*.*` tag 只触发 `.github/workflows/release.yml`，Release 转为正式版触发 `.github/workflows/lsposed-repo.yml`；全部使用 GitHub 托管 runner，不使用自建 runner。公共安装步骤位于 `.github/actions/setup`；第三方 action 固定到提交 SHA，workflow 默认只授予 `contents: read`。job 依次为 `changes` → `repo` → `app`/`web` → 发布 job；`repo` 需要 `changes` 的复用判断，发布 job 只依赖 `app` 与 `web`。仓库门禁失败时不再消耗长构建，任务图也不出现跨层连线。job 与 step 名称使用英文，便于在 Actions 页面阅读。
 
 runner 固定为 `ubuntu-24.04`，避免 `ubuntu-latest` 迁移系统时 Android SDK、Docker 与 APK 工具随之变化。缓存策略：
 
@@ -97,14 +97,16 @@ runner 固定为 `ubuntu-24.04`，避免 `ubuntu-latest` 迁移系统时 Android
 - `app`：受影响且未验证时运行 `pnpm --filter @gazekeep/app verify`；实机套件不进入 CI。
 - `web`：受影响时完整构建官网（含 KMP Showcase），再运行单元测试、容器内浏览器与截图测试（`test:browser:docker`）、lint 与 `astro check`，产物交给发布 job 复用。已验证的树只在 `main` 推送时构建（供生产发布），跳过测试；其余场景整个 job 跳过，因此 dev→main 的 PR 不再单独部署 `pr-<编号>` 预览，以 `dev` 预览为准。发布规则见[官网架构](../architecture/web/website.md#六当前构建与后续验收)，冒烟由 `check-web-deploy.ts` 执行。
 - `release.yml`：tag 不重跑门禁。`gate` 要求 tag 等于 `v<versionName>`、位于 `main` 并已提交发布说明 `docs/releases/<tag>.md`，再等待 `main` 上同一提交的 pipeline 成功（运行中则轮询，失败、约 5 分钟仍无记录或约 55 分钟超时都不发版）。`release-apk` 在 `release` 环境中用正式签名构建压缩 Release，按 ABI 输出 `arm64-v8a`、`armeabi-v7a`、`x86_64` 与 `universal` 四个包，逐个执行 APK 静态门禁（含 ABI 检查），并用 `apksigner` 核对证书指纹与登记值一致，然后创建 GitHub 预发布（附各 APK、SHA-256 文件与体积表），APK 同时作为 artifact 保留 7 天。签名配置缺失或指纹不一致时失败，不产出 unsigned 版本。转为正式版由维护者在 GitHub 上手动操作。
+- `lsposed-repo.yml`：本仓库 Release 转为正式版（`release: released`）或手动输入 tag 时运行，只接受正式版。在 `lsposed-repo` 环境中重新核对四个 APK 的 SHA-256 与签名证书，推送 `apps/app/distribution/lsposed/` 元数据并在 LSPosed 模块仓库创建 `<versionCode>-<versionName>` Release，规则见[发布规范](release.md#lsposed-模块仓库)。`repo` job 运行 `pnpm verify:lsposed-repo` 预先检查元数据。
 
-公开仓库的 workflow 不写明文地址、项目名或凭据，配置集中在三个 GitHub Environment：
+公开仓库的 workflow 不写明文部署地址、项目名或凭据，配置集中在四个 GitHub Environment（LSPosed 模块仓库名由包名决定且公开，直接写在 workflow 中）：
 
-| Environment      | 部署来源              | secret                                                                                               | variable                                                 |
-| ---------------- | --------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| `web-preview`    | `dev` 推送、同仓库 PR | `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`                                                      | `CLOUDFLARE_PAGES_PROJECT`                               |
-| `web-production` | 仅 `main`             | `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`                                                      | `CLOUDFLARE_PAGES_PROJECT`、`GAZEKEEP_WEB_URL`（站点根） |
-| `release`        | 仅 `v*.*.*` tag       | `GAZEKEEP_KEYSTORE_BASE64`、`GAZEKEEP_STORE_PASSWORD`、`GAZEKEEP_KEY_ALIAS`、`GAZEKEEP_KEY_PASSWORD` | `GAZEKEEP_SIGNING_CERT_SHA256`                           |
+| Environment      | 部署来源               | secret                                                                                               | variable                                                 |
+| ---------------- | ---------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `web-preview`    | `dev` 推送、同仓库 PR  | `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`                                                      | `CLOUDFLARE_PAGES_PROJECT`                               |
+| `web-production` | 仅 `main`              | `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`                                                      | `CLOUDFLARE_PAGES_PROJECT`、`GAZEKEEP_WEB_URL`（站点根） |
+| `release`        | 仅 `v*.*.*` tag        | `GAZEKEEP_KEYSTORE_BASE64`、`GAZEKEEP_STORE_PASSWORD`、`GAZEKEEP_KEY_ALIAS`、`GAZEKEEP_KEY_PASSWORD` | `GAZEKEEP_SIGNING_CERT_SHA256`                           |
+| `lsposed-repo`   | `main` 与 `v*.*.*` tag | `LSPOSED_REPO_TOKEN`                                                                                 | `GAZEKEEP_SIGNING_CERT_SHA256`                           |
 
 Cloudflare token 只授予 Account › Cloudflare Pages:Edit。fork PR 拿不到 secret，只运行门禁；PR 评论权限只授予预览 job，`changes` 与 `gate` 额外授予 `actions: read` 以查询流水线运行，`contents: write` 只授予 `release-apk`。
 
