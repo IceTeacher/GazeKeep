@@ -186,8 +186,7 @@
 - 主机验证：新增 8 项 `lsposed.test.ts` 用例（先确认缺少实现时失败），51 项仓库工具测试、repo-tools lint 与 `tsc`、`verify:lsposed-repo`、文档/Agent 资产/架构检查、全仓 `format:check` 通过；actionlint 1.7.12（含 shellcheck）检查三个 workflow 通过。CLI 对 `v1.1.3` 输出 `module_tag=5-1.1.3`，对不一致的 tag 失败退出。
 - 未执行：workflow 尚未在 GitHub 上运行，同步、证书复核与模块仓库写入都未经真实验证。
 - 2026-10-27：`rainafter.cn` 根域 TXT `lsposed-modules-repo-verification=IceTeacher` 已生效（权威 DNS 与 8.8.8.8 均可查到）；已提交 [submission #2326](https://github.com/Xposed-Modules-Repo/submission/issues/2326)；已创建 `lsposed-repo` 环境（部署范围 `main` 与 `v*.*.*` tag）并配置 `GAZEKEEP_SIGNING_CERT_SHA256`（与 `release` 环境相同）。
-- [ ] 等待提审通过、bot 建立模块仓库并接受协作者邀请，在网页上设置 Description 与 Homepage。
-- [ ] 在 `lsposed-repo` 环境配置 `LSPOSED_REPO_TOKEN`（classic PAT，仅 `public_repo`）。
+- 2026-10-27：提审通过，bot 建立 `Xposed-Modules-Repo/cn.rainafter.app.gazekeep` 并授予 maintain；已推送四个元数据文件（空仓库网页不显示 About 设置，API 修改返回 404），维护者在网页上设置 Description 为 `GazeKeep`、Homepage 为源码地址；`lsposed-repo` 环境已配置 `LSPOSED_REPO_TOKEN`。
 - [ ] 手动触发同步 `v1.1.3`，确认模块仓库 Release 为 `5-1.1.3` 且不是草稿，索引 bot 的 Tag/Build 运行成功。
 - [ ] 在 LSPosed 管理器的仓库页检索、下载并安装 GazeKeep；下一个正式版确认管理器能提示更新。
 
