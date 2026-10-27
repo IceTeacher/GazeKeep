@@ -111,7 +111,9 @@ jobs:
           git clone "https://github.com/$MODULE_REPO.git" "$repo"
           # 模块仓库只放元数据，不放源码；新建的空仓库也能直接推送到默认分支。
           git -C "$repo" checkout -B "$branch"
-          cp apps/app/distribution/lsposed/{README.md,SCOPE,SOURCE_URL,SUMMARY} "$repo/"
+          cp apps/app/distribution/lsposed/{SCOPE,SOURCE_URL,SUMMARY} "$repo/"
+          # README 与源码仓库根 README 一致，相对图片与链接改为固定到本提交的绝对地址。
+          node scripts/repo-tools/scripts/lsposed-repo.ts --readme-out "$repo/README.md" --ref "$GITHUB_SHA"
           git -C "$repo" add README.md SCOPE SOURCE_URL SUMMARY
           if git -C "$repo" diff --cached --quiet; then
             echo "元数据无变化"

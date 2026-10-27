@@ -1,10 +1,11 @@
-import { appendFileSync, existsSync, readFileSync, readdirSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { cli, context, isMain, report } from "./common.ts";
 
-// LSPosed 官方模块仓库（Xposed-Modules-Repo）的发布元数据，由 .github/workflows/lsposed-repo.yml 推送到模块仓库根目录。
+// LSPosed 官方模块仓库（Xposed-Modules-Repo）的发布元数据，由 .github/workflows/lsposed-repo.yml 推送到模块仓库根目录；
+// 模块仓库的 README.md 由根 README.md 生成，与源码仓库保持一致，不另行维护。
 export const METADATA_DIR = "apps/app/distribution/lsposed";
-const METADATA_FILES = ["README.md", "SCOPE", "SOURCE_URL", "SUMMARY"];
+const METADATA_FILES = ["SCOPE", "SOURCE_URL", "SUMMARY"];
 const SOURCE_URL = "https://github.com/IceTeacher/GazeKeep";
 
 export interface AppVersion {
@@ -26,6 +27,33 @@ export function moduleRelease(root: string, tag: string) {
   const version = readAppVersion(root);
   if (tag !== `v${version.versionName}`) throw new Error(`tag ${tag} 与 versionName ${version.versionName} 不一致`);
   return { ...version, moduleTag: moduleTag(version) };
+}
+
+// 模块仓库与 modules.lsposed.org 不含源码，相对图片与文档链接须指向源码仓库；固定到提交，避免日后移动文件后失效。
+export function renderModuleReadme(source: string, sha: string) {
+  if (!/^[0-9a-f]{40}$/.test(sha)) throw new Error(`README 链接必须固定到完整提交 SHA：${sha}`);
+  const absolute = (target: string, kind: "raw" | "blob") => {
+    if (/^([a-z][a-z0-9+.-]*:|#|\/)/i.test(target)) return target;
+    const path = target.replace(/^\.\//, "");
+    return kind === "raw"
+      ? `https://raw.githubusercontent.com/IceTeacher/GazeKeep/${sha}/${path}`
+      : `${SOURCE_URL}/blob/${sha}/${path}`;
+  };
+  let fenced = false;
+  return source
+    .split("\n")
+    .map((line) => {
+      if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
+      else if (!fenced)
+        line = line
+          .replace(/(\bsrc=")([^"]+)"/g, (_, attr, target) => `${attr}${absolute(target, "raw")}"`)
+          .replace(/(\bhref=")([^"]+)"/g, (_, attr, target) => `${attr}${absolute(target, "blob")}"`)
+          .replace(/(!\[[^\]]*\]\()([^)\s]+)\)/g, (_, head, target) => `${head}${absolute(target, "raw")})`)
+          // 图片已在上一步改为绝对地址，剩余的相对目标都是普通链接。
+          .replace(/(\]\()([^)\s]+)\)/g, (_, head, target) => `${head}${absolute(target, "blob")})`);
+      return line;
+    })
+    .join("\n");
 }
 
 function privacyLines(root: string) {
@@ -74,13 +102,11 @@ export function validateMetadata(root: string) {
       errors.push(`${METADATA_DIR}/SCOPE 与 scope.list 不一致，应为 ${JSON.stringify(expected)}`);
   }
 
-  const readme = read("README.md");
-  if (readme !== undefined) {
-    const lines = privacyLines(root);
-    if (lines.length !== 6) errors.push("无法从 docs/product/privacy-security.md 读取中英文各三句隐私文案");
-    for (const line of lines.filter((l) => !readme.includes(l)))
-      errors.push(`${METADATA_DIR}/README.md 缺少隐私文案：${line}`);
-  }
+  const lines = privacyLines(root);
+  if (lines.length !== 6) errors.push("无法从 docs/product/privacy-security.md 读取中英文各三句隐私文案");
+  const readme = readFileSync(join(root, "README.md"), "utf8");
+  for (const line of lines.slice(0, 3).filter((l) => !readme.includes(l)))
+    errors.push(`README.md 缺少隐私文案：${line}`);
   return errors;
 }
 
@@ -90,8 +116,17 @@ if (isMain(import.meta.url))
       tag: { type: "string" },
       output: { type: "string" },
       "release-root": { type: "string" },
+      "readme-out": { type: "string" },
+      ref: { type: "string" },
     });
     report(validateMetadata(root), "LSPosed 模块仓库元数据检查通过");
+    if (values["readme-out"]) {
+      if (!values.ref) throw new Error("--readme-out 需要同时提供 --ref <提交 SHA>");
+      writeFileSync(
+        values["readme-out"],
+        renderModuleReadme(readFileSync(join(root, "README.md"), "utf8"), values.ref),
+      );
+    }
     if (!values.tag) return;
     // 元数据与工具取自同步流程所在提交；版本取自被同步 tag 的源码，补发早于同步流程的旧 tag 时二者不同。
     const release = moduleRelease(resolve(values["release-root"] ?? root), values.tag);
