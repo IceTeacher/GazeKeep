@@ -80,20 +80,25 @@ export function initScreenTouch({
     const canvas = findCanvas(frame.contentDocument);
     if (!win || !canvas) return false;
     // 统一按鼠标左键转发：触摸滑动已由页面接管，转发的只剩轻点。
-    canvas.dispatchEvent(
-      new win.PointerEvent(type, {
-        bubbles: true,
-        cancelable: true,
-        composed: true,
-        clientX: x,
-        clientY: y,
-        pointerId: 1,
-        pointerType: "mouse",
-        isPrimary: true,
-        button: 0,
-        buttons,
-      }),
-    );
+    const event = new win.PointerEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      clientX: x,
+      clientY: y,
+      pointerId: 1,
+      pointerType: "mouse",
+      isPrimary: true,
+      button: 0,
+      buttons,
+    });
+    // Compose 按 offsetX/Y 命中；Android Chrome 会把 iframe 内合成事件的 offset 除以设备像素比，这里直接写入画布坐标。
+    const box = canvas.getBoundingClientRect();
+    Object.defineProperties(event, {
+      offsetX: { value: x - box.left },
+      offsetY: { value: y - box.top },
+    });
+    canvas.dispatchEvent(event);
     return true;
   };
   // 移出到画布之外再抬起，Compose 不会把这次按压当作点击。

@@ -56,6 +56,31 @@ test("真实点击倾斜内屏时，按投影逆变换以应用坐标转发给�
   expect(fy).toBeLessThan(PHONE.appHeight);
 });
 
+test("浏览器把合成事件的 offsetX 按设备像素比缩小时，画布仍收到应用坐标", async () => {
+  await mountReady();
+  // 复现 Android Chrome（DPR 3.5）：iframe 内合成指针事件的 offsetX/Y 被除以设备像素比，Compose 按此坐标命中。
+  const frame = document.querySelector<HTMLIFrameElement>("#kmp-frame")!.contentWindow as Window & typeof globalThis;
+  for (const [axis, client] of [
+    ["offsetX", "clientX"],
+    ["offsetY", "clientY"],
+  ] as const)
+    Object.defineProperty(frame.MouseEvent.prototype, axis, {
+      configurable: true,
+      get(this: MouseEvent) {
+        return this[client] / 3.5;
+      },
+    });
+  const point = clientPoint(294, 750);
+  press("pointerdown", point);
+  press("pointerup", point);
+  const offsets = site!.showcase.calls.filter(([name]) => name === "offset");
+  expect(offsets).toHaveLength(2);
+  for (const [, , x, y] of offsets as [string, string, number, number][]) {
+    expect(x).toBeCloseTo(294, 0);
+    expect(y).toBeCloseTo(750, 0);
+  }
+});
+
 test("命中层覆盖投影后的应用区，屏幕外仍穿透到页面", async () => {
   await mountReady();
   const inside = clientPoint(PHONE.appWidth / 2, PHONE.appHeight - 40);
