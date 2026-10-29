@@ -25,10 +25,11 @@
       const host = document.body.appendChild(document.createElement("div"));
       const canvas = host.attachShadow({ mode: "open" }).appendChild(document.createElement("canvas"));
       canvas.style.cssText = "display: block; width: 392px; height: 784px";
-      for (const type of ["pointerdown", "pointermove", "pointerup"])
+      for (const type of ["pointerdown", "pointermove", "pointerup", "pointercancel"])
         canvas.addEventListener(type, (e) => {
           control.calls.push(["pointer", type, e.clientX, e.clientY]);
           control.calls.push(["offset", type, e.offsetX, e.offsetY]);
+          control.calls.push(["pointerType", type, e.pointerType]);
         });
       const mode = control.modes?.shift() ?? control.mode;
       if (mode === "ready") emit("gazekeep:ready", { attempt });

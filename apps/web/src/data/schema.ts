@@ -50,6 +50,8 @@ export interface SiteContent {
   error: string;
   retry: string;
   status: Record<DemoState, string>;
+  /** 首屏与工作流标题处替代「准备就绪」，按主要输入方式说明如何操作内屏。 */
+  hint: { touch: string; mouse: string };
   /** 页面结构里的零散短文案：区块眉题、无障碍标签与语言切换。 */
   ui: {
     skip: string;

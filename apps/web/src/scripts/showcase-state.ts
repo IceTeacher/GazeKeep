@@ -110,3 +110,15 @@ export function createDriftTracker(threshold = 24) {
     },
   };
 }
+
+/**
+ * 手机下方的状态文案。首屏与工作流标题处（主页、空闲）且内屏可操作时，改为按主要输入方式提示如何操作内屏；
+ * 其余阶段与内屏不可用时保留演示状态。
+ */
+export function liveStatusText(
+  labels: { status: Record<string, string>; hint: { touch: string; mouse: string } },
+  { route, status, ready, finePointer }: { route: string; status: string; ready: boolean; finePointer: boolean },
+) {
+  if (ready && route === "home" && status === "idle") return finePointer ? labels.hint.mouse : labels.hint.touch;
+  return labels.status[status];
+}

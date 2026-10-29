@@ -136,6 +136,10 @@ export const zh = {
     backend_shizuku: "Shizuku · 演示已就绪",
     backend_accessibility: "无障碍 · 演示已就绪",
   },
+  hint: {
+    touch: "轻点可操作 · 长按片刻后上下滑动可滚动",
+    mouse: "点击可操作 · 按住鼠标上下拖动可滚动",
+  },
   ui: {
     skip: "跳至正文",
     productNote: "为 Android 而生的注视默契",

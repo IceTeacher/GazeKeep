@@ -5,6 +5,7 @@ import {
   createShowcaseAttempts,
   createShowcaseState,
   createDriftTracker,
+  liveStatusText,
 } from "../../../src/scripts/showcase-state.ts";
 
 test("桥接延迟就绪时重放最新页面、状态和主题", () => {
@@ -83,4 +84,25 @@ test("向上滚动同样复位，再次操作以新位置为起点", () => {
   drift.mark(400);
   drift.clear();
   expect(drift.shouldRestore(0)).toBe(false);
+});
+
+const labels = {
+  status: { idle: "准备就绪", sampling: "临近熄屏 · 短时采样" },
+  hint: { touch: "触摸提示", mouse: "鼠标提示" },
+};
+
+test("首屏主页空闲且内屏可操作时，按主要输入方式显示操作提示", () => {
+  const base = { route: "home", status: "idle", ready: true };
+  expect(liveStatusText(labels, { ...base, finePointer: true })).toBe("鼠标提示");
+  expect(liveStatusText(labels, { ...base, finePointer: false })).toBe("触摸提示");
+});
+
+test("内屏未就绪或处于其他阶段时保留演示状态文案", () => {
+  expect(liveStatusText(labels, { route: "home", status: "idle", ready: false, finePointer: true })).toBe("准备就绪");
+  expect(liveStatusText(labels, { route: "whitelist", status: "idle", ready: true, finePointer: true })).toBe(
+    "准备就绪",
+  );
+  expect(liveStatusText(labels, { route: "home", status: "sampling", ready: true, finePointer: false })).toBe(
+    "临近熄屏 · 短时采样",
+  );
 });

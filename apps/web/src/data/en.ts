@@ -143,6 +143,10 @@ export const en = {
     backend_shizuku: "Shizuku · Demo ready",
     backend_accessibility: "Accessibility · Demo ready",
   },
+  hint: {
+    touch: "Tap to use · hold, then swipe to scroll",
+    mouse: "Click to use · drag to scroll",
+  },
   ui: {
     skip: "Skip to content",
     productNote: "A little understanding. For Android.",

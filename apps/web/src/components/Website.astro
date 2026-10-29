@@ -44,7 +44,10 @@ const { content: c } = Astro.props;
   <script
     type="application/json"
     id="showcase-content"
-    set:html={JSON.stringify({ status: c.status, loading: c.loading, locale: c.locale }).replace(/</g, "\\u003c")}
+    set:html={JSON.stringify({ status: c.status, hint: c.hint, loading: c.loading, locale: c.locale }).replace(
+      /</g,
+      "\\u003c",
+    )}
   />
   <script>
     import { initWebsite } from "../scripts/orchestrator";

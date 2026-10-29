@@ -5,6 +5,7 @@ import {
   createRenderGate,
   createDriftTracker,
   chooseRuntime,
+  liveStatusText,
 } from "./showcase-state.ts";
 import { initScreenTouch } from "./screen-touch.ts";
 import { initStoryScroll } from "./story-scroll";
@@ -25,6 +26,7 @@ export function initWebsite() {
   const content = JSON.parse(document.querySelector("#showcase-content")!.textContent!) as {
     locale: string;
     status: Record<DemoState, string>;
+    hint: { touch: string; mouse: string };
     loading: string;
   };
   const state = createShowcaseState();
@@ -41,6 +43,26 @@ export function initWebsite() {
   const recovery = document.querySelector<HTMLButtonElement>("#retry-showcase")!;
   const message = document.querySelector<HTMLElement>("#load-message")!;
   const statusLabel = document.querySelector<HTMLElement>("#demo-status")!;
+  // 主要输入为鼠标或触控板时按鼠标提示，触屏按触摸提示；外接或拔出指针设备时随之切换。
+  const finePointer = matchMedia("(pointer: fine)");
+  let shown: { route: KmpRoute; status: DemoState } = { route: "home", status: "idle" };
+  // 文案按「 · 」分段，窄屏折行只发生在分隔处，不拆开词语。
+  const renderStatus = () => {
+    const text = liveStatusText(content, {
+      ...shown,
+      ready: screen.dataset.ready === "true",
+      finePointer: finePointer.matches,
+    });
+    if (statusLabel.textContent === text) return;
+    statusLabel.replaceChildren(
+      ...text.split(" · ").flatMap((part, i) => {
+        const span = document.createElement("span");
+        span.className = "status-part";
+        span.textContent = part;
+        return i ? [" · ", span] : [span];
+      }),
+    );
+  };
   const phoneDisplay = initPhoneDisplay();
   disposers.push(() => phoneDisplay.dispose());
   disposers.push(initCameraHalo());
@@ -64,7 +86,8 @@ export function initWebsite() {
   function sync(route: KmpRoute, status: DemoState, effect = "none") {
     state.update({ route, status });
     phone.dataset.effect = effect;
-    statusLabel.textContent = content.status[status];
+    shown = { route, status };
+    renderStatus();
     if (drift.active()) restore();
   }
   document.querySelectorAll<HTMLButtonElement>("[data-backend]").forEach((card) => {
@@ -95,6 +118,7 @@ export function initWebsite() {
     clearTimeout(timeout);
     clearTimeout(renderTimeout);
     screen.dataset.ready = "false";
+    renderStatus();
     rawBridge = undefined;
     drift.clear();
     if (runtime === "wasm") {
@@ -119,6 +143,7 @@ export function initWebsite() {
     clearTimeout(renderTimeout);
     recovery.hidden = true;
     screen.dataset.ready = "false";
+    renderStatus();
     message.textContent = content.loading;
     placeholder.querySelector(".loader")?.removeAttribute("hidden");
     const attempt = attempts.begin();
@@ -146,6 +171,7 @@ export function initWebsite() {
     });
     setAppearance();
     screen.dataset.ready = "true";
+    renderStatus();
     recovery.hidden = true;
   }) as EventListener);
   listen(window, "gazekeep:rendered", ((event: CustomEvent<{ attempt: number; route: string; revision: number }>) => {
@@ -158,6 +184,7 @@ export function initWebsite() {
     failed(event.detail?.attempt);
   }) as EventListener);
   listen(document.querySelector("#retry-showcase")!, "click", load);
+  listen(finePointer, "change", renderStatus);
   const dim = document.querySelector<HTMLElement>(".screen-dim")!;
   initScreenTouch({
     layer: document.querySelector<HTMLElement>("#screen-touch")!,
@@ -165,7 +192,7 @@ export function initWebsite() {
     frame,
     // 黑屏换页、设备槽渐亮前或加载失败时，内屏不可见，不响应点按。
     active: () => screen.dataset.ready === "true" && recovery.hidden && Number(getComputedStyle(dim).opacity) < 0.5,
-    onTap: () => drift.mark(scrollY),
+    onInteract: () => drift.mark(scrollY),
     listen,
   });
   listen(
