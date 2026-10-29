@@ -12,10 +12,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,11 +37,9 @@ import cn.rainafter.app.gazekeep.ui.contract.GazeKeepController
 import cn.rainafter.app.gazekeep.ui.contract.PlatformActions
 import cn.rainafter.app.gazekeep.ui.contract.SelfTestState
 import cn.rainafter.app.gazekeep.ui.contract.SystemInfo
-import cn.rainafter.app.gazekeep.ui.screens.AppsScreen
-import cn.rainafter.app.gazekeep.ui.screens.BackendScreen
-import cn.rainafter.app.gazekeep.ui.screens.HomeScreen
-import cn.rainafter.app.gazekeep.ui.screens.PrivacyScreen
-import cn.rainafter.app.gazekeep.ui.screens.SettingsTabScreen
+import cn.rainafter.app.gazekeep.ui.navigation.SettingsBackStack
+import cn.rainafter.app.gazekeep.ui.navigation.SettingsNavHost
+import cn.rainafter.app.gazekeep.ui.navigation.SettingsScreen
 import gazekeep.shared.generated.resources.Res
 import gazekeep.shared.generated.resources.m0_capturing
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -72,9 +70,19 @@ private val DEMO_APPS = listOf(
   AppEntry("org.matrix.vector.manager", "Vector"),
 )
 
-// 仅供官网演示，平台操作不连接 Android 或申请硬件权限。
+/** 官网路由到演示页面；自检需要相机，演示中不可进入。 */
+private val ROUTES = mapOf(
+  "home" to SettingsScreen.Home,
+  "backend" to SettingsScreen.Backend,
+  "settings" to SettingsScreen.Settings,
+  "whitelist" to SettingsScreen.Apps,
+  "privacy" to SettingsScreen.Privacy,
+)
+private val backStack = SettingsBackStack(mutableStateListOf(SettingsScreen.Home), setOf(SettingsScreen.SelfTest))
+
+// 仅供官网演示，平台操作不连接 Android 或申请硬件权限；访客的操作只改内存中的演示状态。
 private object DemoController : GazeKeepController {
-  override val state = MutableStateFlow(
+  val baseline =
     ControllerState(
       loaded = true,
       config = GazeConfig(enabled = true, packages = setOf("cn.rainafter.app.gazekeep", "org.lsposed.manager")),
@@ -89,14 +97,16 @@ private object DemoController : GazeKeepController {
         androidVersion = "—",
         deviceModel = "GazeKeep Demo",
       ),
-    ),
-  )
+    )
+  override val state = MutableStateFlow(baseline)
   override val selfTest = MutableStateFlow(SelfTestState())
   override suspend fun updateConfig(transform: (GazeConfig) -> GazeConfig) {
     state.value =
       state.value.copy(config = transform(state.value.config))
   }
-  override suspend fun setEnabled(enabled: Boolean) {}
+  override suspend fun setEnabled(enabled: Boolean) {
+    updateConfig { it.copy(enabled = enabled) }
+  }
   override suspend fun beginSelfTest() {}
   override suspend fun captureSelfTest() {}
   override fun cancelSelfTest() {}
@@ -144,37 +154,48 @@ private object DemoActions : PlatformActions {
   }
 }
 
-expect fun installBridge(screen: (String, Int) -> Unit, status: (String) -> Unit, appearance: (String, Boolean) -> Unit)
+expect fun installBridge(
+  screen: (String, Int, Boolean) -> Unit,
+  status: (String) -> Unit,
+  appearance: (String, Boolean) -> Unit,
+)
 expect fun notifyReady()
 expect fun notifyRendered(screen: String, revision: Int)
+
+/** 按演示状态覆盖后端、锁定与最近判定；[from] 为复位时的基线。 */
+private fun applyStatus(status: String, from: ControllerState = DemoController.state.value) {
+  val backend = when (status) {
+    "backend_shizuku" -> BackendId.Shizuku
+    "backend_accessibility" -> BackendId.Accessibility
+    else -> BackendId.Lsposed
+  }
+  DemoController.state.value = from.copy(
+    activeBackend = backend,
+    config = from.config.copy(
+      backendLock = if (status.startsWith("backend_")) BackendLock.valueOf(backend.name) else BackendLock.Auto,
+    ),
+    lastDecision = when (status) {
+      "gaze_detected" -> Attention.Looking
+      "dim_fallback" -> Attention.Unknown
+      else -> null
+    },
+  )
+}
 
 @OptIn(ExperimentalResourceApi::class)
 fun startShowcase() {
   installBridge(
-    { screen, revision ->
-      if (screen in listOf("home", "backend", "settings", "whitelist", "privacy")) {
-        route.value = screen
-        requestRevision.value = revision
-      }
+    { screen, revision, restore ->
+      val target = ROUTES[screen] ?: return@installBridge
+      route.value = screen
+      requestRevision.value = revision
+      // 复位用于访客操作后回到滚动段落：丢弃演示状态改动，并以转场回到指定页面。
+      if (restore) applyStatus(demoStatus.value, DemoController.baseline)
+      backStack.show(target, animate = restore)
     },
     { status ->
       demoStatus.value = status
-      val backend = when (status) {
-        "backend_shizuku" -> BackendId.Shizuku
-        "backend_accessibility" -> BackendId.Accessibility
-        else -> BackendId.Lsposed
-      }
-      DemoController.state.value = DemoController.state.value.copy(
-        activeBackend = backend,
-        config = DemoController.state.value.config.copy(
-          backendLock = if (status.startsWith("backend_")) BackendLock.valueOf(backend.name) else BackendLock.Auto,
-        ),
-        lastDecision = when (status) {
-          "gaze_detected" -> Attention.Looking
-          "dim_fallback" -> Attention.Unknown
-          else -> null
-        },
-      )
+      applyStatus(status)
     },
     { lang, isDark ->
       locale.value = if (lang == "en") "en" else "zh"
@@ -214,32 +235,15 @@ fun startShowcase() {
         },
       ) {
         val state by DemoController.state.collectAsState()
-        val scope = rememberCoroutineScope()
-        Box(Modifier.fillMaxSize()) {
-          when (route.value) {
-            "backend" -> BackendScreen(state, scope, DemoController, DemoActions, {})
-
-            "settings" -> SettingsTabScreen(state, scope, DemoController, DemoActions, {})
-
-            "privacy" -> PrivacyScreen({})
-
-            "whitelist" -> AppsScreen(state, scope, DemoController, DemoActions, {})
-
-            else -> HomeScreen(
-              state,
-              scope,
-              DemoController,
-              {},
-              statusSubtitleOverride = if (demoStatus.value ==
-                "sampling"
-              ) {
-                stringResource(Res.string.m0_capturing)
-              } else {
-                null
-              },
-            )
-          }
-        }
+        val test by DemoController.selfTest.collectAsState()
+        SettingsNavHost(
+          backStack = backStack,
+          controller = DemoController,
+          actions = DemoActions,
+          state = state,
+          test = test,
+          homeStatusOverride = if (demoStatus.value == "sampling") stringResource(Res.string.m0_capturing) else null,
+        )
       }
     }
     LaunchedEffect(route.value, requestRevision.value) {

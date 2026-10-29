@@ -1,5 +1,6 @@
 export interface Bridge {
-  setScreen(route: string, revision?: number): void;
+  /** restore 为 true 时丢弃访客在内屏中的操作，并以转场回到指定页面。 */
+  setScreen(route: string, revision?: number, restore?: boolean): void;
   setDemoStatus(status: string): void;
   setLocaleAndTheme(locale: string, dark: boolean): void;
 }
@@ -85,6 +86,27 @@ export function createRenderGate() {
     reset() {
       rendered = false;
       revision++;
+    },
+  };
+}
+
+/** 访客操作内屏后记下滚动位置；页面滚动超过阈值时复位一次，避免点按时的细微抖动触发复位。 */
+export function createDriftTracker(threshold = 24) {
+  let origin: number | undefined;
+  return {
+    mark(scrollY: number) {
+      origin = scrollY;
+    },
+    active() {
+      return origin !== undefined;
+    },
+    clear() {
+      origin = undefined;
+    },
+    shouldRestore(scrollY: number) {
+      if (origin === undefined || Math.abs(scrollY - origin) < threshold) return false;
+      origin = undefined;
+      return true;
     },
   };
 }

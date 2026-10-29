@@ -3,8 +3,10 @@ import {
   createShowcaseState,
   createShowcaseAttempts,
   createRenderGate,
+  createDriftTracker,
   chooseRuntime,
 } from "./showcase-state.ts";
+import { initScreenTouch } from "./screen-touch.ts";
 import { initStoryScroll } from "./story-scroll";
 import { initCameraHalo } from "./camera-halo";
 import { initPhoneDisplay } from "./phone-display";
@@ -27,7 +29,10 @@ export function initWebsite() {
   };
   const state = createShowcaseState();
   const renderGate = createRenderGate();
+  const drift = createDriftTracker();
   let requestedRoute = "",
+    requestedRevision = 0,
+    rawBridge: Bridge | undefined,
     renderTimeout: ReturnType<typeof setTimeout> | undefined;
   const frame = document.querySelector<HTMLIFrameElement>("#kmp-frame")!;
   const screen = document.querySelector<HTMLElement>(".phone-screen")!;
@@ -51,10 +56,16 @@ export function initWebsite() {
     if (frame.contentDocument?.documentElement) frame.contentDocument.documentElement.lang = content.locale;
   };
   disposers.push(initThemeSwitch({ onChange: setAppearance, frame }));
+  /** 访客操作内屏后，以转场回到当前段落指定的页面并恢复演示状态。 */
+  function restore() {
+    drift.clear();
+    if (rawBridge && requestedRoute) rawBridge.setScreen(requestedRoute, requestedRevision, true);
+  }
   function sync(route: KmpRoute, status: DemoState, effect = "none") {
     state.update({ route, status });
     phone.dataset.effect = effect;
     statusLabel.textContent = content.status[status];
+    if (drift.active()) restore();
   }
   document.querySelectorAll<HTMLButtonElement>("[data-backend]").forEach((card) => {
     const activate = () => {
@@ -84,6 +95,8 @@ export function initWebsite() {
     clearTimeout(timeout);
     clearTimeout(renderTimeout);
     screen.dataset.ready = "false";
+    rawBridge = undefined;
+    drift.clear();
     if (runtime === "wasm") {
       runtime = "js";
       load();
@@ -101,6 +114,8 @@ export function initWebsite() {
     state.loading();
     renderGate.reset();
     requestedRoute = "";
+    rawBridge = undefined;
+    drift.clear();
     clearTimeout(renderTimeout);
     recovery.hidden = true;
     screen.dataset.ready = "false";
@@ -116,12 +131,14 @@ export function initWebsite() {
     if (!bridge) return;
     clearTimeout(timeout);
     (window as DemoWindow).GazeKeepWebShowcaseBridge = bridge;
+    rawBridge = bridge;
     state.attach({
       ...bridge,
       setScreen(route: string) {
         if (requestedRoute === route) return;
         requestedRoute = route;
         const revision = renderGate.request(route);
+        requestedRevision = revision;
         bridge.setScreen(route, revision);
         clearTimeout(renderTimeout);
         renderTimeout = setTimeout(() => failed(event.detail.attempt), 8000);
@@ -141,6 +158,24 @@ export function initWebsite() {
     failed(event.detail?.attempt);
   }) as EventListener);
   listen(document.querySelector("#retry-showcase")!, "click", load);
+  const dim = document.querySelector<HTMLElement>(".screen-dim")!;
+  initScreenTouch({
+    layer: document.querySelector<HTMLElement>("#screen-touch")!,
+    host: document.querySelector<HTMLElement>("#phone-visual")!,
+    frame,
+    // 黑屏换页、设备槽渐亮前或加载失败时，内屏不可见，不响应点按。
+    active: () => screen.dataset.ready === "true" && recovery.hidden && Number(getComputedStyle(dim).opacity) < 0.5,
+    onTap: () => drift.mark(scrollY),
+    listen,
+  });
+  listen(
+    window,
+    "scroll",
+    () => {
+      if (drift.shouldRestore(scrollY)) restore();
+    },
+    { passive: true },
+  );
   disposers.push(initSiteChrome(listen, load));
   disposers.push(initScrollReveal());
 

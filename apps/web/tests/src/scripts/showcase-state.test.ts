@@ -4,6 +4,7 @@ import {
   createRenderGate,
   createShowcaseAttempts,
   createShowcaseState,
+  createDriftTracker,
 } from "../../../src/scripts/showcase-state.ts";
 
 test("桥接延迟就绪时重放最新页面、状态和主题", () => {
@@ -58,4 +59,28 @@ test("绘制回执忽略过期编号和错误路由", () => {
   expect(g.ready("backend")).toBe(true);
   g.reset();
   expect(g.ready("backend")).toBe(false);
+});
+
+test("访客操作后，页面滚动超过阈值才复位一次", () => {
+  const drift = createDriftTracker(24);
+  expect(drift.shouldRestore(500)).toBe(false);
+  drift.mark(1000);
+  expect(drift.active()).toBe(true);
+  // 点击时的细微抖动或惯性余量不算滚动。
+  expect(drift.shouldRestore(1010)).toBe(false);
+  expect(drift.shouldRestore(990)).toBe(false);
+  expect(drift.shouldRestore(1024)).toBe(true);
+  expect(drift.active()).toBe(false);
+  expect(drift.shouldRestore(2000)).toBe(false);
+});
+
+test("向上滚动同样复位，再次操作以新位置为起点", () => {
+  const drift = createDriftTracker(24);
+  drift.mark(1000);
+  drift.mark(1020);
+  expect(drift.shouldRestore(1000)).toBe(false);
+  expect(drift.shouldRestore(996)).toBe(true);
+  drift.mark(400);
+  drift.clear();
+  expect(drift.shouldRestore(0)).toBe(false);
 });

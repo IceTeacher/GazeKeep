@@ -5,10 +5,10 @@ package cn.rainafter.app.gazekeep.showcase
 fun main() = startShowcase()
 
 @JsFun(
-  "(screen, status, appearance) => { window.GazeKeepWebShowcaseBridge = { setScreen: (route, revision = 0) => screen(route, revision), setDemoStatus: status, setLocaleAndTheme: (lang, dark) => { Object.defineProperty(navigator, 'languages', { configurable: true, get: () => [lang] }); appearance(lang, dark); } }; }",
+  "(screen, status, appearance) => { window.GazeKeepWebShowcaseBridge = { setScreen: (route, revision = 0, restore = false) => screen(route, revision, restore), setDemoStatus: status, setLocaleAndTheme: (lang, dark) => { Object.defineProperty(navigator, 'languages', { configurable: true, get: () => [lang] }); appearance(lang, dark); } }; }",
 )
 private external fun bind(
-  screen: (String, Int) -> Unit,
+  screen: (String, Int, Boolean) -> Unit,
   status: (String) -> Unit,
   appearance: (String, Boolean) -> Unit,
 )
@@ -18,7 +18,7 @@ private external fun bind(
 )
 private external fun ready()
 actual fun installBridge(
-  screen: (String, Int) -> Unit,
+  screen: (String, Int, Boolean) -> Unit,
   status: (String) -> Unit,
   appearance: (String, Boolean) -> Unit,
 ) = bind(screen, status, appearance)

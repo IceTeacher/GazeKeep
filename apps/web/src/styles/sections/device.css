@@ -124,6 +124,20 @@
   pointer-events: none;
   background: inherit;
 }
+/* 内屏命中层：滚轮与竖向滑动交给页面原生滚动，轻点由脚本换算后转发给内屏。 */
+#screen-touch {
+  position: absolute;
+  inset: var(--status-height, 40px) 0 var(--nav-height, 24px);
+  z-index: 4;
+  pointer-events: auto;
+  touch-action: pan-y pinch-zoom;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.phone-screen:not([data-ready="true"]) #screen-touch {
+  pointer-events: none;
+}
 .phone-screen[data-ready="true"] iframe {
   opacity: 1;
 }

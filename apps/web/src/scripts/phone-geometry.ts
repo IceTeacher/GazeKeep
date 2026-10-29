@@ -53,3 +53,12 @@ export function mapPlanePoint(m: readonly number[], x: number, y: number): [numb
   const z = m[3] * x + m[7] * y + m[15];
   return [(m[0] * x + m[4] * y + m[12]) / z, (m[1] * x + m[5] * y + m[13]) / z];
 }
+/** mapPlanePoint 的逆映射：由投影后的位置求屏幕逻辑坐标，供内屏点击换算。 */
+export function unmapPlanePoint(m: readonly number[], u: number, v: number): [number, number] {
+  const [a, b, c, d, e, f, g, h, i] = [m[0], m[4], m[12], m[1], m[5], m[13], m[3], m[7], m[15]];
+  // 3×3 单应矩阵的伴随矩阵；比例因子在齐次除法中约去。
+  const x = (e * i - f * h) * u + (c * h - b * i) * v + (b * f - c * e),
+    y = (f * g - d * i) * u + (a * i - c * g) * v + (c * d - a * f),
+    w = (d * h - e * g) * u + (b * g - a * h) * v + (a * e - b * d);
+  return [x / w, y / w];
+}

@@ -10,8 +10,8 @@
       const control = window.parent.__showcaseFixture ?? { mode: "ready", calls: [] };
       const emit = (type, detail) => window.parent.dispatchEvent(new CustomEvent(type, { detail }));
       window.GazeKeepWebShowcaseBridge = {
-        setScreen(route, revision) {
-          control.calls.push(["setScreen", route]);
+        setScreen(route, revision, restore = false) {
+          control.calls.push(restore ? ["setScreen", route, true] : ["setScreen", route]);
           requestAnimationFrame(() => emit("gazekeep:rendered", { route, revision, attempt }));
         },
         setDemoStatus(status) {
@@ -21,6 +21,12 @@
           control.calls.push(["setLocaleAndTheme", locale, dark]);
         },
       };
+      // 与 ComposeViewport 一致：画布位于开放 shadow root 中，记录父页面转发的指针事件。
+      const host = document.body.appendChild(document.createElement("div"));
+      const canvas = host.attachShadow({ mode: "open" }).appendChild(document.createElement("canvas"));
+      canvas.style.cssText = "display: block; width: 392px; height: 784px";
+      for (const type of ["pointerdown", "pointermove", "pointerup"])
+        canvas.addEventListener(type, (e) => control.calls.push(["pointer", type, e.clientX, e.clientY]));
       const mode = control.modes?.shift() ?? control.mode;
       if (mode === "ready") emit("gazekeep:ready", { attempt });
       else if (mode === "error") emit("gazekeep:error", { attempt });
