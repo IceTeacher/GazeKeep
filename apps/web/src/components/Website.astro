@@ -7,6 +7,7 @@ import PhoneStage from "./device/PhoneStage.astro";
 import WorkflowSection from "./sections/WorkflowSection.astro";
 import BackendsSection from "./sections/BackendsSection.astro";
 import WhitelistSection from "./sections/WhitelistSection.astro";
+import SettingsSection from "./sections/SettingsSection.astro";
 import PrivacySection from "./sections/PrivacySection.astro";
 import StartSection from "./sections/StartSection.astro";
 import FaqSection from "./sections/FaqSection.astro";
@@ -25,13 +26,14 @@ const { content: c } = Astro.props;
   <SiteHeader content={c} />
   <button id="retry-hit" aria-label={c.retry} hidden></button>
   <main id="main">
-    <!-- 首屏至专注范围共用同一部 sticky 手机，三者必须同处一个滚动叙事容器。 -->
+    <!-- 首屏至设置区共用同一部 sticky 手机，各区段必须同处一个滚动叙事容器。 -->
     <div id="showcase-story">
       <HeroSection content={c} />
       <PhoneStage content={c} />
       <WorkflowSection content={c} />
       <BackendsSection content={c} />
       <WhitelistSection content={c} />
+      <SettingsSection content={c} />
     </div>
     <div class="free-flow">
       <PrivacySection content={c} />
@@ -44,7 +46,14 @@ const { content: c } = Astro.props;
   <script
     type="application/json"
     id="showcase-content"
-    set:html={JSON.stringify({ status: c.status, loading: c.loading, locale: c.locale }).replace(/</g, "\\u003c")}
+    set:html={JSON.stringify({
+      status: c.status,
+      hint: c.hint,
+      tour: c.tour,
+      settingValues: c.settings.values,
+      loading: c.loading,
+      locale: c.locale,
+    }).replace(/</g, "\\u003c")}
   />
   <script>
     import { initWebsite } from "../scripts/orchestrator";

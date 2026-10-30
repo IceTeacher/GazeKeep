@@ -15,6 +15,8 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import cn.rainafter.app.gazekeep.ui.components.AppScaffold
 import cn.rainafter.app.gazekeep.ui.components.SettingsGroupTitle
+import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseKeys
+import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseScrollTarget
 import gazekeep.shared.generated.resources.Res
 import gazekeep.shared.generated.resources.privacy_line_1
 import gazekeep.shared.generated.resources.privacy_line_2
@@ -40,11 +42,13 @@ internal fun PrivacyScreen(onBack: () -> Unit) {
     title = stringResource(Res.string.settings_privacy),
     onBack = onBack,
   ) { padding, scrollBehavior ->
+    val scroll = rememberScrollState()
+    ShowcaseScrollTarget(ShowcaseKeys.PRIVACY, scroll, scrollBehavior)
     Column(
       modifier = Modifier
         .fillMaxSize()
         .nestedScroll(scrollBehavior.nestedScrollConnection)
-        .verticalScroll(rememberScrollState())
+        .verticalScroll(scroll)
         .padding(padding)
         .padding(horizontal = 16.dp, vertical = 12.dp),
       verticalArrangement = Arrangement.spacedBy(12.dp),

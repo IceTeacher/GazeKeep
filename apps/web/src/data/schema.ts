@@ -1,4 +1,5 @@
 export type Locale = "zh" | "en";
+export type SettingId = "lead" | "sensitivity" | "max_hold" | "hide_indicator";
 export type KmpRoute = "home" | "backend" | "settings" | "whitelist" | "privacy";
 export type DemoState =
   | "idle"
@@ -40,7 +41,15 @@ export interface SiteContent {
       requirement: string;
     }[];
   };
-  whitelist: { title: string; text: string; limit: string; detail: string };
+  whitelist: { title: string; text: string };
+  /** 设置区：机外卡片与内屏演示同步显示当前取值。 */
+  settings: {
+    title: string;
+    text: string;
+    items: { id: SettingId; label: string; detail: string }[];
+    /** 取值文案；seconds 与 minutes 中的 {n} 替换为数值。 */
+    values: { seconds: string; minutes: string; standard: string; loose: string; on: string; off: string };
+  };
   privacy: { title: string; text: string; labels: string[]; permission: string };
   start: { title: string; steps: { title: string; text: string }[] };
   faq: { title: string; items: { question: string; answer: string }[] };
@@ -50,13 +59,15 @@ export interface SiteContent {
   error: string;
   retry: string;
   status: Record<DemoState, string>;
+  /** 首屏替代「准备就绪」，按主要输入方式说明如何操作内屏。 */
+  hint: { touch: string; mouse: string };
+  /** 工作流标题处内屏自动浏览时手机下方的说明。 */
+  tour: string;
   /** 页面结构里的零散短文案：区块眉题、无障碍标签与语言切换。 */
   ui: {
     skip: string;
     productNote: string;
-    kickers: { workflow: string; backends: string; whitelist: string; privacy: string };
-    limitLabel: string;
-    limitLink: string;
+    kickers: { workflow: string; backends: string; whitelist: string; settings: string; privacy: string };
     tagline: string;
     switchLanguage: string;
     languageShort: string;

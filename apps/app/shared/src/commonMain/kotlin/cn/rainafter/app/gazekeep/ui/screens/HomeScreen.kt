@@ -36,6 +36,8 @@ import cn.rainafter.app.gazekeep.ui.contract.ControllerState
 import cn.rainafter.app.gazekeep.ui.contract.GazeKeepController
 import cn.rainafter.app.gazekeep.ui.contract.UiNotice
 import cn.rainafter.app.gazekeep.ui.navigation.SettingsScreen
+import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseKeys
+import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseScrollTarget
 import cn.rainafter.app.gazekeep.ui.text.backendLabel
 import cn.rainafter.app.gazekeep.ui.text.backendName
 import gazekeep.shared.generated.resources.Res
@@ -99,11 +101,13 @@ internal fun HomeScreen(
     onBack = null,
     bottomBar = bottomBar,
   ) { padding, scrollBehavior ->
+    val scroll = rememberScrollState()
+    ShowcaseScrollTarget(ShowcaseKeys.HOME, scroll, scrollBehavior)
     Column(
       modifier = Modifier
         .fillMaxSize()
         .nestedScroll(scrollBehavior.nestedScrollConnection)
-        .verticalScroll(rememberScrollState())
+        .verticalScroll(scroll)
         .padding(padding)
         .padding(horizontal = 16.dp, vertical = 12.dp),
       verticalArrangement = Arrangement.spacedBy(12.dp),

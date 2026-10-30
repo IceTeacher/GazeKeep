@@ -29,6 +29,9 @@ import cn.rainafter.app.gazekeep.ui.contract.AppListLoadState
 import cn.rainafter.app.gazekeep.ui.contract.ControllerState
 import cn.rainafter.app.gazekeep.ui.contract.GazeKeepController
 import cn.rainafter.app.gazekeep.ui.contract.PlatformActions
+import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseInput
+import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseKeys
+import cn.rainafter.app.gazekeep.ui.showcase.showcaseAnchor
 import gazekeep.shared.generated.resources.Res
 import gazekeep.shared.generated.resources.settings_apps
 import gazekeep.shared.generated.resources.settings_apps_load_failed
@@ -54,7 +57,7 @@ private fun AppListItem(
   onCheckedChange: (Boolean) -> Unit,
 ) {
   Card(
-    modifier = Modifier.fillMaxWidth(),
+    modifier = Modifier.fillMaxWidth().showcaseAnchor(ShowcaseKeys.app(app.packageName)),
     cornerRadius = 12.dp,
   ) {
     SwitchPreference(
@@ -81,6 +84,7 @@ internal fun AppsScreen(
   onBack: () -> Unit,
 ) {
   var search by rememberSaveable { mutableStateOf("") }
+  ShowcaseInput(ShowcaseKeys.APPS_SEARCH) { search = it }
   val filteredApps = remember(state.apps, search) {
     if (search.isBlank()) {
       state.apps

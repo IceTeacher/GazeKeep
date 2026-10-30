@@ -31,6 +31,8 @@ test("桌面运行方式卡片（英文）", async () => {
   await settle("en", 1440, 900);
   const list = document.querySelector<HTMLElement>(".backend-list")!;
   list.scrollIntoView({ behavior: "instant", block: "center" });
+  // 悬停首项暂停 1.5 秒一次的自动轮换，截图期间选中项不变。
+  list.querySelector('[data-backend="lsposed"]')!.dispatchEvent(new MouseEvent("mouseenter"));
   await nextFrame();
   await expect(page.elementLocator(list)).toMatchScreenshot("desktop-backends-en");
 });
@@ -66,8 +68,9 @@ test("移动端隐私三项（浅色）", async () => {
   await expect(page.elementLocator(lines)).toMatchScreenshot("mobile-privacy-zh-light");
 });
 
-test("桌面保护上限卡片", async () => {
+test("桌面设置卡片", async () => {
   await settle("zh", 1440, 900);
-  const card = await reveal(".limit-card");
-  await expect(page.elementLocator(card)).toMatchScreenshot("desktop-limit-zh");
+  await reveal('.setting-card[data-setting="hide_indicator"]');
+  const grid = document.querySelector<HTMLElement>(".setting-grid")!;
+  await expect(page.elementLocator(grid)).toMatchScreenshot("desktop-settings-zh");
 });

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+  demoScene,
   featurePose,
   featureReveal,
   featureSpan,
@@ -188,6 +189,25 @@ describe("首屏与三幕姿态", () => {
     }
   });
 
+  test("专注范围到设置区镜像横移：手机由左回到右侧，朝右侧转并在两端回正", () => {
+    const left = featurePose(0, 1280, 1),
+      right = featurePose(1, 1280, 1);
+    expect(left.x).toBe(featurePose(1, 1280).x);
+    expect(right.x).toBe(featurePose(0, 1280).x);
+    for (const pose of [left, right]) expect([pose.turn, pose.rotateZ, pose.scale]).toEqual([0, 0, 1]);
+    const mid = featurePose(0.5, 1280, 1),
+      mirror = featurePose(0.5, 1280);
+    expect(mid.travel).toBe(1);
+    expect(mid.turn).toBe(-mirror.turn);
+    expect(mid.rotateZ).toBe(-mirror.rotateZ);
+    expect(mid.scale).toBe(mirror.scale);
+    // 设置文案在右侧手机越过中线回到右侧后才淡入。
+    const reveal = (p: number) => featureReveal(featurePose(p, 1280, 1).x, 1280, 1);
+    expect(reveal(0)).toBe(0);
+    expect(reveal(0.5)).toBe(0);
+    expect(reveal(1)).toBe(1);
+  });
+
   test("专注范围横移在吸附减速段完成：终点为范围停靠点，起点在运行方式列表离开设备之后", () => {
     const base = { listBottom: 5700, headingTop: 6547, stageTop: 100, phoneHeight: 621, snapTop: 100, viewport: 900 };
     const span = featureSpan(base);
@@ -238,6 +258,18 @@ describe("场景路由与阅读布局", () => {
         .map((v) => sceneState(v))
         .toReversed(),
     );
+  });
+
+  test("各区段的内屏演示场景：标题处自动浏览，第一幕检测、第二幕滚动隐私页，功能区各自演示", () => {
+    expect(demoScene({ route: "home", status: "idle", tour: false })).toBe("none");
+    expect(demoScene({ route: "home", status: "idle", tour: true })).toBe("tour");
+    expect(demoScene({ route: "home", status: "sampling", tour: true })).toBe("detect");
+    expect(demoScene({ route: "privacy", status: "gaze_detected", tour: false })).toBe("privacy");
+    // 第三幕为黑屏，不演示。
+    expect(demoScene({ route: "privacy", status: "dim_fallback", tour: false })).toBe("none");
+    expect(demoScene({ route: "backend", status: "backend_shizuku", tour: false })).toBe("backends");
+    expect(demoScene({ route: "whitelist", status: "idle", tour: false })).toBe("apps");
+    expect(demoScene({ route: "settings", status: "idle", tour: false })).toBe("settings");
   });
 
   test("移动端设备与最长正文分区，短屏与大字号改为自然阅读", () => {

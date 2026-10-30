@@ -124,6 +124,23 @@
   pointer-events: none;
   background: inherit;
 }
+/* 内屏命中层：滚轮与快速竖向滑动交给页面原生滚动；轻点、鼠标拖动与长按后的滑动由脚本换算后转发给内屏。 */
+#screen-touch {
+  position: absolute;
+  inset: var(--status-height, 40px) 0 var(--nav-height, 24px);
+  z-index: 4;
+  pointer-events: auto;
+  touch-action: pan-y pinch-zoom;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+#screen-touch[data-dragging="true"] {
+  cursor: grabbing;
+}
+.phone-screen:not([data-ready="true"]) #screen-touch {
+  pointer-events: none;
+}
 .phone-screen[data-ready="true"] iframe {
   opacity: 1;
 }
@@ -292,6 +309,13 @@
   font-size: 11px;
   color: var(--accent);
   transform: translateX(var(--device-shift));
+}
+/* 操作提示在窄屏上可能折行：只在分隔处换行并居中。 */
+#demo-status {
+  text-align: center;
+}
+.status-part {
+  white-space: nowrap;
 }
 #phone-stage[data-grip-visible="true"] .live-status {
   opacity: 0;

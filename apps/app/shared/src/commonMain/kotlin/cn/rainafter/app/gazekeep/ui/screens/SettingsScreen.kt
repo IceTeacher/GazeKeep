@@ -31,6 +31,10 @@ import cn.rainafter.app.gazekeep.ui.contract.ControllerState
 import cn.rainafter.app.gazekeep.ui.contract.GazeKeepController
 import cn.rainafter.app.gazekeep.ui.contract.PlatformActions
 import cn.rainafter.app.gazekeep.ui.navigation.SettingsScreen
+import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseInput
+import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseKeys
+import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseScrollTarget
+import cn.rainafter.app.gazekeep.ui.showcase.showcaseAnchor
 import cn.rainafter.app.gazekeep.ui.text.backendLabel
 import gazekeep.shared.generated.resources.Res
 import gazekeep.shared.generated.resources.settings_about
@@ -129,7 +133,10 @@ private fun CustomIntDialog(
   onValueChange: (String) -> Unit,
   onDismiss: () -> Unit,
   onConfirm: () -> Unit,
+  inputKey: String,
+  confirmKey: String,
 ) {
+  ShowcaseInput(inputKey) { input -> onValueChange(input.filter(Char::isDigit).take(4)) }
   OverlayDialog(
     show = show,
     title = title,
@@ -160,7 +167,7 @@ private fun CustomIntDialog(
         onClick = onConfirm,
         enabled = isValid,
         colors = ButtonDefaults.buttonColorsPrimary(),
-        modifier = Modifier.weight(1f),
+        modifier = Modifier.weight(1f).showcaseAnchor(confirmKey),
       ) {
         Text(stringResource(Res.string.settings_dialog_confirm))
       }
@@ -218,11 +225,13 @@ internal fun SettingsTabScreen(
     onBack = null,
     bottomBar = bottomBar,
   ) { padding, scrollBehavior ->
+    val scroll = rememberScrollState()
+    ShowcaseScrollTarget(ShowcaseKeys.SETTINGS, scroll, scrollBehavior)
     Column(
       modifier = Modifier
         .fillMaxSize()
         .nestedScroll(scrollBehavior.nestedScrollConnection)
-        .verticalScroll(rememberScrollState())
+        .verticalScroll(scroll)
         .padding(padding)
         .padding(horizontal = 16.dp, vertical = 12.dp),
       verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -257,6 +266,7 @@ internal fun SettingsTabScreen(
 
       Card(modifier = Modifier.fillMaxWidth()) {
         OverlayDropdownPreference(
+          modifier = Modifier.showcaseAnchor(ShowcaseKeys.LEAD),
           title = stringResource(Res.string.settings_lead),
           summary = stringResource(Res.string.settings_lead_summary),
           startAction = { StartSettingIcon(MiuixIcons.Timer) },
@@ -280,6 +290,7 @@ internal fun SettingsTabScreen(
           },
         )
         OverlayDropdownPreference(
+          modifier = Modifier.showcaseAnchor(ShowcaseKeys.SENSITIVITY),
           title = stringResource(Res.string.settings_sensitivity),
           summary = stringResource(
             if (state.config.sensitivity == Sensitivity.Standard) {
@@ -305,6 +316,7 @@ internal fun SettingsTabScreen(
           },
         )
         OverlayDropdownPreference(
+          modifier = Modifier.showcaseAnchor(ShowcaseKeys.MAX_HOLD),
           title = stringResource(Res.string.settings_max_hold),
           summary = stringResource(Res.string.settings_max_hold_summary),
           startAction = { StartSettingIcon(MiuixIcons.Stopwatch) },
@@ -334,6 +346,7 @@ internal fun SettingsTabScreen(
           },
         )
         ExperimentalSwitchPreference(
+          modifier = Modifier.showcaseAnchor(ShowcaseKeys.HIDE_INDICATOR),
           title = stringResource(Res.string.settings_hide_camera_indicator),
           summary = stringResource(
             if (canHideCameraIndicator) {
@@ -446,6 +459,8 @@ internal fun SettingsTabScreen(
         showLeadCustomDialog = false
         scope.launch { controller.updateConfig { it.copy(leadMillis = seconds * 1_000L) } }
       },
+      inputKey = ShowcaseKeys.LEAD_INPUT,
+      confirmKey = ShowcaseKeys.LEAD_CONFIRM,
     )
 
     val parsedHoldMinutes = holdCustomInput.toIntOrNull()?.takeIf { it in 1..1_440 }
@@ -462,6 +477,8 @@ internal fun SettingsTabScreen(
         showHoldCustomDialog = false
         scope.launch { controller.updateConfig { it.copy(maxHoldMinutes = minutes) } }
       },
+      inputKey = ShowcaseKeys.HOLD_INPUT,
+      confirmKey = ShowcaseKeys.HOLD_CONFIRM,
     )
   }
 }

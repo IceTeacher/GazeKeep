@@ -48,20 +48,32 @@ export function storyPose(progress: number, mobile = false, viewportWidth = 1280
   };
 }
 /**
- * 桌面运行方式到专注范围：镜像第二幕到第三幕的横移，手机由右向左时朝左侧转、侧倾。
- * @param progress 0 位于运行方式，1 位于专注范围
+ * 桌面功能区之间的横移：镜像第二幕到第三幕，运行方式到专注范围由右向左，专注范围到设置再回到右侧，
+ * 过程中朝运动方向侧转、侧倾。
+ * @param progress 0 位于出发区段，1 位于到达区段
+ * @param side 到达侧：-1 左、1 右
  */
-export function featurePose(progress: number, viewportWidth = 1280) {
+export function featurePose(progress: number, viewportWidth = 1280, side: -1 | 1 = -1) {
   const right = storyPose(4, false, viewportWidth).x,
-    travel = -bump(progress) || 0;
-  return { x: right - 2 * right * glide(progress), travel, rotateX: 0, ...tilt(travel) };
+    travel = side * bump(progress) || 0;
+  return { x: -side * right + 2 * side * right * glide(progress), travel, rotateX: 0, ...tilt(travel) };
 }
 /**
- * 范围文案按手机实际横向位置淡入：越过中线后才开始显示，对应三幕文案的交叉淡入，手机掠过时不压住清晰文字。
+ * 到达区段的文案按手机实际横向位置淡入：越过中线后才开始显示，对应三幕文案的交叉淡入，手机掠过时不压住清晰文字。
  * @param x 阻尼跟随后的横向位置
+ * @param side 手机到达侧，与 featurePose 一致
  */
-export function featureReveal(x: number, viewportWidth = 1280) {
-  return smooth(-x / storyPose(4, false, viewportWidth).x);
+export function featureReveal(x: number, viewportWidth = 1280, side: -1 | 1 = -1) {
+  return smooth((side * x) / storyPose(4, false, viewportWidth).x);
+}
+/**
+ * 内屏演示场景：工作流标题处自动浏览主页与设置，第一幕检测往复，第二幕滚动隐私页，
+ * 运行方式轮换后端，专注范围勾选与搜索，设置区逐项修改；其余阶段不演示。
+ */
+export function demoScene({ route, status, tour }: { route: string; status: string; tour: boolean }) {
+  if (route === "home") return status === "sampling" ? "detect" : tour && status === "idle" ? "tour" : "none";
+  if (route === "privacy") return status === "gaze_detected" ? "privacy" : "none";
+  return ({ backend: "backends", whitelist: "apps", settings: "settings" } as Record<string, string>)[route] ?? "none";
 }
 /**
  * 专注范围横移的滚动区间：运行方式列表离开设备所在高度后起步，在范围文案停靠点结束，

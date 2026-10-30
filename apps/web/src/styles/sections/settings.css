@@ -1,0 +1,89 @@
+/*
+ * 设置区：手机由左侧回到右侧，内容靠左。四张卡片沿用保护上限卡片的样式（刻度环 + 数值 + 说明，极淡强调色底），
+ * 取值随内屏演示同步，正在演示的一项加深底色。
+ */
+.setting-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 56px;
+}
+.setting-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  transition: background 0.3s;
+}
+.setting-card[data-active="true"] {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.setting-dial {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  color: var(--accent);
+}
+.setting-ring {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+}
+.setting-ring circle {
+  fill: none;
+  stroke-width: 3;
+}
+.setting-track {
+  stroke: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+/* 描绘比例由 --arc（0–100）给出：30 分钟为半圈；取值变化时连续过渡。 */
+.setting-arc {
+  stroke: var(--accent);
+  stroke-linecap: round;
+  stroke-dasharray: calc(var(--arc, 0) * 1) 100;
+  /* 取值为 0 时隐藏，避免圆角线帽留下一个点。 */
+  stroke-opacity: clamp(0, var(--arc, 0), 1);
+  transition: stroke-dasharray 0.6s cubic-bezier(0.3, 0, 0.2, 1);
+}
+.setting-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.setting-label {
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+.setting-value {
+  font-size: clamp(24px, 2.3vw, 32px);
+  font-weight: 450;
+  line-height: 1.2;
+  letter-spacing: -0.04em;
+}
+.setting-detail {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+@media (max-width: 760px) {
+  .setting-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    margin-top: 36px;
+  }
+  .setting-card {
+    align-items: center;
+    padding: 16px 18px;
+    border-radius: 20px;
+  }
+  .setting-value {
+    font-size: 26px;
+  }
+}

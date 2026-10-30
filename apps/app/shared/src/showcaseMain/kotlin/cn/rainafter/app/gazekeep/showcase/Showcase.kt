@@ -8,18 +8,21 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.platform.Font
 import androidx.compose.ui.unit.dp
@@ -29,6 +32,7 @@ import cn.rainafter.app.gazekeep.core.model.BackendId
 import cn.rainafter.app.gazekeep.core.model.BackendLock
 import cn.rainafter.app.gazekeep.core.model.GazeConfig
 import cn.rainafter.app.gazekeep.core.model.Readiness
+import cn.rainafter.app.gazekeep.core.model.Sensitivity
 import cn.rainafter.app.gazekeep.ui.contract.AppEntry
 import cn.rainafter.app.gazekeep.ui.contract.AppLanguage
 import cn.rainafter.app.gazekeep.ui.contract.AppListLoadState
@@ -37,14 +41,19 @@ import cn.rainafter.app.gazekeep.ui.contract.GazeKeepController
 import cn.rainafter.app.gazekeep.ui.contract.PlatformActions
 import cn.rainafter.app.gazekeep.ui.contract.SelfTestState
 import cn.rainafter.app.gazekeep.ui.contract.SystemInfo
-import cn.rainafter.app.gazekeep.ui.screens.AppsScreen
-import cn.rainafter.app.gazekeep.ui.screens.BackendScreen
-import cn.rainafter.app.gazekeep.ui.screens.HomeScreen
-import cn.rainafter.app.gazekeep.ui.screens.PrivacyScreen
-import cn.rainafter.app.gazekeep.ui.screens.SettingsTabScreen
+import cn.rainafter.app.gazekeep.ui.navigation.SettingsBackStack
+import cn.rainafter.app.gazekeep.ui.navigation.SettingsNavHost
+import cn.rainafter.app.gazekeep.ui.navigation.SettingsScreen
+import cn.rainafter.app.gazekeep.ui.showcase.LocalShowcaseDriver
+import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseScripts
+import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseSettings
 import gazekeep.shared.generated.resources.Res
 import gazekeep.shared.generated.resources.m0_capturing
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.jetbrains.compose.resources.decodeToImageBitmap
 import org.jetbrains.compose.resources.stringResource
@@ -58,6 +67,11 @@ private val requestRevision = mutableStateOf(0)
 private val locale = mutableStateOf("zh")
 private val dark = mutableStateOf(true)
 private val demoStatus = mutableStateOf("idle")
+private val demoScene = mutableStateOf("none")
+
+// 递增即重新开始当前场景；访客操作内屏时暂停，复位后继续。
+private val sceneRun = mutableStateOf(0)
+private val scenePaused = mutableStateOf(false)
 
 /**
  * 演示应用列表只使用开源应用与 AOSP 系统应用，按标签排序与真机列表一致；
@@ -72,15 +86,28 @@ private val DEMO_APPS = listOf(
   AppEntry("org.matrix.vector.manager", "Vector"),
 )
 
-// 仅供官网演示，平台操作不连接 Android 或申请硬件权限。
+/** 官网路由到演示页面；自检需要相机，演示中不可进入。 */
+private val ROUTES = mapOf(
+  "home" to SettingsScreen.Home,
+  "backend" to SettingsScreen.Backend,
+  "settings" to SettingsScreen.Settings,
+  "whitelist" to SettingsScreen.Apps,
+  "privacy" to SettingsScreen.Privacy,
+)
+private const val SCENE_SETTLE_MS = 250L
+private val backStack = SettingsBackStack(mutableStateListOf(SettingsScreen.Home), setOf(SettingsScreen.SelfTest))
+
+// 仅供官网演示，平台操作不连接 Android 或申请硬件权限；访客的操作只改内存中的演示状态。
 private object DemoController : GazeKeepController {
-  override val state = MutableStateFlow(
+  val baseline =
     ControllerState(
       loaded = true,
       config = GazeConfig(enabled = true, packages = setOf("cn.rainafter.app.gazekeep", "org.lsposed.manager")),
       selfTestPassed = true, cameraGranted = true,
       backends = BackendId.entries.associateWith { Readiness.Ready },
       activeBackend = BackendId.Lsposed, serviceRunning = true,
+      // 演示 LSPosed 后端下可开启的隐藏相机隐私指示器。
+      hideCameraIndicatorReady = true,
       apps = DEMO_APPS,
       appsLoadState = AppListLoadState.Loaded,
       // 应用版本为真实的当前版本；Android 版本与设备信息仍为演示值。
@@ -89,14 +116,16 @@ private object DemoController : GazeKeepController {
         androidVersion = "—",
         deviceModel = "GazeKeep Demo",
       ),
-    ),
-  )
+    )
+  override val state = MutableStateFlow(baseline)
   override val selfTest = MutableStateFlow(SelfTestState())
   override suspend fun updateConfig(transform: (GazeConfig) -> GazeConfig) {
     state.value =
       state.value.copy(config = transform(state.value.config))
   }
-  override suspend fun setEnabled(enabled: Boolean) {}
+  override suspend fun setEnabled(enabled: Boolean) {
+    updateConfig { it.copy(enabled = enabled) }
+  }
   override suspend fun beginSelfTest() {}
   override suspend fun captureSelfTest() {}
   override fun cancelSelfTest() {}
@@ -144,44 +173,118 @@ private object DemoActions : PlatformActions {
   }
 }
 
-expect fun installBridge(screen: (String, Int) -> Unit, status: (String) -> Unit, appearance: (String, Boolean) -> Unit)
+/** [active] 为 false 表示官网手机离开视口或标签页隐藏，演示停在当前一步。 */
+expect fun installBridge(
+  screen: (String, Int, Boolean) -> Unit,
+  status: (String) -> Unit,
+  scene: (String) -> Unit,
+  active: (Boolean) -> Unit,
+  appearance: (String, Boolean) -> Unit,
+)
 expect fun notifyReady()
 expect fun notifyRendered(screen: String, revision: Int)
+
+/** 以演示专用指针编号向画布派发触摸事件，坐标为画布 CSS 像素。 */
+expect fun dispatchDemoPointer(type: String, x: Double, y: Double)
+
+/** 访客经官网命中层转发的按压（非演示指针）到达画布时回调。 */
+expect fun watchVisitorPointer(onPointer: () -> Unit)
+
+/** 把正在演示的设置项与当前设置告知官网，供机外设置卡片同步。 */
+expect fun notifyDemo(focus: String, leadSeconds: Int, loose: Boolean, holdMinutes: Int, hideIndicator: Boolean)
+
+private fun settingsOf(config: GazeConfig) = ShowcaseSettings(
+  leadSeconds = (config.leadMillis / 1_000L).toInt(),
+  loose = config.sensitivity == Sensitivity.Loose,
+  holdMinutes = config.maxHoldMinutes,
+  hideIndicator = config.hideCameraIndicator,
+)
+
+private val director = ShowcaseDirector(
+  pointer = ::dispatchDemoPointer,
+  settings = { settingsOf(DemoController.state.value.config) },
+  applySettings = { target ->
+    val state = DemoController.state.value
+    DemoController.state.value = state.copy(
+      config = state.config.copy(
+        leadMillis = target.leadSeconds * 1_000L,
+        sensitivity = if (target.loose) Sensitivity.Loose else Sensitivity.Standard,
+        maxHoldMinutes = target.holdMinutes,
+        hideCameraIndicator = target.hideIndicator,
+      ),
+    )
+  },
+)
+
+/** 丢弃演示与访客对页面和设置的改动，回到当前段落指定的页面；[animate] 为 false 时由父页面遮罩换页。 */
+private fun resetDemo(target: SettingsScreen, animate: Boolean) {
+  applyStatus(demoStatus.value, DemoController.baseline)
+  backStack.show(target, animate)
+  director.reset()
+}
+
+/** 按演示状态覆盖后端、锁定与最近判定；[from] 为复位时的基线。 */
+private fun applyStatus(status: String, from: ControllerState = DemoController.state.value) {
+  val backend = when (status) {
+    "backend_shizuku" -> BackendId.Shizuku
+    "backend_accessibility" -> BackendId.Accessibility
+    else -> BackendId.Lsposed
+  }
+  DemoController.state.value = from.copy(
+    activeBackend = backend,
+    config = from.config.copy(
+      backendLock = if (status.startsWith("backend_")) BackendLock.valueOf(backend.name) else BackendLock.Auto,
+    ),
+    lastDecision = when (status) {
+      "gaze_detected" -> Attention.Looking
+      "dim_fallback" -> Attention.Unknown
+      else -> null
+    },
+  )
+}
 
 @OptIn(ExperimentalResourceApi::class)
 fun startShowcase() {
   installBridge(
-    { screen, revision ->
-      if (screen in listOf("home", "backend", "settings", "whitelist", "privacy")) {
-        route.value = screen
-        requestRevision.value = revision
+    { screen, revision, restore ->
+      val target = ROUTES[screen] ?: return@installBridge
+      val changed = screen != route.value
+      route.value = screen
+      requestRevision.value = revision
+      // 复位用于访客操作后回到滚动段落：丢弃演示状态改动，并以转场回到指定页面；
+      // 脚本换页时也丢弃上一段演示留下的设置改动。随后重新开始当前场景。
+      if (restore || director.dirty) {
+        resetDemo(target, animate = restore)
+      } else {
+        backStack.show(target, animate = false)
+      }
+      if (restore || changed) {
+        scenePaused.value = false
+        sceneRun.value++
       }
     },
     { status ->
       demoStatus.value = status
-      val backend = when (status) {
-        "backend_shizuku" -> BackendId.Shizuku
-        "backend_accessibility" -> BackendId.Accessibility
-        else -> BackendId.Lsposed
-      }
-      DemoController.state.value = DemoController.state.value.copy(
-        activeBackend = backend,
-        config = DemoController.state.value.config.copy(
-          backendLock = if (status.startsWith("backend_")) BackendLock.valueOf(backend.name) else BackendLock.Auto,
-        ),
-        lastDecision = when (status) {
-          "gaze_detected" -> Attention.Looking
-          "dim_fallback" -> Attention.Unknown
-          else -> null
-        },
-      )
+      applyStatus(status)
     },
+    { scene ->
+      if (scene == demoScene.value) return@installBridge
+      // 同一页面内换场景（如工作流标题进入第一幕）以淡入回到页面顶部。
+      if (director.dirty) ROUTES[route.value]?.let { resetDemo(it, animate = true) }
+      demoScene.value = scene
+      scenePaused.value = false
+      sceneRun.value++
+    },
+    { active -> director.pause.set(active) },
     { lang, isDark ->
       locale.value = if (lang == "en") "en" else "zh"
       dark.value = isDark
     },
   )
+  watchVisitorPointer { scenePaused.value = true }
   ComposeViewport("showcase") {
+    director.density = LocalDensity.current.density
+    director.windowHeight = LocalWindowInfo.current.containerSize.height.toFloat()
     val family by produceState<FontFamily?>(null) {
       val bytes = Res.readBytes("files/showcase_cjk.otf")
       value = FontFamily(Font("gazekeep-showcase", bytes))
@@ -214,23 +317,16 @@ fun startShowcase() {
         },
       ) {
         val state by DemoController.state.collectAsState()
-        val scope = rememberCoroutineScope()
+        val test by DemoController.selfTest.collectAsState()
         Box(Modifier.fillMaxSize()) {
-          when (route.value) {
-            "backend" -> BackendScreen(state, scope, DemoController, DemoActions, {})
-
-            "settings" -> SettingsTabScreen(state, scope, DemoController, DemoActions, {})
-
-            "privacy" -> PrivacyScreen({})
-
-            "whitelist" -> AppsScreen(state, scope, DemoController, DemoActions, {})
-
-            else -> HomeScreen(
-              state,
-              scope,
-              DemoController,
-              {},
-              statusSubtitleOverride = if (demoStatus.value ==
+          CompositionLocalProvider(LocalShowcaseDriver provides director) {
+            SettingsNavHost(
+              backStack = backStack,
+              controller = DemoController,
+              actions = DemoActions,
+              state = state,
+              test = test,
+              homeStatusOverride = if (demoStatus.value ==
                 "sampling"
               ) {
                 stringResource(Res.string.m0_capturing)
@@ -239,8 +335,24 @@ fun startShowcase() {
               },
             )
           }
+          TapMarks(director)
         }
       }
+    }
+    LaunchedEffect(demoScene.value, sceneRun.value, scenePaused.value) {
+      if (scenePaused.value) return@LaunchedEffect
+      val scene = demoScene.value
+      // 只等同页复位的淡入（220ms）结束；滚入新区段时换页在黑屏下完成。没有脚本的场景只保持页面。
+      delay(SCENE_SETTLE_MS)
+      while (true) {
+        val steps = ShowcaseScripts.forScene(scene, DEMO_APPS, kotlin.random.Random) ?: break
+        steps.forEach { director.perform(it) }
+      }
+    }
+    LaunchedEffect(Unit) {
+      combine(director.focus, DemoController.state.map { it.config }.distinctUntilChanged()) { focus, config ->
+        focus to settingsOf(config)
+      }.collect { (focus, s) -> notifyDemo(focus.orEmpty(), s.leadSeconds, s.loose, s.holdMinutes, s.hideIndicator) }
     }
     LaunchedEffect(route.value, requestRevision.value) {
       val screen = route.value

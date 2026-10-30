@@ -87,8 +87,8 @@
   animation-delay: calc(var(--i) * 0.2s);
 }
 
-/* 保护上限刻度环从 0 描到半圈。 */
-:root[data-motion="on"] .limit-card.is-revealed .limit-arc {
+/* 设置卡片刻度环进入视口时从 0 描到当前取值。 */
+:root[data-motion="on"] .setting-card.is-revealed .setting-arc {
   animation: dial-in 1.4s cubic-bezier(0.3, 0, 0.2, 1) backwards 0.3s;
 }
 

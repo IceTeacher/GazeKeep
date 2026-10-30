@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { PHONE, fitPhone, mapPlanePoint, projectPlane } from "../../../src/scripts/phone-geometry.ts";
+import { PHONE, fitPhone, mapPlanePoint, projectPlane, unmapPlanePoint } from "../../../src/scripts/phone-geometry.ts";
 
 test("系统装饰与应用共用逻辑画布和缩放比", () => {
   expect(PHONE.screenHeight).toBe(PHONE.statusHeight + PHONE.appHeight + PHONE.navHeight);
@@ -53,4 +53,24 @@ test("屏幕四边边框及圆角保持等宽", () => {
   expect(vertical).toBe(horizontal);
   expect(PHONE.radius - PHONE.screenRadius).toBe(horizontal);
   expect(PHONE.bezel).toBe(horizontal);
+});
+
+test("投影后的点击位置可还原为屏幕逻辑坐标", () => {
+  const m = projectPlane(PHONE.screenWidth, PHONE.screenHeight, [
+    [40, 12],
+    [250, 30],
+    [228, 470],
+    [18, 440],
+  ]);
+  for (const [x, y] of [
+    [0, 0],
+    [196, 424],
+    [300, 790],
+    [391, 847],
+  ]) {
+    const [u, v] = mapPlanePoint(m, x, y);
+    const [rx, ry] = unmapPlanePoint(m, u, v);
+    expect(rx).toBeCloseTo(x, 6);
+    expect(ry).toBeCloseTo(y, 6);
+  }
 });

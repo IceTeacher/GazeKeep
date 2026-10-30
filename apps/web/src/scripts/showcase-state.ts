@@ -1,11 +1,18 @@
 export interface Bridge {
-  setScreen(route: string, revision?: number): void;
+  /** restore 为 true 时丢弃访客在内屏中的操作，并以转场回到指定页面。 */
+  setScreen(route: string, revision?: number, restore?: boolean): void;
   setDemoStatus(status: string): void;
+  /** 内屏自动演示：tour、privacy、apps、settings 由展示页按脚本操作，其余场景停止并恢复当前页面。 */
+  setDemoScene(scene: string): void;
+  /** 手机离开视口或标签页隐藏时为 false：演示停在当前一步，回来后从原处继续。 */
+  setDemoActive(active: boolean): void;
   setLocaleAndTheme(locale: string, dark: boolean): void;
 }
 export interface ShowcaseSnapshot {
   route: string;
   status: string;
+  scene: string;
+  active: boolean;
   locale: string;
   dark: boolean;
   phase: "loading" | "ready" | "error";
@@ -31,13 +38,23 @@ export function createShowcaseAttempts() {
   };
 }
 export function createShowcaseState() {
-  let value: ShowcaseSnapshot = { route: "home", status: "idle", locale: "zh", dark: true, phase: "loading" };
+  let value: ShowcaseSnapshot = {
+    route: "home",
+    status: "idle",
+    scene: "none",
+    active: true,
+    locale: "zh",
+    dark: true,
+    phase: "loading",
+  };
   let bridge: Bridge | undefined;
   const replay = () => {
     if (!bridge) return;
     bridge.setLocaleAndTheme(value.locale, value.dark);
     bridge.setScreen(value.route);
     bridge.setDemoStatus(value.status);
+    bridge.setDemoActive(value.active);
+    bridge.setDemoScene(value.scene);
   };
   return {
     update(patch: Partial<Omit<ShowcaseSnapshot, "phase">>) {
@@ -87,4 +104,45 @@ export function createRenderGate() {
       revision++;
     },
   };
+}
+
+/** 访客操作内屏后记下滚动位置；页面滚动超过阈值时复位一次，避免点按时的细微抖动触发复位。 */
+export function createDriftTracker(threshold = 24) {
+  let origin: number | undefined;
+  return {
+    mark(scrollY: number) {
+      origin = scrollY;
+    },
+    active() {
+      return origin !== undefined;
+    },
+    clear() {
+      origin = undefined;
+    },
+    shouldRestore(scrollY: number) {
+      if (origin === undefined || Math.abs(scrollY - origin) < threshold) return false;
+      origin = undefined;
+      return true;
+    },
+  };
+}
+
+/**
+ * 手机下方的状态文案。首屏（主页、空闲、无演示）且内屏可操作时，按主要输入方式提示如何操作内屏；
+ * 工作流标题处内屏自动浏览，固定显示 tour 文案；其余阶段与内屏不可用时保留演示状态。
+ */
+export function liveStatusText(
+  labels: { status: Record<string, string>; hint: { touch: string; mouse: string }; tour: string },
+  {
+    route,
+    status,
+    scene,
+    ready,
+    finePointer,
+  }: { route: string; status: string; scene: string; ready: boolean; finePointer: boolean },
+) {
+  if (scene === "tour") return labels.tour;
+  if (ready && route === "home" && status === "idle" && scene === "none")
+    return finePointer ? labels.hint.mouse : labels.hint.touch;
+  return labels.status[status];
 }

@@ -10,17 +10,33 @@
       const control = window.parent.__showcaseFixture ?? { mode: "ready", calls: [] };
       const emit = (type, detail) => window.parent.dispatchEvent(new CustomEvent(type, { detail }));
       window.GazeKeepWebShowcaseBridge = {
-        setScreen(route, revision) {
-          control.calls.push(["setScreen", route]);
+        setScreen(route, revision, restore = false) {
+          control.calls.push(restore ? ["setScreen", route, true] : ["setScreen", route]);
           requestAnimationFrame(() => emit("gazekeep:rendered", { route, revision, attempt }));
         },
         setDemoStatus(status) {
           control.calls.push(["setDemoStatus", status]);
         },
+        setDemoScene(scene) {
+          control.calls.push(["setDemoScene", scene]);
+        },
+        setDemoActive(active) {
+          control.calls.push(["setDemoActive", active]);
+        },
         setLocaleAndTheme(locale, dark) {
           control.calls.push(["setLocaleAndTheme", locale, dark]);
         },
       };
+      // 与 ComposeViewport 一致：画布位于开放 shadow root 中，记录父页面转发的指针事件。
+      const host = document.body.appendChild(document.createElement("div"));
+      const canvas = host.attachShadow({ mode: "open" }).appendChild(document.createElement("canvas"));
+      canvas.style.cssText = "display: block; width: 392px; height: 784px";
+      for (const type of ["pointerdown", "pointermove", "pointerup", "pointercancel"])
+        canvas.addEventListener(type, (e) => {
+          control.calls.push(["pointer", type, e.clientX, e.clientY]);
+          control.calls.push(["offset", type, e.offsetX, e.offsetY]);
+          control.calls.push(["pointerType", type, e.pointerType]);
+        });
       const mode = control.modes?.shift() ?? control.mode;
       if (mode === "ready") emit("gazekeep:ready", { attempt });
       else if (mode === "error") emit("gazekeep:error", { attempt });

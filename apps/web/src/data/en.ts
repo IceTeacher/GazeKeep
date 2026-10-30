@@ -73,9 +73,26 @@ export const en = {
   },
   whitelist: {
     title: "Give your focus\na place to stay.",
-    text: "Choose your reader, browser and document apps. GazeKeep acts only when the foreground app is confirmed in your list. Your list starts empty after installation; the phone demo lists a few open-source apps as examples.",
-    limit: "30 minutes",
-    detail: "Default protection limit · Customizable, including unlimited",
+    text: "Choose your reader, browser and document apps. GazeKeep acts only when the foreground app is confirmed in your list. Your list starts empty after installation; the phone demo uses a few open-source apps to show selecting and searching.",
+  },
+  settings: {
+    title: "Every detail,\nthe way you like it.",
+    text: "Adjust the detection lead time, sensitivity and maximum keep-awake time at any time. With the LSPosed backend, you can also hide the camera privacy indicator while sampling. The phone demo changes these settings one by one.",
+    items: [
+      { id: "lead", label: "Detection lead time", detail: "Time to detect before dimming · 5 s, 8 s or custom" },
+      { id: "sensitivity", label: "Sensitivity", detail: "Standard: face forward, eyes open · Relaxed: face forward" },
+      {
+        id: "max_hold",
+        label: "Maximum keep-awake time",
+        detail: "Sleeps once on the system timeout at the limit · Customizable, including unlimited",
+      },
+      {
+        id: "hide_indicator",
+        label: "Hide camera privacy indicator",
+        detail: "Experimental · LSPosed backend only, off by default",
+      },
+    ],
+    values: { seconds: "{n} s", minutes: "{n} min", standard: "Standard", loose: "Relaxed", on: "On", off: "Off" },
   },
   privacy: {
     title: "Keep the moment.\nNever the picture.",
@@ -143,6 +160,11 @@ export const en = {
     backend_shizuku: "Shizuku · Demo ready",
     backend_accessibility: "Accessibility · Demo ready",
   },
+  hint: {
+    touch: "Tap to use · hold, then swipe to scroll",
+    mouse: "Click to use · drag to scroll",
+  },
+  tour: "Stays on while you look",
   ui: {
     skip: "Skip to content",
     productNote: "A little understanding. For Android.",
@@ -150,10 +172,9 @@ export const en = {
       workflow: "Considered by design",
       backends: "Three ways to connect",
       whitelist: "Your focus, your rules",
+      settings: "Tuned to you",
       privacy: "Privacy starts with restraint.",
     },
-    limitLabel: "Protection limit",
-    limitLink: "View settings",
     tagline: "Stay in the moment.",
     switchLanguage: "切换至中文",
     languageShort: "中文",

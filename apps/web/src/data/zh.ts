@@ -71,9 +71,18 @@ export const zh = {
   },
   whitelist: {
     title: "让专注，\n有自己的范围。",
-    text: "在阅读器、浏览器和文档里启用。只有确认当前应用在白名单内，才进行保亮。安装后白名单默认开启且为空；手机演示列出几款开源应用作为示例。",
-    limit: "30 分钟",
-    detail: "默认单次保护上限 · 可自定义或设为无限制",
+    text: "在阅读器、浏览器和文档里启用。只有确认当前应用在白名单内，才进行保亮。安装后白名单默认开启且为空；手机演示用几款开源应用示范勾选与搜索。",
+  },
+  settings: {
+    title: "每一处细节，\n都合你的习惯。",
+    text: "检测提前量、灵敏度与单次最长保亮都可以随时调整；使用 LSPosed 后端时，还能隐藏采样时的相机隐私指示器。手机演示依次修改这些设置。",
+    items: [
+      { id: "lead", label: "检测提前量", detail: "在系统降亮前留出检测时间 · 5 秒、8 秒或自定义" },
+      { id: "sensitivity", label: "灵敏度", detail: "标准需正脸并睁眼 · 宽松有正脸即可" },
+      { id: "max_hold", label: "单次最长保亮", detail: "到达上限后按系统超时熄屏一次 · 可自定义或设为无限制" },
+      { id: "hide_indicator", label: "隐藏相机隐私指示器", detail: "实验性 · 仅 LSPosed 后端生效，默认关闭" },
+    ],
+    values: { seconds: "{n} 秒", minutes: "{n} 分钟", standard: "标准", loose: "宽松", on: "开启", off: "关闭" },
   },
   privacy: {
     title: "目光留下。\n画面不留。",
@@ -136,6 +145,11 @@ export const zh = {
     backend_shizuku: "Shizuku · 演示已就绪",
     backend_accessibility: "无障碍 · 演示已就绪",
   },
+  hint: {
+    touch: "轻点可操作 · 长按片刻后上下滑动可滚动",
+    mouse: "点击可操作 · 按住鼠标上下拖动可滚动",
+  },
+  tour: "注视不熄屏",
   ui: {
     skip: "跳至正文",
     productNote: "为 Android 而生的注视默契",
@@ -143,10 +157,9 @@ export const zh = {
       workflow: "恰到好处的工作方式",
       backends: "三种连接，一份默契",
       whitelist: "你的范围，你的节奏",
+      settings: "细节，由你调校",
       privacy: "隐私，始于克制。",
     },
-    limitLabel: "保护上限",
-    limitLink: "查看设置",
     tagline: "目光所及，屏幕常明。",
     switchLanguage: "Switch to English",
     languageShort: "EN",
