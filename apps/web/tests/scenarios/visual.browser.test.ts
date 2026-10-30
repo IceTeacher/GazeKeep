@@ -31,7 +31,7 @@ test("桌面运行方式卡片（英文）", async () => {
   await settle("en", 1440, 900);
   const list = document.querySelector<HTMLElement>(".backend-list")!;
   list.scrollIntoView({ behavior: "instant", block: "center" });
-  // 悬停首项暂停两秒一次的自动轮换，截图期间选中项不变。
+  // 悬停首项暂停 1.5 秒一次的自动轮换，截图期间选中项不变。
   list.querySelector('[data-backend="lsposed"]')!.dispatchEvent(new MouseEvent("mouseenter"));
   await nextFrame();
   await expect(page.elementLocator(list)).toMatchScreenshot("desktop-backends-en");

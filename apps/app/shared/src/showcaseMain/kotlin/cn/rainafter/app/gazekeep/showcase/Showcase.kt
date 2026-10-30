@@ -94,7 +94,7 @@ private val ROUTES = mapOf(
   "whitelist" to SettingsScreen.Apps,
   "privacy" to SettingsScreen.Privacy,
 )
-private const val SCENE_SETTLE_MS = 600L
+private const val SCENE_SETTLE_MS = 250L
 private val backStack = SettingsBackStack(mutableStateListOf(SettingsScreen.Home), setOf(SettingsScreen.SelfTest))
 
 // 仅供官网演示，平台操作不连接 Android 或申请硬件权限；访客的操作只改内存中的演示状态。
@@ -173,10 +173,12 @@ private object DemoActions : PlatformActions {
   }
 }
 
+/** [active] 为 false 表示官网手机离开视口或标签页隐藏，演示停在当前一步。 */
 expect fun installBridge(
   screen: (String, Int, Boolean) -> Unit,
   status: (String) -> Unit,
   scene: (String) -> Unit,
+  active: (Boolean) -> Unit,
   appearance: (String, Boolean) -> Unit,
 )
 expect fun notifyReady()
@@ -273,6 +275,7 @@ fun startShowcase() {
       scenePaused.value = false
       sceneRun.value++
     },
+    { active -> director.pause.set(active) },
     { lang, isDark ->
       locale.value = if (lang == "en") "en" else "zh"
       dark.value = isDark
@@ -339,7 +342,7 @@ fun startShowcase() {
     LaunchedEffect(demoScene.value, sceneRun.value, scenePaused.value) {
       if (scenePaused.value) return@LaunchedEffect
       val scene = demoScene.value
-      // 等换页转场结束再开始；没有脚本的场景只保持页面。
+      // 只等同页复位的淡入（220ms）结束；滚入新区段时换页在黑屏下完成。没有脚本的场景只保持页面。
       delay(SCENE_SETTLE_MS)
       while (true) {
         val steps = ShowcaseScripts.forScene(scene, DEMO_APPS, kotlin.random.Random) ?: break

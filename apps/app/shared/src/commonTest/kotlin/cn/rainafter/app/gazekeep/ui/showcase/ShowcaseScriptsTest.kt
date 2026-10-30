@@ -181,6 +181,30 @@ class ShowcaseScriptsTest {
     assertTrue(glides.all { it.key == ShowcaseKeys.PRIVACY })
   }
 
+  /** 相邻可见操作之间的停顿；Focus、Expect 不占时间，首尾相接计入下一轮开头。 */
+  private fun pauses(steps: List<ShowcaseStep>): List<Long> {
+    val visible = steps.withIndex().filter { (_, s) -> s is Tap || s is Pick || s is Glide || s is Type }
+    val gaps = visible.zipWithNext { a, b -> waited(steps.subList(a.index + 1, b.index)) }
+    val tail = waited(steps.subList(visible.last().index + 1, steps.size))
+    val head = waited(steps.subList(0, visible.first().index))
+    return gaps + (tail + head)
+  }
+
+  private fun waited(steps: List<ShowcaseStep>) = steps.filterIsInstance<Wait>().sumOf { it.millis }
+
+  @Test
+  fun scenesStartImmediatelyAndKeepPausesShort() {
+    for (scene in listOf("tour", "privacy", "apps", "settings")) {
+      repeat(10) { seed ->
+        val steps = ShowcaseScripts.forScene(scene, apps, Random(seed))!!
+        val lead = steps.takeWhile { it !is Tap && it !is Pick && it !is Glide && it !is Type }
+        assertEquals(0, waited(lead), "$scene 进入区段后第一步就是操作")
+        val longest = pauses(steps).max()
+        assertTrue(longest <= 1800, "$scene seed=$seed 最长停顿 ${longest}ms")
+      }
+    }
+  }
+
   @Test
   fun scenesWithoutInScreenScriptReturnNull() {
     for (scene in listOf("none", "detect", "backends", "unknown")) {

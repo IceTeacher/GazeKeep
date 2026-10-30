@@ -16,12 +16,13 @@ test("桥接延迟就绪时重放最新页面、状态、演示场景和主题",
     setScreen: (x) => void calls.push(x),
     setDemoStatus: (x) => void calls.push(x),
     setDemoScene: (x) => void calls.push(`scene:${x}`),
+    setDemoActive: (x) => void calls.push(`active:${x}`),
     setLocaleAndTheme: (...x) => void calls.push(x),
   });
-  // 场景最后重放：内屏先切到目标页面与状态，再开始该页面的演示。
-  expect(calls).toEqual([["en", false], "backend", "backend_shizuku", "scene:none"]);
-  state.update({ route: "settings", status: "idle", scene: "settings" });
-  expect(calls.slice(-4)).toEqual([["en", false], "settings", "idle", "scene:settings"]);
+  // 场景最后重放：内屏先切到目标页面与状态，再开始该页面的演示；可见状态在场景之前，离开视口时不起步。
+  expect(calls).toEqual([["en", false], "backend", "backend_shizuku", "active:true", "scene:none"]);
+  state.update({ route: "settings", status: "idle", scene: "settings", active: false });
+  expect(calls.slice(-5)).toEqual([["en", false], "settings", "idle", "active:false", "scene:settings"]);
 });
 
 test("失败后可重试，错误状态不覆盖最新展示目标", () => {

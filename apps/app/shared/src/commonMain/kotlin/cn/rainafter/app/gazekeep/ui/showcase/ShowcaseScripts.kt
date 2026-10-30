@@ -66,9 +66,9 @@ internal object ShowcaseScripts {
   val SETTINGS_DEFAULT = ShowcaseSettings(leadSeconds = 8, loose = false, holdMinutes = 30, hideIndicator = false)
   private val SETTINGS_TUNED = ShowcaseSettings(leadSeconds = 5, loose = true, holdMinutes = 60, hideIndicator = true)
 
-  private const val TAP_GAP = 900L
-  private const val POPUP_SHOW = 700L
-  private const val KEY_GAP = 250L
+  private const val TAP_GAP = 550L
+  private const val POPUP_SHOW = 450L
+  private const val KEY_GAP = 180L
 
   fun forScene(scene: String, apps: List<AppEntry>, random: Random): List<ShowcaseStep>? = when (scene) {
     "tour" -> tour()
@@ -78,30 +78,30 @@ internal object ShowcaseScripts {
     else -> null
   }
 
+  // 各脚本第一步即是操作，进入区段立即开始；轮间停顿放在末尾。
+
   /** 工作流标题处：主页滚到底再回顶，切到设置页同样往返，再回到主页。 */
   fun tour() = listOf(
-    Wait(900),
     Glide(ShowcaseKeys.HOME, toEnd = true, millis = 2600),
-    Wait(700),
+    Wait(400),
     Glide(ShowcaseKeys.HOME, toEnd = false, millis = 1600),
-    Wait(600),
-    Tap(ShowcaseKeys.NAV, column = 1, columns = 2),
-    Wait(900),
-    Glide(ShowcaseKeys.SETTINGS, toEnd = true, millis = 2600),
-    Wait(700),
-    Glide(ShowcaseKeys.SETTINGS, toEnd = false, millis = 1600),
-    Wait(600),
-    Tap(ShowcaseKeys.NAV, column = 0, columns = 2),
     Wait(300),
+    Tap(ShowcaseKeys.NAV, column = 1, columns = 2),
+    Wait(500),
+    Glide(ShowcaseKeys.SETTINGS, toEnd = true, millis = 2600),
+    Wait(400),
+    Glide(ShowcaseKeys.SETTINGS, toEnd = false, millis = 1600),
+    Wait(300),
+    Tap(ShowcaseKeys.NAV, column = 0, columns = 2),
+    Wait(500),
   )
 
   /** 第二幕：隐私页从顶部滚到底部，再回到顶部。 */
   fun privacy() = listOf(
-    Wait(1000),
     Glide(ShowcaseKeys.PRIVACY, toEnd = true, millis = 3000),
-    Wait(900),
+    Wait(500),
     Glide(ShowcaseKeys.PRIVACY, toEnd = false, millis = 2000),
-    Wait(700),
+    Wait(500),
   )
 
   /** 专注范围：随机切换一至三个应用，再逐字搜索一个应用名称，停留后清空。 */
@@ -110,19 +110,18 @@ internal object ShowcaseScripts {
     val toggled = apps.shuffled(random).take(random.nextInt(1, minOf(3, apps.size) + 1))
     val query = apps.random(random).label
     return buildList {
-      add(Wait(800))
       toggled.forEach {
         add(Tap(ShowcaseKeys.app(it.packageName)))
-        add(Wait(800))
+        add(Wait(500))
       }
-      add(Wait(400))
+      add(Wait(200))
       query.indices.forEach {
         add(Type(ShowcaseKeys.APPS_SEARCH, query.take(it + 1)))
-        add(Wait(180))
+        add(Wait(120))
       }
-      add(Wait(1600))
+      add(Wait(1000))
       add(Type(ShowcaseKeys.APPS_SEARCH, ""))
-      add(Wait(900))
+      add(Wait(600))
     }
   }
 
@@ -144,7 +143,7 @@ internal object ShowcaseScripts {
     add(Tap(ShowcaseKeys.MAX_HOLD))
     add(Wait(POPUP_SHOW))
     add(Pick(ShowcaseKeys.MAX_HOLD, index = 3, count = 5))
-    add(Wait(600))
+    add(Wait(350))
     // 输入框预填当前值，先清空再逐字输入，不聚焦真实输入框以免唤起访客设备的键盘。
     val minutes = target.holdMinutes.toString()
     add(Type(ShowcaseKeys.HOLD_INPUT, ""))
@@ -153,7 +152,7 @@ internal object ShowcaseScripts {
       add(Type(ShowcaseKeys.HOLD_INPUT, minutes.take(it + 1)))
       add(Wait(KEY_GAP))
     }
-    add(Wait(300))
+    add(Wait(200))
     add(Tap(ShowcaseKeys.HOLD_CONFIRM))
     add(Wait(TAP_GAP))
     add(Focus(ShowcaseKeys.HIDE_INDICATOR))
@@ -168,6 +167,6 @@ internal object ShowcaseScripts {
     add(Wait(TAP_GAP))
     add(Expect(target))
     add(Focus(null))
-    add(Wait(2500))
+    add(Wait(1200))
   }
 }

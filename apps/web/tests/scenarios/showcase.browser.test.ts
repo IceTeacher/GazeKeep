@@ -91,7 +91,7 @@ test("第一幕在检测中与检测成功之间往复切换，离开后停止",
   expect(liveStatus()).toBe("注视不熄屏");
 });
 
-test("运行方式两秒轮换一次后端，悬停选中时暂停", async () => {
+test("运行方式 1.5 秒轮换一次后端，悬停选中时暂停", async () => {
   await desktopReady();
   await dock("#backends .feature-copy");
   expect(pressedBackend()).toBe("lsposed");
@@ -131,4 +131,42 @@ test("专注范围演示应用列表，设置区手机回到右侧且卡片随�
     (c) => c.dataset.active === "true",
   );
   expect(active.map((c) => c.dataset.setting)).toEqual(["max_hold"]);
+});
+
+const activeCalls = () => site!.showcase.calls.filter(([name]) => name === "setDemoActive").map(([, active]) => active);
+/** 模拟标签页切到后台或回到前台。 */
+function setHidden(hidden: boolean) {
+  if (hidden) Object.defineProperty(document, "hidden", { configurable: true, get: () => true });
+  else delete (document as { hidden?: boolean }).hidden;
+  document.dispatchEvent(new Event("visibilitychange"));
+}
+
+test("滚过设置区、手机离开视口时暂停内屏演示，滚回后继续", async () => {
+  await desktopReady();
+  await dock("#settings .feature-copy");
+  await expect.poll(() => sceneCalls().at(-1)).toBe("settings");
+  expect(activeCalls().at(-1)).toBe(true);
+  document.querySelector("footer")!.scrollIntoView({ behavior: "instant", block: "end" });
+  await expect.poll(() => activeCalls().at(-1)).toBe(false);
+  // 场景保持不变，只是暂停：回来后从暂停处继续，不重新开始。
+  expect(sceneCalls().at(-1)).toBe("settings");
+  await dock("#settings .feature-copy");
+  await expect.poll(() => activeCalls().at(-1)).toBe(true);
+  expect(sceneCalls().at(-1)).toBe("settings");
+});
+
+test("标签页隐藏时暂停后端轮换与内屏演示，回到前台后继续", async () => {
+  await desktopReady();
+  await dock("#backends .feature-copy");
+  expect(pressedBackend()).toBe("lsposed");
+  try {
+    setHidden(true);
+    await expect.poll(() => activeCalls().at(-1)).toBe(false);
+    await new Promise((resolve) => setTimeout(resolve, 2_200));
+    expect(pressedBackend()).toBe("lsposed");
+  } finally {
+    setHidden(false);
+  }
+  await expect.poll(() => activeCalls().at(-1)).toBe(true);
+  await expect.poll(pressedBackend, { timeout: 3_000 }).toBe("shizuku");
 });

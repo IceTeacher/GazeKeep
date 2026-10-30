@@ -4,12 +4,15 @@ export interface Bridge {
   setDemoStatus(status: string): void;
   /** 内屏自动演示：tour、privacy、apps、settings 由展示页按脚本操作，其余场景停止并恢复当前页面。 */
   setDemoScene(scene: string): void;
+  /** 手机离开视口或标签页隐藏时为 false：演示停在当前一步，回来后从原处继续。 */
+  setDemoActive(active: boolean): void;
   setLocaleAndTheme(locale: string, dark: boolean): void;
 }
 export interface ShowcaseSnapshot {
   route: string;
   status: string;
   scene: string;
+  active: boolean;
   locale: string;
   dark: boolean;
   phase: "loading" | "ready" | "error";
@@ -39,6 +42,7 @@ export function createShowcaseState() {
     route: "home",
     status: "idle",
     scene: "none",
+    active: true,
     locale: "zh",
     dark: true,
     phase: "loading",
@@ -49,6 +53,7 @@ export function createShowcaseState() {
     bridge.setLocaleAndTheme(value.locale, value.dark);
     bridge.setScreen(value.route);
     bridge.setDemoStatus(value.status);
+    bridge.setDemoActive(value.active);
     bridge.setDemoScene(value.scene);
   };
   return {

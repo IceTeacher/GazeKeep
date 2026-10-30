@@ -5,12 +5,13 @@ package cn.rainafter.app.gazekeep.showcase
 fun main() = startShowcase()
 
 @JsFun(
-  "(screen, status, scene, appearance) => { window.GazeKeepWebShowcaseBridge = { setScreen: (route, revision = 0, restore = false) => screen(route, revision, restore), setDemoStatus: status, setDemoScene: scene, setLocaleAndTheme: (lang, dark) => { Object.defineProperty(navigator, 'languages', { configurable: true, get: () => [lang] }); appearance(lang, dark); } }; }",
+  "(screen, status, scene, active, appearance) => { window.GazeKeepWebShowcaseBridge = { setScreen: (route, revision = 0, restore = false) => screen(route, revision, restore), setDemoStatus: status, setDemoScene: scene, setDemoActive: active, setLocaleAndTheme: (lang, dark) => { Object.defineProperty(navigator, 'languages', { configurable: true, get: () => [lang] }); appearance(lang, dark); } }; }",
 )
 private external fun bind(
   screen: (String, Int, Boolean) -> Unit,
   status: (String) -> Unit,
   scene: (String) -> Unit,
+  active: (Boolean) -> Unit,
   appearance: (String, Boolean) -> Unit,
 )
 
@@ -22,8 +23,9 @@ actual fun installBridge(
   screen: (String, Int, Boolean) -> Unit,
   status: (String) -> Unit,
   scene: (String) -> Unit,
+  active: (Boolean) -> Unit,
   appearance: (String, Boolean) -> Unit,
-) = bind(screen, status, scene, appearance)
+) = bind(screen, status, scene, active, appearance)
 actual fun notifyReady() = ready()
 
 @JsFun(

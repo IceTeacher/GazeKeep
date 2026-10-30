@@ -19,6 +19,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseDriver
+import cn.rainafter.app.gazekeep.ui.showcase.ShowcasePause
 import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseScroll
 import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseSettings
 import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseStep
@@ -32,6 +33,7 @@ internal class TapMark(val center: Offset, val id: Long)
 /**
  * 执行演示脚本：按页面登记的目标位置向画布派发触摸按压（与访客操作走同一条输入路径），
  * 平滑滚动登记的页面并经顶栏的嵌套滚动连接让顶栏随之折叠，逐字写入输入框，并绘制触点动画。
+ * 手机离开视口时停在当前一步（滚动停在当前位置），回来后从原处继续；按压很短，按下后照常完成。
  */
 internal class ShowcaseDirector(
   private val pointer: (type: String, x: Double, y: Double) -> Unit,
@@ -48,6 +50,7 @@ internal class ShowcaseDirector(
   var windowHeight = Float.MAX_VALUE
   val marks = mutableStateListOf<TapMark>()
   val focus = MutableStateFlow<String?>(null)
+  val pause = ShowcasePause()
 
   /** 脚本改动过页面或设置；切换场景时据此决定是否复位。 */
   var dirty = false
@@ -67,8 +70,9 @@ internal class ShowcaseDirector(
   }
 
   suspend fun perform(step: ShowcaseStep) {
+    pause.awaitActive()
     when (step) {
-      is ShowcaseStep.Wait -> delay(step.millis)
+      is ShowcaseStep.Wait -> pause.delay(step.millis)
 
       is ShowcaseStep.Tap -> {
         val bounds = await { anchors[step.key] } ?: return
@@ -158,11 +162,16 @@ internal class ShowcaseDirector(
     if (distance < 1f) return
     // 嵌套滚动的偏移是手指位移：向上拖为负，内容向下滚动。
     val sign = if (toEnd) -1f else 1f
-    val start = withFrameMillis { it }
+    // 只累计可见期间的帧间隔，离开视口后滚动停在当前位置。
+    var last = withFrameMillis { it }
+    var elapsed = 0L
     var applied = 0f
     while (true) {
+      if (pause.awaitActive()) last = withFrameMillis { it }
       val now = withFrameMillis { it }
-      val progress = ((now - start).toFloat() / millis).coerceIn(0f, 1f)
+      elapsed += now - last
+      last = now
+      val progress = (elapsed.toFloat() / millis).coerceIn(0f, 1f)
       val goal = distance * FastOutSlowInEasing.transform(progress)
       drag(target, sign * (goal - applied))
       applied = goal

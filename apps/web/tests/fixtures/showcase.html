@@ -20,6 +20,9 @@
         setDemoScene(scene) {
           control.calls.push(["setDemoScene", scene]);
         },
+        setDemoActive(active) {
+          control.calls.push(["setDemoActive", active]);
+        },
         setLocaleAndTheme(locale, dark) {
           control.calls.push(["setLocaleAndTheme", locale, dark]);
         },

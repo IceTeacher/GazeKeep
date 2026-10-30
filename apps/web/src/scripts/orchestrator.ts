@@ -9,6 +9,7 @@ import {
 } from "./showcase-state.ts";
 import { initScreenTouch } from "./screen-touch.ts";
 import { createAutoCycle } from "./demo-cycle.ts";
+import { watchDemoVisibility } from "./demo-visibility.ts";
 import { DEFAULT_SETTINGS, renderSettingCards, type DemoSettings } from "./setting-cards.ts";
 import { initStoryScroll } from "./story-scroll";
 import { initCameraHalo } from "./camera-halo";
@@ -105,7 +106,7 @@ export function initWebsite() {
     backendCards.forEach((c, i) => c.setAttribute("aria-pressed", String(i === index)));
     show("backend", `backend_${backendCards[index].dataset.backend}` as DemoState, "none");
   };
-  // 第一幕在检测中与检测成功间往复，运行方式在三种后端间轮换，均两秒一切换。
+  // 第一幕在检测中与检测成功间往复，运行方式在三种后端间轮换，均 1.5 秒一切换。
   const detect = createAutoCycle({
     count: 2,
     onChange: (i) => show("home", i ? "gaze_detected" : "sampling", i ? "none" : "camera-pulse"),
@@ -115,6 +116,16 @@ export function initWebsite() {
     detect.stop();
     backendCycle.stop();
   });
+  // 手机离开视口或标签页隐藏时暂停机外轮换与内屏演示，回来后从原处继续。
+  disposers.push(
+    watchDemoVisibility(document.querySelector("#phone-visual")!, (active) => {
+      state.update({ active });
+      for (const cycle of [detect, backendCycle]) {
+        if (active) cycle.resume();
+        else cycle.pause();
+      }
+    }),
+  );
   function sync(route: KmpRoute, status: DemoState, effect = "none", scene = "none") {
     if (scene !== shown.scene) {
       // 只停止离开的场景：进入前访客已悬停的卡片保持暂停。

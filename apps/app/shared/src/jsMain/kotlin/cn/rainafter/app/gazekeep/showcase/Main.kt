@@ -6,10 +6,11 @@ actual fun installBridge(
   screen: (String, Int, Boolean) -> Unit,
   status: (String) -> Unit,
   scene: (String) -> Unit,
+  active: (Boolean) -> Unit,
   appearance: (String, Boolean) -> Unit,
 ) {
   js(
-    "window.GazeKeepWebShowcaseBridge = { setScreen: (route, revision = 0, restore = false) => screen(route, revision, restore), setDemoStatus: status, setDemoScene: scene, setLocaleAndTheme: (lang, dark) => { Object.defineProperty(navigator, 'languages', { configurable: true, get: () => [lang] }); appearance(lang, dark); } }",
+    "window.GazeKeepWebShowcaseBridge = { setScreen: (route, revision = 0, restore = false) => screen(route, revision, restore), setDemoStatus: status, setDemoScene: scene, setDemoActive: active, setLocaleAndTheme: (lang, dark) => { Object.defineProperty(navigator, 'languages', { configurable: true, get: () => [lang] }); appearance(lang, dark); } }",
   )
 }
 actual fun notifyReady() {
