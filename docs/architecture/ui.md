@@ -47,4 +47,4 @@ shared 主机测试覆盖许可搜索等纯逻辑，不代表页面通过。按[
 
 ## 官网实时展示
 
-shared 的浏览器展示入口通过 `SettingsNavHost` 复用 App 的页面、底栏与转场，注入固定演示 controller 与无硬件能力的 PlatformActions；返回栈 `SettingsBackStack` 可由官网桥接外部指定页面（脚本换页立即切换，访客操作后的复位按返回方向转场），并屏蔽需要相机的自检页。Web 主题与资源语言由官网桥接设置，演示设置页不显示应用内语言；Android App 仍使用原有主题与导航入口。core 仅增加浏览器编译目标，业务规则保持统一。
+shared 的浏览器展示入口通过 `SettingsNavHost` 复用 App 的页面、底栏与转场，注入固定演示 controller 与无硬件能力的 PlatformActions；返回栈 `SettingsBackStack` 可由官网桥接外部指定页面（脚本换页立即切换，访客操作后的复位按返回方向转场），并屏蔽需要相机的自检页。Web 主题与资源语言由官网桥接设置，演示设置页不显示应用内语言；Android App 仍使用原有主题与导航入口。官网内屏自动演示经 `ui/showcase` 接入：`ShowcaseDriver` 由 `CompositionLocal` 注入，主页、设置、隐私与应用列表登记滚动容器、可点按目标与输入框写入口，Android 端不提供实现，页面行为与截图不变；演示脚本为同目录的纯数据（`ShowcaseScripts`），由 commonTest 按设置页真实交互逐步核对，执行与触点绘制只在展示入口。core 仅增加浏览器编译目标，业务规则保持统一。

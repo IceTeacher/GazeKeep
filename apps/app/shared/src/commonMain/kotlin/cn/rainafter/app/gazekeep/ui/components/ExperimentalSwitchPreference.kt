@@ -23,6 +23,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseKeys
+import cn.rainafter.app.gazekeep.ui.showcase.showcaseAnchor
 import gazekeep.shared.generated.resources.Res
 import gazekeep.shared.generated.resources.settings_badge_experimental
 import gazekeep.shared.generated.resources.settings_dialog_cancel
@@ -139,7 +141,7 @@ fun ExperimentalSwitchPreference(
         },
         enabled = enabled && !checked,
         colors = ButtonDefaults.buttonColorsPrimary(),
-        modifier = Modifier.weight(1f),
+        modifier = Modifier.weight(1f).showcaseAnchor(ShowcaseKeys.EXPERIMENTAL_CONFIRM),
       ) {
         Text(dialogConfirmText)
       }

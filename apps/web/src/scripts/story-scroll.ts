@@ -14,16 +14,17 @@ import {
   featurePose,
   featureSpan,
   featureReveal,
+  demoScene,
   followPose,
   type FollowPose,
 } from "./story-motion.ts";
 import type { DemoState, KmpRoute } from "../data/schema";
 import type { PhonePose } from "./phone-display";
 
-/** 同一进度控制路由、姿态、遮罩与阅读停留；绘制回执只延迟揭示，不改变滚动位置。
+/** 同一进度控制路由、演示场景、姿态、遮罩与阅读停留；绘制回执只延迟揭示，不改变滚动位置。
  * 文档坐标在尺寸变化时缓存，滚动帧只读 scrollY 并在值变化时写入。 */
 export function initStoryScroll(
-  sync: (route: KmpRoute, status: DemoState, effect?: string) => void,
+  sync: (route: KmpRoute, status: DemoState, effect: string, scene: string) => void,
   renderPhone: (pose: PhonePose) => void,
   isReady: (route: KmpRoute) => boolean,
 ) {
@@ -36,14 +37,19 @@ export function initStoryScroll(
   const steps = [...document.querySelectorAll<HTMLElement>(".story-step")],
     snapMarks = [...document.querySelectorAll<HTMLElement>(".story-snap")];
   const hero = document.querySelector<HTMLElement>("#hero")!,
+    workflow = document.querySelector<HTMLElement>("#workflow")!,
     backend = document.querySelector<HTMLElement>("#backends")!,
-    whitelist = document.querySelector<HTMLElement>("#whitelist")!;
+    whitelist = document.querySelector<HTMLElement>("#whitelist")!,
+    settings = document.querySelector<HTMLElement>("#settings")!;
   const showcase = document.querySelector<HTMLElement>("#showcase-story")!;
   const heroSlot = document.querySelector<HTMLElement>(".hero-device-slot")!,
     whitelistSlot = whitelist.querySelector<HTMLElement>(".device-slot")!,
     backendList = backend.querySelector<HTMLElement>(".backend-list")!,
     whitelistHeading = whitelist.querySelector<HTMLElement>(".section-heading")!,
-    whitelistCopy = whitelist.querySelector<HTMLElement>(".feature-copy")!;
+    whitelistCopy = whitelist.querySelector<HTMLElement>(".feature-copy")!,
+    settingsSlot = settings.querySelector<HTMLElement>(".device-slot")!,
+    settingsHeading = settings.querySelector<HTMLElement>(".section-heading")!,
+    settingsCopy = settings.querySelector<HTMLElement>(".feature-copy")!;
   const reduced = matchMedia("(prefers-reduced-motion: reduce)");
   let compact = false,
     disposed = false,
@@ -64,8 +70,10 @@ export function initStoryScroll(
     storyHeight: 0,
     surfaceHeight: 0,
     showcaseTop: 0,
+    workflowTop: 0,
     backendTop: 0,
     whitelistTop: 0,
+    settingsTop: 0,
     stepTops: [] as number[],
     stepCenters: [] as number[],
     heroSlotTop: 0,
@@ -73,8 +81,12 @@ export function initStoryScroll(
     backendSlotHeight: 0,
     whitelistSlotTop: 0,
     whitelistSlotHeight: 0,
+    settingsSlotTop: 0,
+    settingsSlotHeight: 0,
     backendListBottom: 0,
     whitelistHeadingTop: 0,
+    whitelistCopyBottom: 0,
+    settingsHeadingTop: 0,
     stageTop: 0,
     snapTop: 0,
   };
@@ -118,8 +130,10 @@ export function initStoryScroll(
       storyHeight: story.offsetHeight,
       surfaceHeight: surface.offsetHeight,
       showcaseTop: top(showcase),
+      workflowTop: top(workflow),
       backendTop: top(backend),
       whitelistTop: top(whitelist),
+      settingsTop: top(settings),
       stepTops: steps.map(top),
       stepCenters: steps.map((e) => top(e) + e.offsetHeight * 0.5),
       heroSlotTop: top(heroSlot),
@@ -127,8 +141,12 @@ export function initStoryScroll(
       backendSlotHeight: backendSlot.offsetHeight,
       whitelistSlotTop: top(whitelistSlot),
       whitelistSlotHeight: whitelistSlot.offsetHeight,
+      settingsSlotTop: top(settingsSlot),
+      settingsSlotHeight: settingsSlot.offsetHeight,
       backendListBottom: bottom(backendList),
       whitelistHeadingTop: top(whitelistHeading),
+      whitelistCopyBottom: bottom(whitelistCopy),
+      settingsHeadingTop: top(settingsHeading),
       stageTop: parseFloat(getComputedStyle(stage).top) || 0,
       // 吸附停靠时文案距视口顶部的距离；未启用吸附时为 0。
       snapTop: parseFloat(getComputedStyle(root).scrollPaddingTop) || 0,
@@ -151,17 +169,27 @@ export function initStoryScroll(
         ? mobileStoryProgress(scrollY, L.storyTop, innerHeight)
         : 1 + (position - centers[0]) / (centers[1] - centers[0]);
     const selected = document.querySelector<HTMLElement>("[data-backend][aria-pressed=true]");
-    // 移动端设备槽在各自内容之后：后端槽完全离开视口后才切到范围页，避免可见跳变。
-    const inWhitelist =
+    // 移动端设备槽在各自内容之后：上一区段的设备槽完全离开视口后才换页，避免可见跳变。
+    const inSettings =
         mobile && !compact
+          ? L.whitelistSlotTop + L.whitelistSlotHeight - scrollY < header && position >= L.settingsTop - innerHeight
+          : position >= L.settingsTop,
+      inWhitelist =
+        !inSettings &&
+        (mobile && !compact
           ? L.backendSlotTop + L.backendSlotHeight - scrollY < header && position >= L.whitelistTop - innerHeight
-          : position >= L.whitelistTop,
-      inBackend = position >= L.backendTop;
+          : position >= L.whitelistTop),
+      inBackend = position >= L.backendTop,
+      featured = inBackend || inWhitelist || inSettings;
     const scene = sceneState(progress, mobile, innerWidth);
     let route: KmpRoute = scene.route as KmpRoute,
       status = scene.status as DemoState,
       effect = scene.effect;
-    if (inWhitelist) {
+    if (inSettings) {
+      route = "settings";
+      status = "idle";
+      effect = "none";
+    } else if (inWhitelist) {
       route = "whitelist";
       status = "idle";
       effect = "none";
@@ -171,16 +199,18 @@ export function initStoryScroll(
       effect = "none";
     }
     if (compact) {
-      const i = selectSection([L.heroTop, ...L.stepTops, L.backendTop, L.whitelistTop], position);
-      const target = [hero, ...steps, backend, whitelist][i];
+      const i = selectSection([L.heroTop, ...L.stepTops, L.backendTop, L.whitelistTop, L.settingsTop], position);
+      const target = [hero, ...steps, backend, whitelist, settings][i];
       route = target.dataset.route as KmpRoute;
       status = target.dataset.status as DemoState;
       effect = target.dataset.effect ?? "none";
     }
-    const key = `${route}:${status}:${effect}`;
+    // 紧凑布局与减少动态保持静态画面，不播放内屏演示。
+    const demo = compact ? "none" : demoScene({ route, status, tour: position >= L.workflowTop });
+    const key = `${route}:${status}:${effect}:${demo}`;
     const routeChanged = route !== lastRoute;
     if (key !== active) {
-      sync(route, status, effect);
+      sync(route, status, effect, demo);
       active = key;
     }
     const ready = isReady(route),
@@ -194,7 +224,7 @@ export function initStoryScroll(
       mobile,
       compact,
       inBackend,
-      inWhitelist,
+      inWhitelist: inWhitelist || inSettings,
       slotTop: mobile && inBackend ? L.backendSlotTop - scrollY : undefined,
       viewport: innerHeight,
       status,
@@ -213,7 +243,7 @@ export function initStoryScroll(
     const drift = heroDrift((now - driftStart) / 1000, failed ? 1 : heroProgress, mobile);
     // 移动端后端与范围设备槽不与正文同屏，使用更大的槽位高度；切换发生在槽位进入视口前的透明阶段。
     const phoneHeight =
-      mobile && !compact && (inBackend || inWhitelist)
+      mobile && !compact && featured
         ? parseFloat(root.style.getPropertyValue("--mobile-feature-phone-h"))
         : mobile || compact
           ? parseFloat(root.style.getPropertyValue("--mobile-phone-h"))
@@ -223,22 +253,30 @@ export function initStoryScroll(
       y = 0,
       opacity = 1;
     const fade = (v: number) => clamp(v / 120);
-    // 桌面运行方式到专注范围：运行方式内容离开设备所在高度后起步，范围文案停靠时到达左侧。
+    // 桌面功能区横移：上一区段内容离开设备所在高度后起步，下一区段文案停靠时到达。
+    // 运行方式到专注范围移到左侧，专注范围到设置再回到右侧。
+    let settingsLeg = false;
     if (desktop && inBackend) {
-      const span = featureSpan({
-        listBottom: L.backendListBottom,
-        headingTop: L.whitelistHeadingTop,
-        stageTop: L.stageTop,
-        phoneHeight,
-        snapTop: L.snapTop,
-        viewport: innerHeight,
-      });
-      pose = { ...pose, ...featurePose((scrollY - span.start) / (span.end - span.start), innerWidth) };
+      const span = (listBottom: number, headingTop: number) =>
+        featureSpan({
+          listBottom,
+          headingTop,
+          stageTop: L.stageTop,
+          phoneHeight,
+          snapTop: L.snapTop,
+          viewport: innerHeight,
+        });
+      const toWhitelist = span(L.backendListBottom, L.whitelistHeadingTop),
+        toSettings = span(L.whitelistCopyBottom, L.settingsHeadingTop);
+      settingsLeg = scrollY >= toSettings.start;
+      const leg = settingsLeg ? toSettings : toWhitelist;
+      const travel = (scrollY - leg.start) / (leg.end - leg.start);
+      pose = { ...pose, ...featurePose(travel, innerWidth, settingsLeg ? 1 : -1) };
     }
     if (desktop) mode = "sticky";
-    else if (inBackend || inWhitelist) {
-      const slotTop = inWhitelist ? L.whitelistSlotTop : L.backendSlotTop,
-        slotHeight = inWhitelist ? L.whitelistSlotHeight : L.backendSlotHeight;
+    else if (featured) {
+      const slotTop = inSettings ? L.settingsSlotTop : inWhitelist ? L.whitelistSlotTop : L.backendSlotTop,
+        slotHeight = inSettings ? L.settingsSlotHeight : inWhitelist ? L.whitelistSlotHeight : L.backendSlotHeight;
       y = slotTop + Math.max(0, (slotHeight - phoneHeight) / 2);
       opacity = fade(innerHeight - (slotTop - scrollY)) * fade(slotTop + slotHeight - scrollY - header);
     } else if (compact) {
@@ -265,10 +303,10 @@ export function initStoryScroll(
     });
     write("opacity", String(opacity), () => (stage.style.opacity = String(opacity)));
     write("phone-h", String(phoneHeight), () => stage.style.setProperty("--phone-h", `${phoneHeight}px`));
-    const flat = compact || ((inBackend || inWhitelist) && !desktop);
+    const flat = compact || (featured && !desktop);
     const target = flat
       ? { x: 0, turn: 0, rotateX: 0, rotateZ: 0, scale: 1 }
-      : inBackend || inWhitelist
+      : featured
         ? { x: pose.x, turn: pose.turn, rotateX: pose.rotateX, rotateZ: pose.rotateZ, scale: pose.scale }
         : {
             x: pose.x + drift.x,
@@ -282,16 +320,19 @@ export function initStoryScroll(
     shown = followPose(shown, target, lastTime ? Math.min(now - lastTime, 32) : 16);
     lastTime = now;
     const shift = desktop ? (shown.x * Math.min(innerWidth, 1200)) / 2 : 0;
-    // 范围文案跟随手机实际位置淡入，桌面专注范围之外保持样式表默认。
+    // 范围与设置文案跟随手机实际位置淡入，桌面功能区之外保持样式表默认。
     const reveal = desktop && inBackend ? featureReveal(shown.x, innerWidth).toFixed(3) : "";
     write("whitelist-reveal", reveal, () => (whitelistCopy.style.opacity = reveal));
+    const settingsReveal =
+      desktop && inBackend ? (settingsLeg ? featureReveal(shown.x, innerWidth, 1) : 0).toFixed(3) : "";
+    write("settings-reveal", settingsReveal, () => (settingsCopy.style.opacity = settingsReveal));
     write("shift", shift.toFixed(2), () => stage.style.setProperty("--device-shift", `${shift.toFixed(2)}px`));
-    const gripOpacity = flat || inBackend || inWhitelist ? 0 : pose.grip;
+    const gripOpacity = flat || featured ? 0 : pose.grip;
     renderPhone({
       rotateX: shown.rotateX,
       rotateY: shown.turn,
       rotateZ: shown.rotateZ,
-      gripProgress: flat || inBackend || inWhitelist ? undefined : pose.scene,
+      gripProgress: flat || featured ? undefined : pose.scene,
       scale: shown.scale,
       shift,
     });
@@ -311,7 +352,7 @@ export function initStoryScroll(
     const keys = ["x", "turn", "rotateX", "rotateZ", "scale"] as const;
     const moving = keys.some((k) => shown![k] !== target[k]);
     // 漂移是时间驱动的：即使阻尼跟随恰好收敛（各轴差值低于吸附阈值），只要仍在漂移就继续下一拍。
-    const drifting = !flat && !inBackend && !inWhitelist && !failed && heroProgress < 1;
+    const drifting = !flat && !featured && !failed && heroProgress < 1;
     // 只剩首屏漂移在推动时降到约 25 帧：每秒约 1° 的漂移看不出差别，也避免停留首屏时满帧重绘 3D 机身。
     const driftOnly = scrollY === lastScrollY && keys.every((k) => Math.abs(shown![k] - target[k]) < 0.05);
     if (moving && !driftOnly) schedule();

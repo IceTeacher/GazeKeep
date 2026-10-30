@@ -10,6 +10,7 @@
 @import "./sections/features.css";
 @import "./sections/backends.css";
 @import "./sections/whitelist.css";
+@import "./sections/settings.css";
 @import "./sections/privacy.css";
 @import "./sections/start.css";
 @import "./sections/faq.css";

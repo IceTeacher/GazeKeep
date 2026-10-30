@@ -41,6 +41,8 @@ import cn.rainafter.app.gazekeep.ui.screens.NoticesScreen
 import cn.rainafter.app.gazekeep.ui.screens.PrivacyScreen
 import cn.rainafter.app.gazekeep.ui.screens.SelfTestScreen
 import cn.rainafter.app.gazekeep.ui.screens.SettingsTabScreen
+import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseKeys
+import cn.rainafter.app.gazekeep.ui.showcase.showcaseAnchor
 import gazekeep.shared.generated.resources.Res
 import gazekeep.shared.generated.resources.nav_home
 import gazekeep.shared.generated.resources.nav_settings
@@ -206,7 +208,7 @@ internal fun SettingsNavHost(
 
   @Composable
   fun BottomNavBar(selectedTab: SettingsScreen) {
-    NavigationBar {
+    NavigationBar(modifier = Modifier.showcaseAnchor(ShowcaseKeys.NAV)) {
       NavigationBarItem(
         selected = selectedTab == SettingsScreen.Home,
         onClick = { backStack.selectTab(SettingsScreen.Home) },

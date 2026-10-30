@@ -8,18 +8,20 @@ import {
   liveStatusText,
 } from "../../../src/scripts/showcase-state.ts";
 
-test("桥接延迟就绪时重放最新页面、状态和主题", () => {
+test("桥接延迟就绪时重放最新页面、状态、演示场景和主题", () => {
   const state = createShowcaseState();
   state.update({ route: "backend", status: "backend_shizuku", locale: "en", dark: false });
   const calls: unknown[] = [];
   state.attach({
     setScreen: (x) => void calls.push(x),
     setDemoStatus: (x) => void calls.push(x),
+    setDemoScene: (x) => void calls.push(`scene:${x}`),
     setLocaleAndTheme: (...x) => void calls.push(x),
   });
-  expect(calls).toEqual([["en", false], "backend", "backend_shizuku"]);
-  state.update({ route: "settings", status: "dim_fallback" });
-  expect(calls.slice(-3)).toEqual([["en", false], "settings", "dim_fallback"]);
+  // 场景最后重放：内屏先切到目标页面与状态，再开始该页面的演示。
+  expect(calls).toEqual([["en", false], "backend", "backend_shizuku", "scene:none"]);
+  state.update({ route: "settings", status: "idle", scene: "settings" });
+  expect(calls.slice(-4)).toEqual([["en", false], "settings", "idle", "scene:settings"]);
 });
 
 test("失败后可重试，错误状态不覆盖最新展示目标", () => {
@@ -89,20 +91,31 @@ test("向上滚动同样复位，再次操作以新位置为起点", () => {
 const labels = {
   status: { idle: "准备就绪", sampling: "临近熄屏 · 短时采样" },
   hint: { touch: "触摸提示", mouse: "鼠标提示" },
+  tour: "注视不熄屏",
 };
 
 test("首屏主页空闲且内屏可操作时，按主要输入方式显示操作提示", () => {
-  const base = { route: "home", status: "idle", ready: true };
+  const base = { route: "home", status: "idle", scene: "none", ready: true };
   expect(liveStatusText(labels, { ...base, finePointer: true })).toBe("鼠标提示");
   expect(liveStatusText(labels, { ...base, finePointer: false })).toBe("触摸提示");
 });
 
+test("工作流标题处的自动浏览不提示操作，固定显示注视不熄屏", () => {
+  const base = { route: "home", status: "idle", scene: "tour" };
+  expect(liveStatusText(labels, { ...base, ready: true, finePointer: true })).toBe("注视不熄屏");
+  expect(liveStatusText(labels, { ...base, ready: true, finePointer: false })).toBe("注视不熄屏");
+  expect(liveStatusText(labels, { ...base, ready: false, finePointer: true })).toBe("注视不熄屏");
+});
+
 test("内屏未就绪或处于其他阶段时保留演示状态文案", () => {
-  expect(liveStatusText(labels, { route: "home", status: "idle", ready: false, finePointer: true })).toBe("准备就绪");
-  expect(liveStatusText(labels, { route: "whitelist", status: "idle", ready: true, finePointer: true })).toBe(
+  const scene = "none";
+  expect(liveStatusText(labels, { route: "home", status: "idle", scene, ready: false, finePointer: true })).toBe(
     "准备就绪",
   );
-  expect(liveStatusText(labels, { route: "home", status: "sampling", ready: true, finePointer: false })).toBe(
-    "临近熄屏 · 短时采样",
-  );
+  expect(
+    liveStatusText(labels, { route: "whitelist", status: "idle", scene: "apps", ready: true, finePointer: true }),
+  ).toBe("准备就绪");
+  expect(
+    liveStatusText(labels, { route: "home", status: "sampling", scene: "detect", ready: true, finePointer: false }),
+  ).toBe("临近熄屏 · 短时采样");
 });

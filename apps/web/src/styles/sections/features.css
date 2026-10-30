@@ -1,4 +1,4 @@
-/* 运行方式、专注范围直接置于页面底色，只以留白、字号层级和极淡色块组织，不使用分隔线。 */
+/* 运行方式、专注范围与设置直接置于页面底色，只以留白、字号层级和极淡色块组织，不使用分隔线。 */
 .feature-panel {
   position: relative;
   padding-block: 140px;
@@ -6,7 +6,7 @@
 }
 .feature-panel .section-heading,
 .feature-panel .backend-list,
-.feature-panel .limit-card {
+.feature-panel .setting-grid {
   width: 44%;
 }
 .feature-panel h2 {
@@ -19,7 +19,7 @@
   }
   .feature-panel .section-heading,
   .feature-panel .backend-list,
-  .feature-panel .limit-card {
+  .feature-panel .setting-grid {
     width: 100%;
   }
   .feature-panel h2 {
@@ -27,12 +27,13 @@
   }
 }
 :root[data-compact="true"] .backends,
-:root[data-compact="true"] .whitelist {
+:root[data-compact="true"] .whitelist,
+:root[data-compact="true"] .settings-demo {
   min-height: 0;
   padding-block: 50px;
 }
 :root[data-compact="true"] .feature-panel .section-heading,
 :root[data-compact="true"] .backend-list,
-:root[data-compact="true"] .limit-card {
+:root[data-compact="true"] .setting-grid {
   width: 100%;
 }

@@ -28,7 +28,6 @@
 /* 箭头与图标统一过渡。 */
 .button svg,
 .text-link svg,
-.limit-link svg,
 .mobile-menu svg,
 .icon-button svg {
   transition:
@@ -95,7 +94,6 @@
   }
   .button:hover .lucide-arrow-up-right,
   .text-link:hover .lucide-arrow-up-right,
-  .limit-card:hover .lucide-arrow-up-right,
   .mobile-menu a:hover .lucide-arrow-up-right {
     transform: translate(3px, -3px);
   }
@@ -147,8 +145,7 @@
 
 /* 键盘聚焦复用悬停表现中的位移提示。 */
 .button:focus-visible .lucide-arrow-up-right,
-.text-link:focus-visible .lucide-arrow-up-right,
-.limit-card:focus-visible .lucide-arrow-up-right {
+.text-link:focus-visible .lucide-arrow-up-right {
   transform: translate(3px, -3px);
 }
 .icon-button:focus-visible,

@@ -8,6 +8,8 @@ import {
   liveStatusText,
 } from "./showcase-state.ts";
 import { initScreenTouch } from "./screen-touch.ts";
+import { createAutoCycle } from "./demo-cycle.ts";
+import { DEFAULT_SETTINGS, renderSettingCards, type DemoSettings } from "./setting-cards.ts";
 import { initStoryScroll } from "./story-scroll";
 import { initCameraHalo } from "./camera-halo";
 import { initPhoneDisplay } from "./phone-display";
@@ -15,7 +17,7 @@ import { initHeroBackdrop } from "./hero-backdrop.ts";
 import { initScrollReveal } from "./scroll-reveal.ts";
 import { initSiteChrome } from "./site-chrome.ts";
 import { initThemeSwitch } from "./theme-switch.ts";
-import type { DemoState, KmpRoute } from "../data/schema";
+import type { DemoState, KmpRoute, SiteContent } from "../data/schema";
 type DemoWindow = Window & { GazeKeepWebShowcaseBridge?: Bridge };
 let initialized = false;
 export function initWebsite() {
@@ -27,6 +29,8 @@ export function initWebsite() {
     locale: string;
     status: Record<DemoState, string>;
     hint: { touch: string; mouse: string };
+    tour: string;
+    settingValues: SiteContent["settings"]["values"];
     loading: string;
   };
   const state = createShowcaseState();
@@ -45,7 +49,7 @@ export function initWebsite() {
   const statusLabel = document.querySelector<HTMLElement>("#demo-status")!;
   // 主要输入为鼠标或触控板时按鼠标提示，触屏按触摸提示；外接或拔出指针设备时随之切换。
   const finePointer = matchMedia("(pointer: fine)");
-  let shown: { route: KmpRoute; status: DemoState } = { route: "home", status: "idle" };
+  let shown: { route: KmpRoute; status: DemoState; scene: string } = { route: "home", status: "idle", scene: "none" };
   // 文案按「 · 」分段，窄屏折行只发生在分隔处，不拆开词语。
   const renderStatus = () => {
     const text = liveStatusText(content, {
@@ -81,27 +85,76 @@ export function initWebsite() {
   /** 访客操作内屏后，以转场回到当前段落指定的页面并恢复演示状态。 */
   function restore() {
     drift.clear();
+    detect.release();
+    backendCycle.release();
     if (rawBridge && requestedRoute) rawBridge.setScreen(requestedRoute, requestedRevision, true);
   }
-  function sync(route: KmpRoute, status: DemoState, effect = "none") {
-    state.update({ route, status });
+  function show(route: KmpRoute, status: DemoState, effect: string, scene = shown.scene) {
+    state.update({ route, status, scene });
     phone.dataset.effect = effect;
-    shown = { route, status };
+    shown = { route, status, scene };
     renderStatus();
+  }
+  const backendCards = [...document.querySelectorAll<HTMLButtonElement>("[data-backend]")];
+  const pressed = () =>
+    Math.max(
+      0,
+      backendCards.findIndex((c) => c.getAttribute("aria-pressed") === "true"),
+    );
+  const selectBackend = (index: number) => {
+    backendCards.forEach((c, i) => c.setAttribute("aria-pressed", String(i === index)));
+    show("backend", `backend_${backendCards[index].dataset.backend}` as DemoState, "none");
+  };
+  // 第一幕在检测中与检测成功间往复，运行方式在三种后端间轮换，均两秒一切换。
+  const detect = createAutoCycle({
+    count: 2,
+    onChange: (i) => show("home", i ? "gaze_detected" : "sampling", i ? "none" : "camera-pulse"),
+  });
+  const backendCycle = createAutoCycle({ count: backendCards.length, onChange: selectBackend });
+  disposers.push(() => {
+    detect.stop();
+    backendCycle.stop();
+  });
+  function sync(route: KmpRoute, status: DemoState, effect = "none", scene = "none") {
+    if (scene !== shown.scene) {
+      // 只停止离开的场景：进入前访客已悬停的卡片保持暂停。
+      if (shown.scene === "detect") detect.stop();
+      if (shown.scene === "backends") backendCycle.stop();
+      if (scene === "detect") detect.start(0);
+      if (scene === "backends") backendCycle.start(pressed());
+    } else if (scene === "detect" && detect.index() === 1) {
+      // 往复期间滚动微调不把检测成功拉回检测中。
+      status = "gaze_detected";
+      effect = "none";
+    }
+    show(route, status, effect, scene);
     if (drift.active()) restore();
   }
-  document.querySelectorAll<HTMLButtonElement>("[data-backend]").forEach((card) => {
+  const hovering = matchMedia("(hover:hover)");
+  backendCards.forEach((card, i) => {
+    // 访客选中后暂停轮换：悬停与键盘聚焦期间保持，离开后等待片刻从该项继续；触屏点按同样等待后继续。
     const activate = () => {
-      document.querySelectorAll("[data-backend]").forEach((c) => c.setAttribute("aria-pressed", String(c === card)));
-      sync("backend", `backend_${card.dataset.backend}` as DemoState);
+      backendCycle.hold(i);
+      selectBackend(i);
+      if (drift.active()) restore();
     };
-    listen(card, "click", activate);
-    listen(card, "focus", activate);
+    listen(card, "click", () => {
+      activate();
+      if (!hovering.matches) backendCycle.release();
+    });
+    listen(card, "focus", () => {
+      if (card.matches(":focus-visible")) activate();
+    });
+    listen(card, "blur", () => backendCycle.release());
     listen(card, "mouseenter", () => {
-      if (matchMedia("(hover:hover)").matches) activate();
+      if (hovering.matches) activate();
+    });
+    listen(card, "mouseleave", () => {
+      if (hovering.matches) backendCycle.release();
     });
   });
-  listen(document.querySelector("#show-limit")!, "click", () => sync("settings", "idle"));
+  const settingCards = [...document.querySelectorAll<HTMLElement>("[data-setting]")];
+  const resetSettingCards = () => renderSettingCards(settingCards, DEFAULT_SETTINGS, "", content.settingValues);
   let timeout: ReturnType<typeof setTimeout> | undefined;
   const attempts = createShowcaseAttempts();
   let runtime: "wasm" | "js";
@@ -115,6 +168,7 @@ export function initWebsite() {
   }
   function failed(attempt: number) {
     if (!attempts.fail(attempt)) return;
+    resetSettingCards();
     clearTimeout(timeout);
     clearTimeout(renderTimeout);
     screen.dataset.ready = "false";
@@ -141,6 +195,7 @@ export function initWebsite() {
     rawBridge = undefined;
     drift.clear();
     clearTimeout(renderTimeout);
+    resetSettingCards();
     recovery.hidden = true;
     screen.dataset.ready = "false";
     renderStatus();
@@ -180,6 +235,12 @@ export function initWebsite() {
     clearTimeout(renderTimeout);
     window.dispatchEvent(new Event("gazekeep:scene-ready"));
   }) as EventListener);
+  // 设置区卡片随内屏演示同步取值，并标出正在演示的一项。
+  listen(window, "gazekeep:demo", ((event: CustomEvent<DemoSettings & { attempt: number; focus: string }>) => {
+    const d = event.detail;
+    if (!attempts.ready(d?.attempt)) return;
+    renderSettingCards(settingCards, d, d.focus, content.settingValues);
+  }) as EventListener);
   listen(window, "gazekeep:error", ((event: CustomEvent<{ attempt: number }>) => {
     failed(event.detail?.attempt);
   }) as EventListener);
@@ -192,7 +253,12 @@ export function initWebsite() {
     frame,
     // 黑屏换页、设备槽渐亮前或加载失败时，内屏不可见，不响应点按。
     active: () => screen.dataset.ready === "true" && recovery.hidden && Number(getComputedStyle(dim).opacity) < 0.5,
-    onInteract: () => drift.mark(scrollY),
+    // 访客操作内屏期间暂停机外轮换，复位后继续；内屏演示由展示页自行暂停。
+    onInteract: () => {
+      drift.mark(scrollY);
+      detect.hold();
+      backendCycle.hold();
+    },
     listen,
   });
   listen(

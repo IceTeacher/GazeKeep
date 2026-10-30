@@ -1,0 +1,56 @@
+---
+import type { SettingId, SiteContent } from "../../data/schema";
+import { DEFAULT_SETTINGS, settingArc, settingValue } from "../../scripts/setting-cards";
+import EyeOff from "@lucide/astro/icons/eye-off";
+import Hourglass from "@lucide/astro/icons/hourglass";
+import ScanFace from "@lucide/astro/icons/scan-face";
+import Timer from "@lucide/astro/icons/timer";
+interface Props {
+  content: SiteContent;
+}
+const { content: c } = Astro.props;
+const icons: Record<SettingId, typeof Timer> = {
+  lead: Hourglass,
+  sensitivity: ScanFace,
+  max_hold: Timer,
+  hide_indicator: EyeOff,
+};
+---
+
+<section id="settings" class="settings-demo shell feature-panel" data-route="settings" data-status="idle">
+  <div class="feature-copy">
+    <div class="section-heading">
+      <span class="section-kicker">{c.ui.kickers.settings}</span>
+      <h2>{c.settings.title}</h2>
+      <p>{c.settings.text}</p>
+    </div>
+    <!-- 卡片取值随右侧手机内的演示同步；内屏不可用时保持 App 默认设置。 -->
+    <div class="setting-grid">
+      {c.settings.items.map((item) => {
+        const Icon = icons[item.id];
+        return (
+          <div
+            class="setting-card"
+            data-setting={item.id}
+            data-reveal
+            style={`--arc:${settingArc(item.id, DEFAULT_SETTINGS)}`}
+          >
+            <span class="setting-dial" aria-hidden="true">
+              <svg class="setting-ring" viewBox="0 0 64 64">
+                <circle class="setting-track" cx="32" cy="32" r="29" />
+                <circle class="setting-arc" cx="32" cy="32" r="29" pathLength="100" />
+              </svg>
+              <Icon size={20} stroke-width={1.6} />
+            </span>
+            <span class="setting-text">
+              <span class="setting-label">{item.label}</span>
+              <strong class="setting-value">{settingValue(item.id, DEFAULT_SETTINGS, c.settings.values)}</strong>
+              <span class="setting-detail">{item.detail}</span>
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+  <div class="device-slot" aria-hidden="true"></div>
+</section>

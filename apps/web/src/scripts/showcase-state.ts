@@ -2,11 +2,14 @@ export interface Bridge {
   /** restore 为 true 时丢弃访客在内屏中的操作，并以转场回到指定页面。 */
   setScreen(route: string, revision?: number, restore?: boolean): void;
   setDemoStatus(status: string): void;
+  /** 内屏自动演示：tour、privacy、apps、settings 由展示页按脚本操作，其余场景停止并恢复当前页面。 */
+  setDemoScene(scene: string): void;
   setLocaleAndTheme(locale: string, dark: boolean): void;
 }
 export interface ShowcaseSnapshot {
   route: string;
   status: string;
+  scene: string;
   locale: string;
   dark: boolean;
   phase: "loading" | "ready" | "error";
@@ -32,13 +35,21 @@ export function createShowcaseAttempts() {
   };
 }
 export function createShowcaseState() {
-  let value: ShowcaseSnapshot = { route: "home", status: "idle", locale: "zh", dark: true, phase: "loading" };
+  let value: ShowcaseSnapshot = {
+    route: "home",
+    status: "idle",
+    scene: "none",
+    locale: "zh",
+    dark: true,
+    phase: "loading",
+  };
   let bridge: Bridge | undefined;
   const replay = () => {
     if (!bridge) return;
     bridge.setLocaleAndTheme(value.locale, value.dark);
     bridge.setScreen(value.route);
     bridge.setDemoStatus(value.status);
+    bridge.setDemoScene(value.scene);
   };
   return {
     update(patch: Partial<Omit<ShowcaseSnapshot, "phase">>) {
@@ -112,13 +123,21 @@ export function createDriftTracker(threshold = 24) {
 }
 
 /**
- * 手机下方的状态文案。首屏与工作流标题处（主页、空闲）且内屏可操作时，改为按主要输入方式提示如何操作内屏；
- * 其余阶段与内屏不可用时保留演示状态。
+ * 手机下方的状态文案。首屏（主页、空闲、无演示）且内屏可操作时，按主要输入方式提示如何操作内屏；
+ * 工作流标题处内屏自动浏览，固定显示 tour 文案；其余阶段与内屏不可用时保留演示状态。
  */
 export function liveStatusText(
-  labels: { status: Record<string, string>; hint: { touch: string; mouse: string } },
-  { route, status, ready, finePointer }: { route: string; status: string; ready: boolean; finePointer: boolean },
+  labels: { status: Record<string, string>; hint: { touch: string; mouse: string }; tour: string },
+  {
+    route,
+    status,
+    scene,
+    ready,
+    finePointer,
+  }: { route: string; status: string; scene: string; ready: boolean; finePointer: boolean },
 ) {
-  if (ready && route === "home" && status === "idle") return finePointer ? labels.hint.mouse : labels.hint.touch;
+  if (scene === "tour") return labels.tour;
+  if (ready && route === "home" && status === "idle" && scene === "none")
+    return finePointer ? labels.hint.mouse : labels.hint.touch;
   return labels.status[status];
 }

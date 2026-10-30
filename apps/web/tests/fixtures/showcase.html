@@ -17,6 +17,9 @@
         setDemoStatus(status) {
           control.calls.push(["setDemoStatus", status]);
         },
+        setDemoScene(scene) {
+          control.calls.push(["setDemoScene", scene]);
+        },
         setLocaleAndTheme(locale, dark) {
           control.calls.push(["setLocaleAndTheme", locale, dark]);
         },
