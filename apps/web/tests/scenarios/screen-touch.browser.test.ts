@@ -56,13 +56,20 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 test("真实点击倾斜内屏时，按投影逆变换以应用坐标转发给画布", async () => {
   await mountReady();
-  let down: PointerEvent | undefined;
-  layer().addEventListener("pointerdown", (e) => (down = e), { once: true });
+  let expected: [number, number] | undefined;
   // 首屏手机持续漂移，Playwright 的稳定性等待不会结束；坐标以实际收到的事件为准。
+  // 投影约每 40ms 随漂移更新：在按下的同一次派发中取投影，与转发时所用的一致，不受点击返回前的帧数影响。
+  layer().addEventListener(
+    "pointerdown",
+    (e) => {
+      const box = host().getBoundingClientRect();
+      expected = unmapPlanePoint(projection(), e.clientX - box.left, e.clientY - box.top);
+    },
+    { once: true },
+  );
   await userEvent.click(layer(), { force: true });
-  expect(down).toBeDefined();
-  const box = host().getBoundingClientRect();
-  const [x, y] = unmapPlanePoint(projection(), down!.clientX - box.left, down!.clientY - box.top);
+  expect(expected).toBeDefined();
+  const [x, y] = expected!;
   const calls = pointerCalls();
   expect(calls.map(([, type]) => type)).toEqual(["pointerdown", "pointerup"]);
   const [, , fx, fy] = calls[0] as [string, string, number, number];
