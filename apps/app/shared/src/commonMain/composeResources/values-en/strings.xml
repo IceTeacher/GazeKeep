@@ -79,7 +79,7 @@
   >Removes all %1$d included apps. The screen will then stay awake in no app.</string>
     <string
     name="settings_apps_clear_blacklist_message"
-  >Removes all %1$d excluded apps. Every app will then be checked for keeping the screen awake.</string>
+  >Removes all %1$d excluded apps. Every app will then be checked, except camera apps.</string>
     <string name="settings_apps_clear_confirm">Clear</string>
     <string name="settings_max_hold">Maximum keep-awake time</string>
     <string

@@ -1,16 +1,25 @@
 package cn.rainafter.app.gazekeep.ui
 
 import androidx.activity.ComponentActivity
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import cn.rainafter.app.gazekeep.core.model.AppFilterMode
 import cn.rainafter.app.gazekeep.ui.contract.AppEntry
 import cn.rainafter.app.gazekeep.ui.contract.AppListLoadState
+import cn.rainafter.app.gazekeep.ui.navigation.SettingsBackStack
+import cn.rainafter.app.gazekeep.ui.navigation.SettingsNavHost
+import cn.rainafter.app.gazekeep.ui.navigation.SettingsScreen
+import cn.rainafter.app.gazekeep.ui.testing.FakeGazeKeepController
+import cn.rainafter.app.gazekeep.ui.testing.FakePlatformActions
 import cn.rainafter.app.gazekeep.ui.testing.UiTestSession
 import cn.rainafter.app.gazekeep.ui.testing.launchApp
 import cn.rainafter.app.gazekeep.ui.testing.readyState
@@ -37,6 +46,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.theme.ThemeController
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -110,6 +121,26 @@ class AppsUiTest {
   }
 
   @Test
+  fun uncheckedSystemAppStaysVisibleAfterStateRestore() {
+    val controller = FakeGazeKeepController(loaded(APPS_WITH_SYSTEM, whitelist = setOf("com.example.gallery")))
+    val backStack = SettingsBackStack(mutableStateListOf(SettingsScreen.Home, SettingsScreen.Apps))
+    val restoration = StateRestorationTester(rule)
+    restoration.setContent {
+      MiuixTheme(controller = remember { ThemeController() }) {
+        val state by controller.state.collectAsState()
+        val selfTest by controller.selfTest.collectAsState()
+        SettingsNavHost(backStack, controller, FakePlatformActions(), state, selfTest)
+      }
+    }
+    val app = UiTestSession(rule, controller, FakePlatformActions())
+    app.click("Gallery")
+    assertEquals(emptySet(), controller.state.value.config.whitelistPackages)
+    // 旋转等重建后，刚取消的系统应用仍应可见，便于重新勾选。
+    restoration.emulateSavedInstanceStateRestore()
+    app.assertShown("Gallery")
+  }
+
+  @Test
   fun searchHitOnHiddenSystemAppOffersToShowIt() {
     val app = rule.launchApp(loaded(APPS_WITH_SYSTEM))
     app.openApps()
@@ -126,8 +157,9 @@ class AppsUiTest {
     app.openApps()
     openMenu()
     app.assertNotShown(text(Res.string.settings_apps_select_matches))
-    rule.onRoot().performClick()
-    rule.waitForIdle()
+    // 返回键只关闭菜单，不离开应用页。
+    app.pressBack()
+    app.assertShown(text(Res.string.settings_apps_whitelist_title))
     // "r" 命中 Reader、Browser 与隐藏的 Gallery，只选中可见的两个。
     search("r")
     openMenu()

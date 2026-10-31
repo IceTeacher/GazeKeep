@@ -63,7 +63,7 @@
     <string name="settings_apps_clear">清空已选</string>
     <string name="settings_apps_clear_title">清空已选应用？</string>
     <string name="settings_apps_clear_whitelist_message">将移除白名单中的全部 %1$d 个应用，清空后不会在任何应用中保亮。</string>
-    <string name="settings_apps_clear_blacklist_message">将移除黑名单中的全部 %1$d 个应用，清空后所有应用都会参与保亮检测。</string>
+    <string name="settings_apps_clear_blacklist_message">将移除黑名单中的全部 %1$d 个应用，清空后所有应用都会参与检测（相机类应用仍跳过）。</string>
     <string name="settings_apps_clear_confirm">清空</string>
     <string name="settings_max_hold">单次最长保亮</string>
     <string name="settings_max_hold_summary">到达上限后必须让屏幕按系统超时熄灭一次。</string>

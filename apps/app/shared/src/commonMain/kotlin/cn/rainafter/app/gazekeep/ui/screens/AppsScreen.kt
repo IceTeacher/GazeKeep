@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -102,6 +103,8 @@ private fun AppListItem(
   }
 }
 
+private val PackageSetSaver = listSaver<Set<String>, String>(save = { it.toList() }, restore = { it.toSet() })
+
 @Composable
 internal fun AppsScreen(
   state: ControllerState,
@@ -120,8 +123,8 @@ internal fun AppsScreen(
   val focusManager = LocalFocusManager.current
   val filterMode = state.config.appFilterMode
   val scoped = state.config.scopedPackages
-  // 本页出现过的已选应用保持可见：在隐藏系统应用时取消勾选，条目不会立刻从列表消失。
-  var pinned by remember(filterMode) { mutableStateOf(scoped) }
+  // 本页出现过的已选应用保持可见：在隐藏系统应用时取消勾选，条目不会立刻从列表消失；旋转等重建后仍保留。
+  var pinned by rememberSaveable(filterMode, stateSaver = PackageSetSaver) { mutableStateOf(scoped) }
   val listView = remember(state.apps, search, showSystem, pinned, scoped) {
     filterApps(state.apps, search, showSystem, pinned + scoped)
   }
