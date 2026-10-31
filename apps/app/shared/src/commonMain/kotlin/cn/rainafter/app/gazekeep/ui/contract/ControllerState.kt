@@ -34,7 +34,9 @@ data class SelfTestState(
   val attention: Attention? = null,
   val lastStepFailed: Boolean = false,
 )
-data class AppEntry(val packageName: String, val label: String)
+
+/** 启动器可见应用；[isSystem] 只用于应用列表默认隐藏，不影响生效范围。 */
+data class AppEntry(val packageName: String, val label: String, val isSystem: Boolean = false)
 data class SystemInfo(
   val appVersion: String = "v1.0.0",
   val androidVersion: String = "-",

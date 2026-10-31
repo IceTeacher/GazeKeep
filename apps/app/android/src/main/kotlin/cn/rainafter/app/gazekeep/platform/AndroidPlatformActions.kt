@@ -1,6 +1,7 @@
 package cn.rainafter.app.gazekeep.platform
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -29,6 +30,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.ActivityCompat
+import androidx.core.content.edit
 import cn.rainafter.app.gazekeep.applist.AppIconCache
 import cn.rainafter.app.gazekeep.controller.AndroidGazeKeepController
 import cn.rainafter.app.gazekeep.ui.contract.AppLanguage
@@ -43,6 +45,9 @@ class AndroidPlatformActions(
   private val controller: AndroidGazeKeepController,
 ) : PlatformActions {
   @Volatile private var pendingExportText: String = ""
+
+  // 界面显示偏好与 GazeConfig 分开保存：不参与门控、配置迁移与诊断转储。
+  private val uiPrefs = activity.getSharedPreferences(UI_PREFS, Context.MODE_PRIVATE)
   private val exportLauncher: ActivityResultLauncher<String> =
     activity.activityResultRegistry.register(
       "gazekeep_export_logs",
@@ -90,6 +95,10 @@ class AndroidPlatformActions(
   override fun appLanguage(): AppLanguage = AppLocales.current(activity)
 
   override fun setAppLanguage(language: AppLanguage) = AppLocales.set(activity, language)
+
+  override fun showSystemApps(): Boolean = uiPrefs.getBoolean(KEY_SHOW_SYSTEM_APPS, false)
+
+  override fun setShowSystemApps(show: Boolean) = uiPrefs.edit { putBoolean(KEY_SHOW_SYSTEM_APPS, show) }
 
   // Xiaomi 12 Pro / HyperOS OS2.0.6 实测：默认「智能」策略会在系统相机使用后冻结前台服务进程，只有「无限制」可避免。
   override fun hasRomBackgroundPolicy(): Boolean = Build.MANUFACTURER.equals("Xiaomi", ignoreCase = true)
@@ -181,5 +190,10 @@ class AndroidPlatformActions(
         )
       }
     }
+  }
+
+  private companion object {
+    const val UI_PREFS = "gazekeep_ui_prefs"
+    const val KEY_SHOW_SYSTEM_APPS = "show_system_apps"
   }
 }

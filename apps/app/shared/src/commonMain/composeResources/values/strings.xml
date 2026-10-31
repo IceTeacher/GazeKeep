@@ -56,6 +56,15 @@
     <string name="settings_apps_load_failed">应用列表读取失败，请重试。</string>
     <string name="settings_retry">重试</string>
     <string name="settings_no_apps">没有匹配的启动器应用</string>
+    <string name="settings_apps_more">更多选项</string>
+    <string name="settings_apps_show_system">显示系统应用</string>
+    <string name="settings_apps_hidden_system">已隐藏 %1$d 个匹配的系统应用</string>
+    <string name="settings_apps_select_matches">选中搜索结果</string>
+    <string name="settings_apps_clear">清空已选</string>
+    <string name="settings_apps_clear_title">清空已选应用？</string>
+    <string name="settings_apps_clear_whitelist_message">将移除白名单中的全部 %1$d 个应用，清空后不会在任何应用中保亮。</string>
+    <string name="settings_apps_clear_blacklist_message">将移除黑名单中的全部 %1$d 个应用，清空后所有应用都会参与保亮检测。</string>
+    <string name="settings_apps_clear_confirm">清空</string>
     <string name="settings_max_hold">单次最长保亮</string>
     <string name="settings_max_hold_summary">到达上限后必须让屏幕按系统超时熄灭一次。</string>
     <string name="settings_hold_10">10 分钟</string>

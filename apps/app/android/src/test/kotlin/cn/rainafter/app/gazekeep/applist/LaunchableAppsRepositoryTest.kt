@@ -1,5 +1,6 @@
 package cn.rainafter.app.gazekeep.applist
 
+import android.content.pm.ApplicationInfo
 import cn.rainafter.app.gazekeep.ui.contract.AppEntry
 import cn.rainafter.app.gazekeep.ui.contract.AppListLoadState
 import kotlinx.coroutines.CompletableDeferred
@@ -14,6 +15,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class LaunchableAppsRepositoryTest {
@@ -114,5 +116,12 @@ class LaunchableAppsRepositoryTest {
       repository.close()
       scope.cancel()
     }
+  }
+
+  @Test fun onlyNeverUpdatedPreinstalledAppsCountAsSystem() {
+    assertFalse(isSystemApp(0))
+    assertTrue(isSystemApp(ApplicationInfo.FLAG_SYSTEM))
+    // 商店更新过的预装应用（如 Chrome）按用户应用显示。
+    assertFalse(isSystemApp(ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP))
   }
 }

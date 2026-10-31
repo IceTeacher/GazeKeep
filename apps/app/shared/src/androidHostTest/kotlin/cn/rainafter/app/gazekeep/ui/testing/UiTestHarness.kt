@@ -96,9 +96,10 @@ fun ActivityComposeRule.launchApp(
   selfTest: SelfTestState = SelfTestState(),
   language: AppLanguage? = AppLanguage.System,
   romBackgroundPolicy: Boolean = false,
+  showSystemApps: Boolean = false,
 ): UiTestSession {
   val controller = FakeGazeKeepController(state, selfTest)
-  val actions = FakePlatformActions(language, romBackgroundPolicy)
+  val actions = FakePlatformActions(language, romBackgroundPolicy, showSystemApps)
   setContent { App(controller, actions) }
   waitForIdle()
   return UiTestSession(this, controller, actions)

@@ -18,6 +18,7 @@ import cn.rainafter.app.gazekeep.ui.contract.PlatformActions
 class FakePlatformActions(
   language: AppLanguage? = AppLanguage.System,
   private val romBackgroundPolicy: Boolean = false,
+  private var showSystemApps: Boolean = false,
 ) : PlatformActions {
   val calls = mutableListOf<String>()
   private var language by mutableStateOf(language)
@@ -67,6 +68,13 @@ class FakePlatformActions(
   override fun setAppLanguage(language: AppLanguage) {
     calls += "setAppLanguage:$language"
     this.language = language
+  }
+
+  override fun showSystemApps(): Boolean = showSystemApps
+
+  override fun setShowSystemApps(show: Boolean) {
+    calls += "setShowSystemApps:$show"
+    showSystemApps = show
   }
 
   // 固定 UTC 格式，截图不随运行机器时区变化。

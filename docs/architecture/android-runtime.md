@@ -20,6 +20,8 @@ ConfigStore 通过 Context 的单例 DataStore 委托打开 `gazekeep_settings`�
 
 LegacyMigration 只迁移旧 `gazekeep_config` SharedPreferences 的后端选择，强制 enabled=false、生效范围为仅白名单应用，不迁移历史启用资格；保留旧文件，不读取 XML 文件猜测实时状态。
 
+应用列表的「显示系统应用」偏好存入独立 `gazekeep_ui_prefs` SharedPreferences，只影响界面显示，不进入 ConfigStore、迁移或诊断转储。
+
 Shizuku 的 pendingTimeoutRestore 使用独立 `gazekeep_timeout_restore` SharedPreferences，不是普通用户配置，也不是已实现的 internal_state DataStore。恢复工作不得依赖即将取消的服务 scope；同步持久化与失败语义见[Shizuku 架构](backends/shizuku.md)。
 
 ## 应用内语言

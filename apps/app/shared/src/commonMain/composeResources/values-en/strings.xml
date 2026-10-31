@@ -68,6 +68,19 @@
     <string name="settings_apps_load_failed">Could not load the app list. Try again.</string>
     <string name="settings_retry">Retry</string>
     <string name="settings_no_apps">No matching launcher apps</string>
+    <string name="settings_apps_more">More options</string>
+    <string name="settings_apps_show_system">Show system apps</string>
+    <string name="settings_apps_hidden_system">%1$d matching system apps hidden</string>
+    <string name="settings_apps_select_matches">Select search results</string>
+    <string name="settings_apps_clear">Clear selection</string>
+    <string name="settings_apps_clear_title">Clear selected apps?</string>
+    <string
+    name="settings_apps_clear_whitelist_message"
+  >Removes all %1$d included apps. The screen will then stay awake in no app.</string>
+    <string
+    name="settings_apps_clear_blacklist_message"
+  >Removes all %1$d excluded apps. Every app will then be checked for keeping the screen awake.</string>
+    <string name="settings_apps_clear_confirm">Clear</string>
     <string name="settings_max_hold">Maximum keep-awake time</string>
     <string
     name="settings_max_hold_summary"
