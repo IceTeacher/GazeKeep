@@ -43,5 +43,5 @@ pnpm verify:agent-assets
 - 页面文案集中于 `src/data/zh.ts` 和 `src/data/en.ts`；隐私三句由共享 Compose 资源同步并由 `dev`、`check` 与 `build:site` 校验。
 - KMP Wasm/JS 展示资源由完整 `pnpm --filter web build` 生成，`public/kmp-showcase/` 和隐私同步产物不提交；纯官网修改已有产物时可运行 `pnpm --filter web run build:site`。
 - 展示字体使用 Noto Sans CJK SC 字符子集；更新字符时运行 `pnpm --filter web font:showcase /path/to/NotoSansCJK-Regular.ttc`，再重新完整构建。
-- 运行方式区只保留 `public/media/apps/` 中实际使用的 LSPosed、Shizuku 图标；来源和许可证见 `public/media/credits.txt`。持机手部由 `src/scripts/grip-reference.ts` 与 `grip-geometry.ts` 维护，不再提交独立人物或手部图片。
+- 运行方式区只保留 `public/media/apps/` 中实际使用的 LSPosed、Shizuku 图标。KMP 演示仍发布 GazeKeep、LSPosed、Magisk、Shizuku、SIM Toolkit 与 Vector 图标，页面继续内联 Lucide；来源和许可证见随站点发布的 `public/media/credits.txt`。持机手部由 `src/scripts/grip-reference.ts` 与 `grip-geometry.ts` 维护，不再提交独立人物或手部图片。
 - 页面架构、视觉约束、部署和验收边界见[官网架构](../../docs/architecture/web/website.md)；测试命令见上方“验证”。

@@ -1,10 +1,16 @@
 应用图标
 
-用途：官网运行方式区的 LSPosed、Shizuku 图标（`public/media/apps/`）。
+用途：官网运行方式区的 LSPosed、Shizuku 图标（`public/media/apps/`），以及 KMP 演示应用列表（`apps/app/shared/src/showcaseMain/composeResources/files/apps/`，随官网构建发布）。
 
-来源：Android 15 模拟器中的实际图标渲染；LSPosed 未安装在模拟器上，按其仓库 `app/src/main/res/drawable/ic_launcher_foreground.xml` 的矢量与 Android 12+ 动态底色渲染。
+来源：Android 15 模拟器中 GazeKeep 应用列表的实际渲染（2 倍密度、明暗两次截取求透明度）；LSPosed 未安装在模拟器上，按其仓库 `app/src/main/res/drawable/ic_launcher_foreground.xml` 的矢量与 Android 12+ 动态底色（取样 `#475D92`）渲染。
 
+- GazeKeep：本项目图标。
 - LSPosed（org.lsposed.manager）：https://github.com/LSPosed/LSPosed，GPL-3.0。
+- Magisk（com.topjohnwu.magisk）：https://github.com/topjohnwu/Magisk，GPL-3.0。
 - Shizuku（moe.shizuku.privileged.api）：https://github.com/RikkaApps/Shizuku，Apache-2.0。
+- Vector（org.matrix.vector.manager）：https://github.com/JingMatrix/Vector，GPL-3.0。
+- SIM Toolkit（com.android.stk）：AOSP，Apache-2.0。
 
 商标与图标归各自项目所有，仅用于展示兼容的开源工具，不代表合作或背书。
+
+其余界面图标：Lucide（https://lucide.dev，ISC），由 `@lucide/astro` 构建期内联。
