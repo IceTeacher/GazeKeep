@@ -1,0 +1,10 @@
+应用图标
+
+用途：官网运行方式区的 LSPosed、Shizuku 图标（`public/media/apps/`）。
+
+来源：Android 15 模拟器中的实际图标渲染；LSPosed 未安装在模拟器上，按其仓库 `app/src/main/res/drawable/ic_launcher_foreground.xml` 的矢量与 Android 12+ 动态底色渲染。
+
+- LSPosed（org.lsposed.manager）：https://github.com/LSPosed/LSPosed，GPL-3.0。
+- Shizuku（moe.shizuku.privileged.api）：https://github.com/RikkaApps/Shizuku，Apache-2.0。
+
+商标与图标归各自项目所有，仅用于展示兼容的开源工具，不代表合作或背书。

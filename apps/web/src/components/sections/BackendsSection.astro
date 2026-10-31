@@ -5,7 +5,7 @@ interface Props {
   content: SiteContent;
 }
 const { content: c } = Astro.props;
-// LSPosed 与 Shizuku 使用各自开源项目的真实图标；无障碍为系统服务，没有应用图标，使用通用无障碍人形。
+// LSPosed 与 Shizuku 使用各自开源项目的真实图标（来源和许可证见 public/media/credits.txt）；无障碍为系统服务，没有应用图标，使用通用无障碍人形。
 const icons: Partial<Record<string, string>> = {
   lsposed: "/media/apps/lsposed.webp",
   shizuku: "/media/apps/shizuku.webp",
