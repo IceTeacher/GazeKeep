@@ -1,4 +1,4 @@
-# GazeKeep 官网 (`../../../apps/web`) 完整架构与视觉规划文档
+# GazeKeep 官网架构与视觉约束 (`../../../apps/web`)
 
 > **项目仓库**：`https://github.com/IceTeacher/GazeKeep`
 > **目标路径**：`../../../apps/web`（纳入根目录 `pnpm-workspace.yaml` 统一管理）
@@ -11,7 +11,7 @@
 
 ### 当前落地约定
 
-官网保留 Astro 静态双语输出，在 `core/shared` 增加 Wasm 与 JS 浏览器目标；展示入口位于 shared 的 Web source set，复用真实页面与 controller/platform 契约，不连接相机或后端。桥接导出 `setScreen`、`setDemoStatus`、`setDemoScene`、`setLocaleAndTheme`，首帧挂载后发送 `gazekeep:ready`，前端重放最新状态。构建按 KMP → 资源同步 → Astro 执行，生成资源忽略提交。站点统计见第六节，不启用 Partytown。本轮只本地预览。性能数字为测量目标，文案以产品定义与隐私真源为准。
+官网保留 Astro 静态双语输出，在 `core/shared` 增加 Wasm 与 JS 浏览器目标；展示入口位于 shared 的 Web source set，复用真实页面与 controller/platform 契约，不连接相机或后端。桥接导出 `setScreen`、`setDemoStatus`、`setDemoScene`、`setLocaleAndTheme`，首帧挂载后发送 `gazekeep:ready`，前端重放最新状态。构建按 KMP → 资源同步 → Astro 执行，生成资源忽略提交。站点统计见第六节，不启用 Partytown。当前部署与验收状态见第六节及[任务清单](../../plans/todo.md)；性能数字为测量目标，文案以产品定义与隐私真源为准。
 
 内屏使用同源 iframe 隔离 KMP Wasm/JS 加载与生命周期，内部保持单 Canvas，前端只挂载一个 iframe。Wasm 能力不足或启动失败时选择 JS，最终失败提供重试；`load` 事件只表示文档加载，实际就绪以 Compose 首帧与字体加载完成后的通知为准。浏览器语言设置仅作用于展示 iframe。手机外壳与叙事使用同一实例。机身为 Three.js 实体模型（初始 416×872×40），屏幕为 392×848 的统一逻辑画布，包含顶部 40、应用 392×784 与底部 24；状态栏、挖孔和横条随整个画布等比缩放。单 DOM 内屏依据同一相机投影屏幕四角，与机身共享姿态。设备在首帧就绪前隐藏且不改变布局：实体机身按首屏倾斜姿态完成首次绘制，或确认降级后，才短暂淡入（减少动态时直接显示），脚本未运行时 4 秒后限时显示，避免闪出未投影的平铺内屏或正面降级外壳。WebGL 不可用时降级为正面 CSS 设备。桌面与常规移动端使用局部 sticky 跟随；移动端上图下文，紧凑模式随正文展示。
 
@@ -113,7 +113,7 @@ Web 字体使用带 OFL 许可的 Noto CJK 字符子集，位于 showcaseMain，
 
 - **展示内容**：
   - **3 步极速上手**：① 下载安装 APK -> ② 选择工作后端（无障碍 / Shizuku / LSPosed）并授予相机权限 -> ③ 按需勾选白名单应用并设置保护上限。
-  - **精选 FAQ**（同步自 `docs/usage.md`）：解答耗电表现、暗光/戴眼镜识别率、后台保活设置、多后端切换优先级等核心疑问。
+  - **精选 FAQ**（同步自[使用说明](../../product/usage.md)）：解答耗电表现、暗光/戴眼镜识别率、后台保活设置、多后端切换优先级等核心疑问。
 - **前端炫技效果**：
   - 步骤卡片之间带有随滚动填充进度的 SVG 发光连接线；
   - FAQ 采用基于 CSS `grid-template-rows: 0fr -> 1fr` 的物理阻尼平滑展开面板。
@@ -144,7 +144,7 @@ Web 字体使用带 OFL 许可的 Noto CJK 字符子集，位于 showcaseMain，
 
 ## 六、当前构建与后续验收
 
-本轮已完成双语数据、七模块页面、Three.js 实体设备、Shader/连续滚动调度、真实 miuix Wasm/JS 展示壳、语言/主题桥接、隐私资源校验和加载失败恢复。构建与维护命令见 [官网 README](../../../apps/web/README.md)，对应环境和验收结果见[任务清单](../../plans/todo.md#官网本次验证2026-10-20)。
+本轮已完成双语数据、七模块页面、Three.js 实体设备、Shader/连续滚动调度、真实 miuix Wasm/JS 展示壳、语言/主题桥接、隐私资源校验和加载失败恢复。构建与维护命令见 [官网 README](../../../apps/web/README.md)，对应环境和验收结果见[任务清单](../../plans/todo.md)。
 
 官网部署到 Cloudflare Pages 项目 `gazekeep`，生产分支为 `main`，自定义域名与优选 IP 在 Cloudflare 与 DNS 侧维护，流水线不改动。完整构建依赖 JDK、Android SDK 与 Gradle，因此由 GitHub Actions 托管 runner 完成完整构建与门禁后，再通过 Wrangler Direct Upload 发布同一份 `dist/`：`dev` 推送发布到 `dev` 分支别名，同仓库 PR 发布到 `pr-<编号>` 别名并原地更新一条 PR 评论（PR 头提交已由成功的 push 运行验证时整次跳过，如 `dev`→`main`，以 `dev` 别名为准），`main` 推送发布生产；fork PR 只跑门禁。发布后冒烟检查根路径 302 到 `/zh/`、`/zh/` 与 `/en/` 以及两个 KMP Showcase 目录返回 200，失败只标红不自动回滚，回滚在 Cloudflare 面板对上一个部署执行 Rollback。本地 `deploy` 脚本仅作应急。根路径由 `public/_redirects` 在服务端 302 跳转到 `/zh/`，不渲染中间页；用 302 而非 301，便于以后按浏览器语言分流；`src/pages/index.astro` 只作为 `astro preview` 等不读取 `_redirects` 环境的兜底跳转页。Direct Upload 项目不能原地切换为 Git 集成；Cloudflare 构建镜像也缺少 Android SDK，所以保留 Direct Upload，由 CI 承担构建。后续验证集中于 WebGPU 实际渲染、120Hz 硬件表现、跨浏览器矩阵和 KMP 资源体积。
 
