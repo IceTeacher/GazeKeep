@@ -21,6 +21,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import cn.rainafter.app.gazekeep.core.model.AppFilterMode
+import cn.rainafter.app.gazekeep.core.model.scopedPackages
+import cn.rainafter.app.gazekeep.core.model.withScopedPackages
 import cn.rainafter.app.gazekeep.ui.components.AppScaffold
 import cn.rainafter.app.gazekeep.ui.components.SearchTextField
 import cn.rainafter.app.gazekeep.ui.components.SettingsGroupTitle
@@ -33,9 +36,10 @@ import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseInput
 import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseKeys
 import cn.rainafter.app.gazekeep.ui.showcase.showcaseAnchor
 import gazekeep.shared.generated.resources.Res
-import gazekeep.shared.generated.resources.settings_apps
+import gazekeep.shared.generated.resources.settings_apps_blacklist_title
 import gazekeep.shared.generated.resources.settings_apps_load_failed
 import gazekeep.shared.generated.resources.settings_apps_selected
+import gazekeep.shared.generated.resources.settings_apps_whitelist_title
 import gazekeep.shared.generated.resources.settings_loading
 import gazekeep.shared.generated.resources.settings_no_apps
 import gazekeep.shared.generated.resources.settings_retry
@@ -96,7 +100,13 @@ internal fun AppsScreen(
   }
 
   AppScaffold(
-    title = stringResource(Res.string.settings_apps),
+    title = stringResource(
+      if (state.config.appFilterMode == AppFilterMode.Blacklist) {
+        Res.string.settings_apps_blacklist_title
+      } else {
+        Res.string.settings_apps_whitelist_title
+      },
+    ),
     onBack = onBack,
   ) { padding, scrollBehavior ->
     Column(
@@ -113,7 +123,7 @@ internal fun AppsScreen(
       }
 
       SettingsGroupTitle(
-        text = stringResource(Res.string.settings_apps_selected, state.config.packages.size),
+        text = stringResource(Res.string.settings_apps_selected, state.config.scopedPackages.size),
         insideMargin = PaddingValues(start = 32.dp, top = 4.dp, bottom = 6.dp),
       )
 
@@ -158,7 +168,7 @@ internal fun AppsScreen(
             key = { it.packageName },
             contentType = { "app" },
           ) { app ->
-            val isChecked = app.packageName in state.config.packages
+            val isChecked = app.packageName in state.config.scopedPackages
             AppListItem(
               app = app,
               isChecked = isChecked,
@@ -166,12 +176,11 @@ internal fun AppsScreen(
               onCheckedChange = { selected ->
                 scope.launch {
                   controller.updateConfig { config ->
-                    config.copy(
-                      packages = if (selected) {
-                        config.packages + app.packageName
+                    config.withScopedPackages(
+                      if (selected) {
+                        config.scopedPackages + app.packageName
                       } else {
-                        config.packages -
-                          app.packageName
+                        config.scopedPackages - app.packageName
                       },
                     )
                   }

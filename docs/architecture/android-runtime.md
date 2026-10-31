@@ -14,11 +14,11 @@ GazeService 适配生命周期，BackendSession 拥有 backend、oracle、engine
 
 ## 配置与迁移
 
-ConfigStore 通过 Context 的单例 DataStore 委托打开 `gazekeep_settings`，UI 与 Service 共享。持久化字段为 enabled、backend_lock、lead_millis、sensitivity、whitelist_enabled、packages、max_hold_minutes、debug_log_enabled、hide_camera_indicator、self_test_passed_at，另有迁移标记。
+ConfigStore 通过 Context 的单例 DataStore 委托打开 `gazekeep_settings`，UI 与 Service 共享。持久化字段为 enabled、backend_lock、lead_millis、sensitivity、app_filter_mode、packages（应用白名单）、blacklist_packages（应用黑名单）、max_hold_minutes、debug_log_enabled、hide_camera_indicator、self_test_passed_at，另有迁移标记。
 
-默认关闭、Auto、8000 ms、Standard、白名单开/空、30 分钟，隐私指示器实验开关默认关闭。lead 允许 0～60000 ms 且为整秒，上限允许 0（无限制）或 1～1440 分钟；非法读取回默认，非法写入拒绝。模型固定为 bundled ML Kit，相机占用时跳过检测，让系统正常熄屏；重复暗光退避也是固定策略，不提供隐藏配置；低电量暂停尚未交付。
+默认关闭、Auto、8000 ms、Standard、仅白名单应用且两份名单为空、30 分钟，隐私指示器实验开关默认关闭。lead 允许 0～60000 ms 且为整秒，上限允许 0（无限制）或 1～1440 分钟；非法读取回默认，非法写入拒绝。生效范围优先由旧版 whitelist_enabled 推导：true 为仅白名单，false 为全部应用，原 packages 原样作为应用白名单。本版写入时删除 whitelist_enabled，使降级回旧版时读到默认的白名单开启而不是扩大生效范围；旧键仍存在说明升级前或降级后由旧版写入，此时以旧键为准，否则读取 app_filter_mode，缺失或非法时为仅白名单。模型固定为 bundled ML Kit，相机占用时跳过检测，让系统正常熄屏；重复暗光退避也是固定策略，不提供隐藏配置；低电量暂停尚未交付。
 
-LegacyMigration 只迁移旧 `gazekeep_config` SharedPreferences 的后端选择，强制 enabled=false、whitelist=true，不迁移历史启用资格；保留旧文件，不读取 XML 文件猜测实时状态。
+LegacyMigration 只迁移旧 `gazekeep_config` SharedPreferences 的后端选择，强制 enabled=false、生效范围为仅白名单应用，不迁移历史启用资格；保留旧文件，不读取 XML 文件猜测实时状态。
 
 Shizuku 的 pendingTimeoutRestore 使用独立 `gazekeep_timeout_restore` SharedPreferences，不是普通用户配置，也不是已实现的 internal_state DataStore。恢复工作不得依赖即将取消的服务 scope；同步持久化与失败语义见[Shizuku 架构](backends/shizuku.md)。
 

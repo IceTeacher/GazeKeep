@@ -43,7 +43,7 @@ class ScreenshotTest {
 
   private val running = readyState().let {
     it.copy(
-      config = it.config.copy(enabled = true, packages = setOf("com.example.reader")),
+      config = it.config.copy(enabled = true, whitelistPackages = setOf("com.example.reader")),
       serviceRunning = true,
       activeBackend = BackendId.Shizuku,
       lastDecision = Attention.Looking,

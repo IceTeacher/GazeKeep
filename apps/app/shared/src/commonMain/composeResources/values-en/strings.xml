@@ -45,12 +45,25 @@
     <string
     name="settings_failure_summary"
   >No face, side view, multiple faces, low light or camera failure will let the screen sleep.</string>
-    <string name="settings_whitelist">Selected apps only</string>
+    <string name="settings_app_scope">App scope</string>
+    <string name="settings_app_scope_all">All apps</string>
+    <string name="settings_app_scope_whitelist">Selected apps only</string>
+    <string name="settings_app_scope_blacklist">All except excluded apps</string>
     <string
-    name="settings_whitelist_summary"
+    name="settings_app_scope_all_summary"
+  >Checks in any foreground app; camera apps are still skipped.</string>
+    <string
+    name="settings_app_scope_whitelist_summary"
   >Keep awake only when the foreground app is confirmed to be in the list.</string>
+    <string
+    name="settings_app_scope_blacklist_summary"
+  >Excluded apps never stay awake, nor does an app that cannot be identified.</string>
     <string name="settings_apps">App list</string>
     <string name="settings_app_count">%1$d apps selected</string>
+    <string name="settings_blacklist_count">%1$d apps excluded</string>
+    <string name="settings_blacklist_empty">No apps excluded</string>
+    <string name="settings_apps_whitelist_title">Choose included apps</string>
+    <string name="settings_apps_blacklist_title">Choose excluded apps</string>
     <string name="settings_search_apps">Search apps or packages</string>
     <string name="settings_apps_load_failed">Could not load the app list. Try again.</string>
     <string name="settings_retry">Retry</string>

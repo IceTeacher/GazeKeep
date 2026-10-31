@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import cn.rainafter.app.gazekeep.core.model.AppFilterMode
 import cn.rainafter.app.gazekeep.ui.contract.AppEntry
 import cn.rainafter.app.gazekeep.ui.contract.AppListLoadState
 import cn.rainafter.app.gazekeep.ui.testing.UiTestSession
@@ -15,8 +16,10 @@ import cn.rainafter.app.gazekeep.ui.testing.text
 import gazekeep.shared.generated.resources.Res
 import gazekeep.shared.generated.resources.nav_settings
 import gazekeep.shared.generated.resources.settings_apps
+import gazekeep.shared.generated.resources.settings_apps_blacklist_title
 import gazekeep.shared.generated.resources.settings_apps_load_failed
 import gazekeep.shared.generated.resources.settings_apps_selected
+import gazekeep.shared.generated.resources.settings_apps_whitelist_title
 import gazekeep.shared.generated.resources.settings_no_apps
 import gazekeep.shared.generated.resources.settings_retry
 import org.junit.Rule
@@ -66,8 +69,31 @@ class AppsUiTest {
   fun selectingAnAppUpdatesScopeAndCount() {
     val app = rule.launchApp(readyState().copy(apps = SAMPLE_APPS, appsLoadState = AppListLoadState.Loaded))
     app.openApps()
+    app.assertShown(text(Res.string.settings_apps_whitelist_title))
     app.click("Reader")
-    assertEquals(setOf("com.example.reader"), app.controller.state.value.config.packages)
+    assertEquals(setOf("com.example.reader"), app.controller.state.value.config.whitelistPackages)
+    app.assertShown(text(Res.string.settings_apps_selected, 1))
+  }
+
+  @Test
+  fun blacklistScopeEditsOnlyTheBlacklist() {
+    val state = readyState().copy(apps = SAMPLE_APPS, appsLoadState = AppListLoadState.Loaded)
+    val app = rule.launchApp(
+      state.copy(
+        config = state.config.copy(
+          appFilterMode = AppFilterMode.Blacklist,
+          whitelistPackages = setOf("com.example.reader"),
+        ),
+      ),
+    )
+    app.openApps()
+    app.assertShown(text(Res.string.settings_apps_blacklist_title))
+    // 白名单中的 Reader 不显示为已排除，计数只来自黑名单。
+    app.assertShown(text(Res.string.settings_apps_selected, 0))
+    app.click("Browser")
+    val config = app.controller.state.value.config
+    assertEquals(setOf("com.example.browser"), config.blacklistPackages)
+    assertEquals(setOf("com.example.reader"), config.whitelistPackages)
     app.assertShown(text(Res.string.settings_apps_selected, 1))
   }
 

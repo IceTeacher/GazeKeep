@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.camera.core.Preview
 import cn.rainafter.app.gazekeep.applist.LaunchableAppsRepository
 import cn.rainafter.app.gazekeep.backend.a11y.GazeA11yService
+import cn.rainafter.app.gazekeep.core.model.AppFilterMode
 import cn.rainafter.app.gazekeep.core.model.GazeConfig
 import cn.rainafter.app.gazekeep.core.policy.EnableRequirement
 import cn.rainafter.app.gazekeep.core.policy.enableRequirement
@@ -203,7 +204,8 @@ class AndroidGazeKeepController(
       RuntimeStatusStore.clearLastDecision()
     }
     updateConfig { it.copy(enabled = enabled) }
-    if (enabled && state.value.config.whitelistEnabled && state.value.config.packages.isEmpty()) {
+    val config = state.value.config
+    if (enabled && config.appFilterMode == AppFilterMode.Whitelist && config.whitelistPackages.isEmpty()) {
       mutableState.update { it.copy(notice = UiNotice.EmptyScope) }
     }
   }
