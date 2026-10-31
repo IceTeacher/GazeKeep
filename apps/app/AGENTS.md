@@ -35,11 +35,10 @@
 
 ## 测试与验收
 
-- 主机测试验证纯规则、reducer、解析、协议、配置和隔离适配；页面验收验证导航、自检、权限和生命周期；完整旅程验证真实相机、ROM、三后端与系统超时恢复。
-- 按任务加载 [testing-unit](../../.agents/skills/testing-unit/SKILL.md)、[testing-ui](../../.agents/skills/testing-ui/SKILL.md) 或 [testing-e2e](../../.agents/skills/testing-e2e/SKILL.md)。主机单元测试使用 kotlin.test 与 JUnit4，界面与截图使用 shared 的 Robolectric、Compose UI 测试与 Roborazzi，实机套件使用 e2e 自插桩模块的 UiAutomator。
-- 禁止弱化默认熄屏断言。fake、主机通过和“不 Extend”不能证明硬件兼容、Hold 锁释放或实际熄屏；`NO-SOURCE`、缺设备与旧版本结果都不能写成当前验收通过，移动目录不能视为实机验收。
-- 在本目录执行 `./gradlew`，或从仓库根执行 `pnpm build`、`pnpm lint`、`pnpm test`。完整主机门禁使用 `pnpm --filter @gazekeep/app verify`（同时编译实机测试 APK）；实机套件使用 `pnpm --filter @gazekeep/app test:device`，运行前核对设备操作授权；相关验证以[测试规范](../../docs/development/testing.md)为准。Turbo 不缓存 Android 任务，Gradle 保留自身缓存。
-- 该版本的实测系统、后端/框架版本与实际命中候选记录在[任务清单](../../docs/plans/todo.md)，不能从构建或主机测试推断设备兼容性；发布说明只含更新日志与启用步骤。
+- 模块测试与真实设备验收按[测试规范](../../docs/development/testing.md)分层；本文件只补充 Android 工程入口和产品安全承诺，不重复测试矩阵。
+- 在本目录执行 `./gradlew`，或从仓库根执行 `pnpm build`、`pnpm lint`、`pnpm test`。完整主机门禁使用 `pnpm --filter @gazekeep/app verify`；实机套件使用 `pnpm --filter @gazekeep/app test:device`，运行前核对设备操作授权。
+- 主机通过、fake 和“不 Extend”不能证明硬件兼容、Hold 锁释放或实际熄屏；`NO-SOURCE`、缺设备与旧版本结果不能写成当前验收通过。
+- 当前版本的实测系统、后端/框架版本和实际命中候选记录在[任务清单](../../docs/plans/todo.md)；发布说明只含更新日志与启用步骤。
 
 ## 安全与执行边界
 

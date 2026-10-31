@@ -19,7 +19,7 @@
 
 ## 工具链
 
-仓库使用 pnpm workspace 与 Turborepo：Android 完整工程在 `apps/app`，官网在 `apps/web`，仓库工具在 `scripts/repo-tools`。官网使用 Astro 静态构建，构建与验证入口见[官网 README](../../apps/web/README.md)。工程职责见[架构总览](../architecture/overview.md)。
+仓库使用 pnpm workspace 与 Turborepo：Android 完整工程在 `apps/app`，官网在 `apps/web`，仓库工具在 `scripts/repo-tools`。Android 工程入口见 [apps/app README](../../apps/app/README.md)，官网使用 Astro 静态构建，构建与验证入口见[官网 README](../../apps/web/README.md)。工程职责见[架构总览](../architecture/overview.md)。
 
 Android 使用 Gradle wrapper、JDK 21（编译目标 JVM 11）和 AGP 内置 Kotlin。当前 Gradle 9.5.1、AGP 9.1.1、Kotlin 2.4.20，compile/targetSdk 37、minSdk 26；wrapper 与 Android 版本目录是真源，不在模块脚本写版本。
 

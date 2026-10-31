@@ -1,6 +1,6 @@
 # 安装与使用
 
-当前请从源码构建 Debug APK，见[开发规范](../development/contributing.md)。minSdk 26 只表示可安装下限，不代表所有系统已验收。1.1.0（2）已获模拟器与 Xiaomi 12 Pro 指定场景的用户人工通过确认，完整异常矩阵仍待补齐，范围见[任务清单](../plans/todo.md)。
+当前请从源码构建 Debug APK，见[开发规范](../development/contributing.md)。minSdk 26 只表示可安装下限，不代表所有系统已验收；当前版本的支持范围、实测环境和未执行项见[任务清单](../plans/todo.md)。
 
 ## 首次启用
 
