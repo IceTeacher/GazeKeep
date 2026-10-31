@@ -1,7 +1,10 @@
 package cn.rainafter.app.gazekeep.backend.a11y
 
 import android.accessibilityservice.AccessibilityService
+import android.content.ComponentName
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.view.accessibility.AccessibilityEvent
 import cn.rainafter.app.gazekeep.core.backend.KeepAwakeBackend
 import kotlinx.coroutines.CoroutineScope
@@ -32,9 +35,11 @@ class GazeA11yService : AccessibilityService() {
     private set
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
-  @Volatile
-  var foregroundPackage: String? = null
-    private set
+  private val activityClasses = HashMap<String, Boolean>()
+  private val foreground = A11yForeground(::isActivity)
+
+  val foregroundPackage: String?
+    get() = foreground.packageName
 
   override fun onServiceConnected() {
     super.onServiceConnected()
@@ -48,10 +53,10 @@ class GazeA11yService : AccessibilityService() {
   }
 
   override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-    // 只使用事件类型和包名作为前台应用线索，不读取 event.source 或文本。
+    // 只使用事件类型、包名和类名作为前台应用线索，不读取 event.source 或文本。
     when (event?.eventType) {
       AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
-        foregroundPackage = event.packageName?.toString()
+        foreground.onWindowStateChanged(event.packageName?.toString(), event.className?.toString())
       }
 
       AccessibilityEvent.TYPE_TOUCH_INTERACTION_START -> {
@@ -63,6 +68,23 @@ class GazeA11yService : AccessibilityService() {
   }
 
   override fun onInterrupt() = Unit
+
+  // 事件在主线程串行送达；不可见的包（无启动器入口）解析失败，按非 Activity 处理。
+  private fun isActivity(packageName: String, className: String): Boolean =
+    activityClasses.getOrPut("$packageName/$className") {
+      val component = ComponentName(packageName, className)
+      try {
+        if (Build.VERSION.SDK_INT >= 33) {
+          packageManager.getActivityInfo(component, PackageManager.ComponentInfoFlags.of(0))
+        } else {
+          @Suppress("DEPRECATION")
+          packageManager.getActivityInfo(component, 0)
+        }
+        true
+      } catch (_: PackageManager.NameNotFoundException) {
+        false
+      }
+    }
 
   override fun onUnbind(intent: android.content.Intent?): Boolean {
     disconnect()
