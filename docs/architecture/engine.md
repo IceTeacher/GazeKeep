@@ -22,7 +22,7 @@ DefaultEngineEffectRunner 的门控、采集与 Extend 归会话所有，取消�
 
 ## 门控、来源与日志
 
-GatePolicy 保持纯 Kotlin；AndroidGateProbe 拥有传感器和相机可用性订阅。前台来源按后端选择：无障碍事件、Shizuku shell 查询、LSPosed Handler 查询。未知前台不通过白名单，不借用旧后端的缓存。传感器及相机边界见[采集架构](capture-classification.md)。
+GatePolicy 保持纯 Kotlin；AndroidGateProbe 拥有传感器和相机可用性订阅。前台来源按后端选择：无障碍事件、Shizuku shell 查询、LSPosed Handler 查询。生效范围在环境门控（通话、相机占用、口袋、倒扣、暗光）之前判定：仅白名单应用要求前台已知且在应用白名单内，否则 ForegroundUnknown 或 NotWhitelisted；排除黑名单应用同样要求前台已知（无法确认不在名单内时不放行），命中应用黑名单时 Blacklisted；全部应用不要求前台已知。只要前台已知，三种范围都跳过内置相机应用（CameraSensitiveApp）。未知前台不借用旧后端的缓存。传感器及相机边界见[采集架构](capture-classification.md)。
 
 门控跳过后记录该轮熄屏截止时间；同一截止周期内（新截止时间相差不足 1 s 且无外部活动）的 deadline 更新只刷新前台包名，不重新门控，避免锁屏亮屏时系统持续微调截止时间造成反复 Locked 跳过。真实用户活动、息屏或新的截止周期清除该记录。
 

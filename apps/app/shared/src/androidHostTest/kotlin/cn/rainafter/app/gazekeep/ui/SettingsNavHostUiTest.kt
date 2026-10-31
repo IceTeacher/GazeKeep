@@ -19,7 +19,7 @@ import gazekeep.shared.generated.resources.Res
 import gazekeep.shared.generated.resources.app_title
 import gazekeep.shared.generated.resources.nav_home
 import gazekeep.shared.generated.resources.nav_settings
-import gazekeep.shared.generated.resources.settings_apps
+import gazekeep.shared.generated.resources.settings_apps_whitelist_title
 import gazekeep.shared.generated.resources.settings_backend
 import gazekeep.shared.generated.resources.settings_backend_order
 import gazekeep.shared.generated.resources.settings_self_test
@@ -76,7 +76,7 @@ class SettingsNavHostUiTest {
     show { backStack.show(SettingsScreen.Apps, animate = false) }
     rule.mainClock.advanceTimeBy(64)
     // 父页面在绘制回执后揭开遮罩，此时不能还停留在 450ms 转场的中途。
-    app.assertShown(text(Res.string.settings_apps))
+    app.assertShown(text(Res.string.settings_apps_whitelist_title))
     app.assertNotShown(text(Res.string.app_title))
     rule.mainClock.autoAdvance = true
   }

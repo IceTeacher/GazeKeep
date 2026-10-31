@@ -59,7 +59,7 @@ pnpm --filter web test:browser                   # 本机调试，截图可能�
 
 - web 测试目录镜像源码：`tests/src/` 对应 `src/`，`tests/scripts/` 对应构建脚本 `scripts/`，测试文件与被测文件同名（可带 `.browser` 后缀）；跨模块的整页旅程放 `tests/scenarios/`，结构守卫放 `tests/architecture/`，受控数据放 `tests/fixtures/`，共享挂载与浏览器命令放 `tests/_support/`。文件名以 `.browser.test.ts` 结尾的进入 `browser` project，其余 `.test.ts` 进入 `unit` project。`tests/architecture/test-layout.test.ts` 校验顶层目录、镜像映射、两个 project 互斥且都有测试、相对导入不越出 tests 与被测源码，并禁止源码目录中出现测试文件。
 - web：Vitest `browser` project 在无头 Chromium 中运行。测试前由独立 Astro 开发服务渲染中英真实页面，浏览器侧注入 body 后调用 `initWebsite()`，以 `pagehide` 走页面自身的清理路径；KMP 内屏由 `tests/fixtures/showcase.html` 按真实桥接协议模拟就绪、绘制与失败，不依赖 KMP 构建。截图基线位于 `apps/web/tests/scenarios/__screenshots__/`，按浏览器与平台命名，只覆盖页面排版并隐藏 WebGL 机身。页面使用系统字体栈，渲染结果取决于宿主字体（例如本机命中微软雅黑），因此基线只在与锁定 Playwright 同版本的官方镜像 `mcr.microsoft.com/playwright:v<版本>-noble` 中录制和校验；`test:browser:docker` 以当前用户、按宿主机原路径挂载仓库运行，CI 使用同一入口。有意改版时在容器内用 `--update` 重录，逐张核对后再提交；Playwright 升级会切换镜像，需要同时重录基线。失败截图写入未提交的 `.vitest/`。
-- Android：`:shared:testAndroidHostTest`（已含在 `pnpm --filter @gazekeep/app test`）用 Robolectric 4.17 原生图形模式运行真实 `App` 入口，controller 与 PlatformActions 为测试实现，统一 392×851dp、xhdpi。交互用例覆盖返回栈、自检进入/离开与预览释放、Unknown 不推进、Looking→Away 完成、首页启用与结果语言、应用列表搜索/选择/失败重试、保亮上限无限制、应用内语言默认跟随系统、切换经 PlatformActions 及宿主控制时隐藏、关于页项目仓库与官网链接、关于页滚动时返回按钮固定和中英隐私三句；滚动容器内的点击使用语义 `OnClick`，因底部导航覆盖列表。Roborazzi 1.76.0 截图基线位于 `apps/app/shared/src/androidHostTest/screenshots/`（12 张，覆盖明暗、中英、1.3 倍字体、横屏与设置页尾的语言入口），默认校验，有意改版时以 `./gradlew :shared:testAndroidHostTest -Pgazekeep.recordScreenshots=true` 重新录制并逐张核对；对比图写入 `shared/build/outputs/roborazzi/`。Robolectric 渲染不代表真实 ROM、厂商字体或系统栏，页面矩阵仍按[页面场景](#分类与页面场景)实机验收。
+- Android：`:shared:testAndroidHostTest`（已含在 `pnpm --filter @gazekeep/app test`）用 Robolectric 4.17 原生图形模式运行真实 `App` 入口，controller 与 PlatformActions 为测试实现，统一 392×851dp、xhdpi。交互用例覆盖返回栈、自检进入/离开与预览释放、Unknown 不推进、Looking→Away 完成、首页启用与结果语言、应用列表搜索/选择/失败重试、系统应用默认隐藏与偏好保留、已选系统应用保持可见、批量选中搜索结果与清空确认、生效范围切换与黑名单只改写黑名单、保亮上限无限制、应用内语言默认跟随系统、切换经 PlatformActions 及宿主控制时隐藏、关于页项目仓库与官网链接、关于页滚动时返回按钮固定和中英隐私三句；滚动容器内的点击使用语义 `OnClick`，因底部导航覆盖列表。Roborazzi 1.76.0 截图基线位于 `apps/app/shared/src/androidHostTest/screenshots/`（12 张，覆盖明暗、中英、1.3 倍字体、横屏与设置页尾的语言入口），默认校验，有意改版时以 `./gradlew :shared:testAndroidHostTest -Pgazekeep.recordScreenshots=true` 重新录制并逐张核对；对比图写入 `shared/build/outputs/roborazzi/`。Robolectric 渲染不代表真实 ROM、厂商字体或系统栏，页面矩阵仍按[页面场景](#分类与页面场景)实机验收。
 
 ## 实机入口
 
@@ -67,7 +67,7 @@ pnpm --filter web test:browser                   # 本机调试，截图可能�
 pnpm --filter @gazekeep/app test:device  # 安装测试 APK 并在已连接设备上运行，先核对授权
 ```
 
-`e2e` 为 `com.android.test` 自插桩模块（`targetProjectPath = :android`），测试运行在独立进程，撤销权限或强停被测应用不会连带结束 instrumentation；使用 androidx.test 1.7.0 与 UiAutomator 2.4.0，按资源键读取 shared 默认中文文案（打包为测试 APK 资源），并用按应用语言把被测应用切到 zh-CN（需要 Android 13+，结束后恢复）。当前覆盖：单次最长保亮在强制停止后冷启动回读、撤销相机权限后自检只提供授权入口且拒绝后仍未授权、后端页无障碍就绪状态与系统设置一致、启用→息屏/亮屏→关闭后系统熄屏超时回到原值。测试只改动自身登记的设置并在结束时恢复；前提不满足（非预设保亮值、服务已开启、未完成自检、无就绪后端，或息屏旅程遇到安全锁屏）时以 assumption 跳过，跳过和未运行都按未执行记录。需要真人注视、闭眼、多脸、暗光、口袋或相机抢占的场景仍按[实机矩阵](#实机完整矩阵)人工执行。实机套件不进入默认 `pnpm test`；`verify` 只编译测试 APK，编译通过不代表实机通过。`test:device` 以保留安装方式运行，结束后不卸载被测应用；它会把被测应用替换为当前 Debug 构建，签名不同的已安装版本需先由用户决定处置。
+`e2e` 为 `com.android.test` 自插桩模块（`targetProjectPath = :android`），测试运行在独立进程，撤销权限或强停被测应用不会连带结束 instrumentation；使用 androidx.test 1.7.0 与 UiAutomator 2.4.0，按资源键读取 shared 默认中文文案（打包为测试 APK 资源），并用按应用语言把被测应用切到 zh-CN（需要 Android 13+，结束后恢复）。当前覆盖：单次最长保亮在强制停止后冷启动回读、切到排除黑名单应用并切换被测应用自身的黑名单勾选后冷启动回读、撤销相机权限后自检只提供授权入口且拒绝后仍未授权、后端页无障碍就绪状态与系统设置一致、启用→息屏/亮屏→关闭后系统熄屏超时回到原值。测试只改动自身登记的设置并在结束时恢复；前提不满足（非预设保亮值、测试前已是排除黑名单应用范围、服务已开启、未完成自检、无就绪后端，或息屏旅程遇到安全锁屏）时以 assumption 跳过，跳过和未运行都按未执行记录。需要真人注视、闭眼、多脸、暗光、口袋或相机抢占的场景仍按[实机矩阵](#实机完整矩阵)人工执行。实机套件不进入默认 `pnpm test`；`verify` 只编译测试 APK，编译通过不代表实机通过。`test:device` 以保留安装方式运行，结束后不卸载被测应用；它会把被测应用替换为当前 Debug 构建，签名不同的已安装版本需先由用户决定处置。
 
 ## 七条必守不变量
 
@@ -83,24 +83,25 @@ pnpm --filter @gazekeep/app test:device  # 安装测试 APK 并在已连接设�
 
 ## 实机完整矩阵
 
-| 场景                             | 期望                                        |
-| -------------------------------- | ------------------------------------------- |
-| 白名单内正视超过超时             | 可信结果延后一次超时，连续周期不先降亮      |
-| 转头/离开                        | 本轮或下一轮正常熄屏                        |
-| 闭眼 >2 秒（标准灵敏度）         | 不保亮；宽松模式按设计不检查眼睛            |
-| 第二张脸、极暗                   | Unknown，不保亮，不持续连拍                 |
-| 口袋、朝下                       | 门控休眠，正常熄屏；未落地输入单列缺口      |
-| 系统相机/扫码抢占                | 立即让出，不崩溃                            |
-| 通话、视频自身保亮               | 不抢系统逻辑                                |
-| 连续注视达到上限                 | 强制熄一次，尤其检查 Hold overlay 释放      |
-| 划掉任务、省电杀服务             | 可观察异常通知，原超时熄屏                  |
-| LSPosed 错误签名/禁作用域/旧 seq | 正常开机，未就绪或 STALE，不保亮            |
-| 拒绝/撤销相机权限                | 无法开启或中止，释放资源并说明原因          |
-| 无障碍关闭、后端切换/掉线        | 无 overlay 残留，切换期不 Extend，降级/通知 |
-| Shizuku 重启/重连/息屏           | 原系统超时恢复，记录只在恢复成功后清理      |
-| Shizuku 临时超时退路（Debug）    | 原值+60 s，熄屏/关闭/重连/重启后写回原值    |
-| 页面导航/返回/字体/明暗/旋转     | 状态、可访问文字和布局可用                  |
-| 自检离页/后台、快速开关/冷启动   | 相机与任务释放，配置回读，关闭不意外重启    |
+| 场景                             | 期望                                          |
+| -------------------------------- | --------------------------------------------- |
+| 白名单内正视超过超时             | 可信结果延后一次超时，连续周期不先降亮        |
+| 黑名单范围：名单内/外应用        | 名单内门控跳过（Blacklisted）；名单外正常检测 |
+| 转头/离开                        | 本轮或下一轮正常熄屏                          |
+| 闭眼 >2 秒（标准灵敏度）         | 不保亮；宽松模式按设计不检查眼睛              |
+| 第二张脸、极暗                   | Unknown，不保亮，不持续连拍                   |
+| 口袋、朝下                       | 门控休眠，正常熄屏；未落地输入单列缺口        |
+| 系统相机/扫码抢占                | 立即让出，不崩溃                              |
+| 通话、视频自身保亮               | 不抢系统逻辑                                  |
+| 连续注视达到上限                 | 强制熄一次，尤其检查 Hold overlay 释放        |
+| 划掉任务、省电杀服务             | 可观察异常通知，原超时熄屏                    |
+| LSPosed 错误签名/禁作用域/旧 seq | 正常开机，未就绪或 STALE，不保亮              |
+| 拒绝/撤销相机权限                | 无法开启或中止，释放资源并说明原因            |
+| 无障碍关闭、后端切换/掉线        | 无 overlay 残留，切换期不 Extend，降级/通知   |
+| Shizuku 重启/重连/息屏           | 原系统超时恢复，记录只在恢复成功后清理        |
+| Shizuku 临时超时退路（Debug）    | 原值+60 s，熄屏/关闭/重连/重启后写回原值      |
+| 页面导航/返回/字体/明暗/旋转     | 状态、可访问文字和布局可用                    |
+| 自检离页/后台、快速开关/冷启动   | 相机与任务释放，配置回读，关闭不意外重启      |
 
 按 Android 版本、ROM、相机与后端能力选择设备，不以单一机型代表兼容范围。Shizuku 临时超时退路在 Debug 包上以 `setprop debug.gazekeep.deny_user_activity 1` 触发，结束后执行 `setprop debug.gazekeep.deny_user_activity 0` 并确认系统超时与恢复记录。对不同系统超时分别验证降亮前检测、连续周期与停止注视后的熄屏。
 

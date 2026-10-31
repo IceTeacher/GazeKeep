@@ -102,7 +102,10 @@ private object DemoController : GazeKeepController {
   val baseline =
     ControllerState(
       loaded = true,
-      config = GazeConfig(enabled = true, packages = setOf("cn.rainafter.app.gazekeep", "org.lsposed.manager")),
+      config = GazeConfig(
+        enabled = true,
+        whitelistPackages = setOf("cn.rainafter.app.gazekeep", "org.lsposed.manager"),
+      ),
       selfTestPassed = true, cameraGranted = true,
       backends = BackendId.entries.associateWith { Readiness.Ready },
       activeBackend = BackendId.Lsposed, serviceRunning = true,
@@ -149,6 +152,8 @@ private object DemoActions : PlatformActions {
   // 演示语言由官网桥接控制，设置页不显示应用内语言切换。
   override fun appLanguage(): AppLanguage? = null
   override fun setAppLanguage(language: AppLanguage) {}
+  override fun showSystemApps(): Boolean = false
+  override fun setShowSystemApps(show: Boolean) {}
   override fun hasRomBackgroundPolicy(): Boolean = false
   override fun openRomBackgroundPolicy() {}
 

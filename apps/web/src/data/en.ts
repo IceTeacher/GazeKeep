@@ -73,7 +73,7 @@ export const en = {
   },
   whitelist: {
     title: "Give your focus\na place to stay.",
-    text: "Choose your reader, browser and document apps. GazeKeep acts only when the foreground app is confirmed in your list. Your list starts empty after installation; the phone demo uses a few open-source apps to show selecting and searching.",
+    text: "Choose your reader, browser and document apps. By default GazeKeep acts only in apps on your list, which starts empty after installation; or exclude apps such as video, camera and navigation instead. If the foreground app cannot be confirmed, the screen sleeps. The phone demo uses a few open-source apps to show selecting and searching.",
   },
   settings: {
     title: "Every detail,\nthe way you like it.",
@@ -108,7 +108,10 @@ export const en = {
         title: "Connect and check",
         text: "Set up a backend, allow the camera, then complete both self-test steps: looking and looking away.",
       },
-      { title: "Choose apps and enable", text: "Select your apps, set a protection limit and turn on GazeKeep." },
+      {
+        title: "Choose apps and enable",
+        text: "Choose an app scope and select apps, set a protection limit, then turn on GazeKeep.",
+      },
     ],
   },
   faq: {
@@ -137,7 +140,7 @@ export const en = {
       {
         question: "Why does the screen still sleep in some apps?",
         answer:
-          "Only selected apps are enabled by default. Check your app list, self-test and backend status. Uncertain detection or reaching the protection limit will also let the screen sleep.",
+          "Only selected apps are enabled by default, and excluded apps never stay awake. Check your app scope and list, self-test and backend status. Uncertain detection or reaching the protection limit will also let the screen sleep.",
       },
     ],
   },

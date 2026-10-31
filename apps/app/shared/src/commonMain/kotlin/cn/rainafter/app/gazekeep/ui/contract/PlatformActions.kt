@@ -18,6 +18,10 @@ interface PlatformActions {
   fun appLanguage(): AppLanguage?
   fun setAppLanguage(language: AppLanguage)
 
+  /** 应用列表是否显示系统应用；只是列表显示偏好，跨启动保留，不影响生效范围。 */
+  fun showSystemApps(): Boolean
+  fun setShowSystemApps(show: Boolean)
+
   /** ROM 是否提供需用户放开的后台省电策略入口（如 HyperOS）；false 时设置页不显示该项。 */
   fun hasRomBackgroundPolicy(): Boolean
   fun openRomBackgroundPolicy()

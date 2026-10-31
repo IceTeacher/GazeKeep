@@ -27,15 +27,15 @@ With GazeKeep, you can confidently lower your system display timeout to an ultra
 - **Brief On-Demand Checks, Zero Distraction**: The front camera is never kept continuously active in the background. It samples only 1–3 frames right before system dimming or screen timeout, releasing hardware immediately upon decision. Inference and facial landmark checks run 100% offline on-device. Normal keep-awake operation is completely silent with no popups; notifications appear only upon service error or backend disconnection.
 - **Never Stay Awake Blindly**: Under low-light conditions, sharp side angles, motion blur ("unclear detection"), multiple faces, or when the camera is occupied by system camera or barcode scanning apps, GazeKeep decisively yields control to let the screen sleep normally. Furthermore, it features a built-in single-session maximum keep-awake limit (default 30 minutes, customizable or can be set to unlimited), releasing keep-awake capability once the limit is reached to force a screen-off.
 - **Three Backends for Diverse Device Environments**: Tailored for varying device conditions and setups, GazeKeep offers three operational backends: **LSPosed** (system framework-level integration), **Shizuku** (non-root ADB / wireless debugging authorization), and **Accessibility Service** (zero-barrier, out-of-the-box). It supports automatic priority-based selection or manual pinning.
-- **App Whitelist & Interactive Self-Test**: Enabled by default, whitelist filtering ensures keep-awake only triggers when selected reading or browsing apps are in the foreground, avoiding global indiscriminate activation. It includes an interactive 2-step camera self-test wizard, a clean and restrained settings UI, adjustable lead time and sensitivity, and optional local diagnostic logging.
+- **Whitelist / Blacklist App Scope & Interactive Self-Test**: By default, keep-awake only triggers when selected reading or browsing apps are in the foreground, avoiding global indiscriminate activation; you can instead switch to "All except excluded apps" and exclude only apps such as video players, cameras or navigation. It includes an interactive 2-step camera self-test wizard, a clean and restrained settings UI, adjustable lead time and sensitivity, and optional local diagnostic logging.
 
 ## Screenshots
 
 |                                                   Home Status                                                   |                                                  Settings                                                  |
 | :-------------------------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------: |
 |     <img src="docs/assets/screenshot-home-en.png" width="320" alt="Home status and environment overview" />     | <img src="docs/assets/screenshot-settings-en.png" width="320" alt="Detection and protection parameters" /> |
-|                                                  **Backends**                                                   |                                             **App Whitelist**                                              |
-| <img src="docs/assets/screenshot-backend-en.png" width="320" alt="Three working backends and auto selection" /> |        <img src="docs/assets/screenshot-apps-en.png" width="320" alt="App whitelist management" />         |
+|                                                  **Backends**                                                   |                                                **App List**                                                |
+| <img src="docs/assets/screenshot-backend-en.png" width="320" alt="Three working backends and auto selection" /> |   <img src="docs/assets/screenshot-apps-en.png" width="320" alt="Included and excluded app selection" />   |
 
 ## Privacy & Security
 
@@ -62,7 +62,7 @@ Visit [GitHub Releases](https://github.com/IceTeacher/GazeKeep/releases/latest) 
 
 1. **Download, Install & Authorize**: Visit [GitHub Releases](https://github.com/IceTeacher/GazeKeep/releases/latest) to download and install the appropriate APK architecture. Grant camera permission (notification permission is recommended on Android 13+ for error alerts).
 2. **2-Step Camera Self-Test**: Navigate to "Camera Self-Test" in the app: look at the screen to pass step 1 (recognized as "Looking at the screen"), then turn your head or look away to pass step 2 (recognized as "Not looking at the screen").
-3. **Configure App Whitelist**: Keep app whitelist enabled and select reading, browsing, or cooking apps where gaze-keep should be active.
+3. **Configure App Scope**: Keep the default "Selected apps only" scope and select reading, browsing, or cooking apps where gaze-keep should be active, or switch to "All except excluded apps" and select apps that should never stay awake.
 4. **Confirm Backend & Enable**: Ensure at least one backend is ready, then switch on the master keep-awake toggle on the home page.
 
 > On Xiaomi/HyperOS, set battery saver to "No restrictions" via "Background activity" in Settings, otherwise keep-awake may stop after using the system camera; reopen the app once after changing it.

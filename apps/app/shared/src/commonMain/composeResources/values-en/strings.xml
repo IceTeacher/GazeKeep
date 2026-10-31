@@ -36,7 +36,7 @@
     <string name="settings_lead_5">5 seconds</string>
     <string name="settings_lead_8">8 seconds</string>
     <string name="settings_custom">Custom</string>
-    <string name="settings_lead_custom_value">Custom (%1$d seconds)</string>
+    <string name="settings_lead_custom_value">Custom (%1$d s)</string>
     <string name="settings_lead_custom_hint">Enter an integer from 0 to 60 seconds</string>
     <string name="settings_sensitivity">Sensitivity</string>
     <string name="settings_standard">Standard: facing forward, eyes open</string>
@@ -45,16 +45,42 @@
     <string
     name="settings_failure_summary"
   >No face, side view, multiple faces, low light or camera failure will let the screen sleep.</string>
-    <string name="settings_whitelist">Selected apps only</string>
+    <string name="settings_app_scope">App scope</string>
+    <string name="settings_app_scope_all">All apps</string>
+    <string name="settings_app_scope_whitelist">Selected apps only</string>
+    <string name="settings_app_scope_blacklist">All except excluded apps</string>
     <string
-    name="settings_whitelist_summary"
+    name="settings_app_scope_all_summary"
+  >Checks in any foreground app; camera apps are still skipped.</string>
+    <string
+    name="settings_app_scope_whitelist_summary"
   >Keep awake only when the foreground app is confirmed to be in the list.</string>
+    <string
+    name="settings_app_scope_blacklist_summary"
+  >Excluded apps never stay awake, nor does an app that cannot be identified.</string>
     <string name="settings_apps">App list</string>
-    <string name="settings_app_count">%1$d apps selected</string>
+    <string name="settings_app_count">Selected: %1$d</string>
+    <string name="settings_blacklist_count">Excluded: %1$d</string>
+    <string name="settings_blacklist_empty">No apps excluded</string>
+    <string name="settings_apps_whitelist_title">Choose included apps</string>
+    <string name="settings_apps_blacklist_title">Choose excluded apps</string>
     <string name="settings_search_apps">Search apps or packages</string>
     <string name="settings_apps_load_failed">Could not load the app list. Try again.</string>
     <string name="settings_retry">Retry</string>
     <string name="settings_no_apps">No matching launcher apps</string>
+    <string name="settings_apps_more">More options</string>
+    <string name="settings_apps_show_system">Show system apps</string>
+    <string name="settings_apps_hidden_system">Matching system apps hidden: %1$d</string>
+    <string name="settings_apps_select_matches">Select search results</string>
+    <string name="settings_apps_clear">Clear selection</string>
+    <string name="settings_apps_clear_title">Clear selected apps?</string>
+    <string
+    name="settings_apps_clear_whitelist_message"
+  >Removes all included apps (%1$d). The screen will then stay awake in no app.</string>
+    <string
+    name="settings_apps_clear_blacklist_message"
+  >Removes all excluded apps (%1$d). Every app will then be checked, except camera apps.</string>
+    <string name="settings_apps_clear_confirm">Clear</string>
     <string name="settings_max_hold">Maximum keep-awake time</string>
     <string
     name="settings_max_hold_summary"
@@ -62,7 +88,7 @@
     <string name="settings_hold_10">10 minutes</string>
     <string name="settings_hold_30">30 minutes</string>
     <string name="settings_hold_60">60 minutes</string>
-    <string name="settings_hold_custom_value">Custom (%1$d minutes)</string>
+    <string name="settings_hold_custom_value">Custom (%1$d min)</string>
     <string name="settings_hold_custom_hint">Enter an integer from 1 to 1440 minutes</string>
     <string name="settings_hold_unlimited">Unlimited</string>
     <string name="settings_dialog_cancel">Cancel</string>
@@ -138,7 +164,7 @@
     <string name="settings_ready">Ready</string>
     <string name="settings_not_ready">Not ready. Check permissions and service status</string>
     <string name="settings_group_security">Security and privacy</string>
-    <string name="settings_apps_selected">%1$d apps selected</string>
+    <string name="settings_apps_selected">Selected: %1$d</string>
     <string name="settings_search_clear">Clear</string>
     <string name="settings_notice_title">Action needed</string>
     <string name="settings_auto_current">Automatic (current: %1$s)</string>

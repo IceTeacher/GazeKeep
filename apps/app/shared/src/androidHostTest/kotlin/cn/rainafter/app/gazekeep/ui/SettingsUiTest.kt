@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import cn.rainafter.app.gazekeep.core.model.AppFilterMode
 import cn.rainafter.app.gazekeep.ui.contract.AppLanguage
 import cn.rainafter.app.gazekeep.ui.testing.UiTestSession
 import cn.rainafter.app.gazekeep.ui.testing.launchApp
@@ -21,8 +22,16 @@ import gazekeep.shared.generated.resources.about_github
 import gazekeep.shared.generated.resources.about_website
 import gazekeep.shared.generated.resources.nav_settings
 import gazekeep.shared.generated.resources.settings_about
+import gazekeep.shared.generated.resources.settings_app_count
+import gazekeep.shared.generated.resources.settings_app_scope
+import gazekeep.shared.generated.resources.settings_app_scope_all
+import gazekeep.shared.generated.resources.settings_app_scope_blacklist
+import gazekeep.shared.generated.resources.settings_app_scope_blacklist_summary
+import gazekeep.shared.generated.resources.settings_app_scope_whitelist
+import gazekeep.shared.generated.resources.settings_apps
 import gazekeep.shared.generated.resources.settings_back
 import gazekeep.shared.generated.resources.settings_background_policy
+import gazekeep.shared.generated.resources.settings_blacklist_empty
 import gazekeep.shared.generated.resources.settings_hold_10
 import gazekeep.shared.generated.resources.settings_hold_unlimited
 import gazekeep.shared.generated.resources.settings_language
@@ -60,6 +69,27 @@ class SettingsUiTest {
     assertEquals(0, app.controller.state.value.config.maxHoldMinutes)
     app.choose(text(Res.string.settings_max_hold), text(Res.string.settings_hold_10))
     assertEquals(10, app.controller.state.value.config.maxHoldMinutes)
+  }
+
+  @Test
+  fun appScopeSwitchesModeAndShowsListEntryOnlyWhenScoped() {
+    val app = rule.launchApp(readyState())
+    app.openTab(text(Res.string.nav_settings))
+    app.assertShown(text(Res.string.settings_app_scope_whitelist))
+    app.assertShown(text(Res.string.settings_app_count, 0))
+
+    app.choose(text(Res.string.settings_app_scope), text(Res.string.settings_app_scope_blacklist))
+    assertEquals(AppFilterMode.Blacklist, app.controller.state.value.config.appFilterMode)
+    app.assertShown(text(Res.string.settings_app_scope_blacklist_summary))
+    app.assertShown(text(Res.string.settings_blacklist_empty))
+
+    app.choose(text(Res.string.settings_app_scope), text(Res.string.settings_app_scope_all))
+    assertEquals(AppFilterMode.All, app.controller.state.value.config.appFilterMode)
+    app.assertNotShown(text(Res.string.settings_apps))
+
+    app.choose(text(Res.string.settings_app_scope), text(Res.string.settings_app_scope_whitelist))
+    assertEquals(AppFilterMode.Whitelist, app.controller.state.value.config.appFilterMode)
+    app.assertShown(text(Res.string.settings_apps))
   }
 
   @Test

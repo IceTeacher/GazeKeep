@@ -22,7 +22,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import cn.rainafter.app.gazekeep.core.model.AppFilterMode
 import cn.rainafter.app.gazekeep.core.model.Sensitivity
+import cn.rainafter.app.gazekeep.core.model.scopedPackages
 import cn.rainafter.app.gazekeep.core.policy.canConfigureHideCameraIndicator
 import cn.rainafter.app.gazekeep.ui.components.AppScaffold
 import cn.rainafter.app.gazekeep.ui.components.ExperimentalSwitchPreference
@@ -40,10 +42,19 @@ import gazekeep.shared.generated.resources.Res
 import gazekeep.shared.generated.resources.settings_about
 import gazekeep.shared.generated.resources.settings_about_summary
 import gazekeep.shared.generated.resources.settings_app_count
+import gazekeep.shared.generated.resources.settings_app_scope
+import gazekeep.shared.generated.resources.settings_app_scope_all
+import gazekeep.shared.generated.resources.settings_app_scope_all_summary
+import gazekeep.shared.generated.resources.settings_app_scope_blacklist
+import gazekeep.shared.generated.resources.settings_app_scope_blacklist_summary
+import gazekeep.shared.generated.resources.settings_app_scope_whitelist
+import gazekeep.shared.generated.resources.settings_app_scope_whitelist_summary
 import gazekeep.shared.generated.resources.settings_apps
 import gazekeep.shared.generated.resources.settings_backend
 import gazekeep.shared.generated.resources.settings_background_policy
 import gazekeep.shared.generated.resources.settings_background_policy_summary
+import gazekeep.shared.generated.resources.settings_blacklist_count
+import gazekeep.shared.generated.resources.settings_blacklist_empty
 import gazekeep.shared.generated.resources.settings_custom
 import gazekeep.shared.generated.resources.settings_debug_log
 import gazekeep.shared.generated.resources.settings_debug_log_summary
@@ -82,8 +93,6 @@ import gazekeep.shared.generated.resources.settings_standard
 import gazekeep.shared.generated.resources.settings_title
 import gazekeep.shared.generated.resources.settings_view_logs
 import gazekeep.shared.generated.resources.settings_view_logs_summary
-import gazekeep.shared.generated.resources.settings_whitelist
-import gazekeep.shared.generated.resources.settings_whitelist_summary
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
@@ -365,19 +374,44 @@ internal fun SettingsTabScreen(
       }
 
       Card(modifier = Modifier.fillMaxWidth()) {
-        SwitchPreference(
-          title = stringResource(Res.string.settings_whitelist),
-          summary = stringResource(Res.string.settings_whitelist_summary),
+        val filterModes = AppFilterMode.entries
+        val filterMode = state.config.appFilterMode
+        OverlayDropdownPreference(
+          title = stringResource(Res.string.settings_app_scope),
+          summary = stringResource(
+            when (filterMode) {
+              AppFilterMode.All -> Res.string.settings_app_scope_all_summary
+              AppFilterMode.Whitelist -> Res.string.settings_app_scope_whitelist_summary
+              AppFilterMode.Blacklist -> Res.string.settings_app_scope_blacklist_summary
+            },
+          ),
           startAction = { StartSettingIcon(MiuixIcons.Filter) },
-          checked = state.config.whitelistEnabled,
-          onCheckedChange = { enabled ->
-            scope.launch { controller.updateConfig { it.copy(whitelistEnabled = enabled) } }
+          items = filterModes.map {
+            stringResource(
+              when (it) {
+                AppFilterMode.All -> Res.string.settings_app_scope_all
+                AppFilterMode.Whitelist -> Res.string.settings_app_scope_whitelist
+                AppFilterMode.Blacklist -> Res.string.settings_app_scope_blacklist
+              },
+            )
+          },
+          selectedIndex = filterModes.indexOf(filterMode),
+          onSelectedIndexChange = { index ->
+            val selected = filterModes[index]
+            if (selected != filterMode) {
+              scope.launch { controller.updateConfig { it.copy(appFilterMode = selected) } }
+            }
           },
         )
-        if (state.config.whitelistEnabled) {
+        if (filterMode != AppFilterMode.All) {
+          val count = state.config.scopedPackages.size
           ArrowPreference(
             title = stringResource(Res.string.settings_apps),
-            summary = stringResource(Res.string.settings_app_count, state.config.packages.size),
+            summary = when {
+              filterMode == AppFilterMode.Whitelist -> stringResource(Res.string.settings_app_count, count)
+              count == 0 -> stringResource(Res.string.settings_blacklist_empty)
+              else -> stringResource(Res.string.settings_blacklist_count, count)
+            },
             startAction = { StartSettingIcon(MiuixIcons.GridView) },
             onClick = { onNavigate(SettingsScreen.Apps) },
           )
