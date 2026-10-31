@@ -55,19 +55,19 @@ class DecisionLogs private constructor(context: Context) {
 
   fun record(record: DecisionRecord) {
     val atMs = System.currentTimeMillis()
-    queue.trySend { prepend(store.append(record, atMs)) }
+    queue.trySend { publish(store.append(record, atMs)) }
   }
 
   fun log(level: LogLevel, tag: String, target: String? = "system", message: String) {
     val atMs = System.currentTimeMillis()
     queue.trySend {
-      prepend(store.appendLog(level = level, tag = tag, target = target, message = message, atMs = atMs))
+      publish(store.appendLog(level = level, tag = tag, target = target, message = message, atMs = atMs))
     }
   }
 
-  /** 新记录插到列表前端，避免每次写入都重读全部日志文件；保留期由定时清理后的整体重读收敛。 */
-  private fun prepend(entry: LogEntry?) {
-    if (entry != null) mutableEntries.value = listOf(entry) + mutableEntries.value
+  /** 按事件时间插入，不因后入队就排到最前；避免每次写入都重读全部日志文件。 */
+  private fun publish(entry: LogEntry?) {
+    if (entry != null) mutableEntries.value = insertNewestFirst(mutableEntries.value, entry)
   }
 
   fun clear() {

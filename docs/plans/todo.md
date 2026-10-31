@@ -4,6 +4,11 @@
 
 当前按[v1 稳定性与发布规划](20261014-v1-stability-release.md)推进，先复查自检及后台切换时的相机释放与取消链路，再完成异常恢复和正式产物验收。
 
+## 日志顺序（2026-10-31）
+
+- 已发布日志按事件时间、写入序号和 id 保持最新在前；后入队但事件更早的记录不再插到列表前端。回归测试先在旧的前端插入实现上失败。
+- 主机验证：`:android:testDebugUnitTest --tests cn.rainafter.app.gazekeep.notification.LogOrderTest` 与受影响的日志存储测试。未执行：真机日志页顺序，本次不改变采集、后端或熄屏行为。
+
 ## 真机矩阵（2026-10-25）
 
 环境：Xiaomi 12 Pro Dimensity（2207122MC），Android 14/API 34，HyperOS `OS2.0.6.0.ULGCNXM`，KernelSU + LSPosed 2.2.1（7912，API 102）+ Sui；Wi-Fi ADB。被测为 `1734c1c` 的 arm64 Debug 包（SHA-256 `5a3de1d8…5aa0`，开发签名，经核心破解覆盖原正式签名 1.1.2 安装，数据保留），用户确认以 Debug 包代替签名 Release；R8/资源压缩相关风险不在本轮覆盖范围。安装后重启，模块日志 `entry=modern_102 startup=Accepted/Installed`，AbstractMethodError 为 0。测试用系统超时 15 s、提前量 8 s，未注明时为宽松灵敏度、上限无限制、后端 Auto（LSPosed）。判定依据为 DecisionRecord 顺序、deadline uptime 与系统 Wakefulness；日志时间戳不可信（见下方缺陷），不用于计时。

@@ -88,10 +88,7 @@ class DecisionLogStore(private val directory: File, private val clock: () -> Lon
     if (!enabled) return emptyList()
     cleanup()
     val files = directory.listFiles()?.filter { it.extension == "log" } ?: return emptyList()
-    return files
-      .mapNotNull { file -> parseFile(file) }
-      .sortedWith(compareBy<ParsedFile>({ it.entry.timestampMs }, { it.seq }, { it.entry.id }).reversed())
-      .map { it.entry }
+    return files.mapNotNull { file -> parseFile(file)?.entry }.sortedWith(newestFirst)
   }
 
   private fun writeEntry(atMs: Long, level: LogLevel, tag: String, target: String, message: String): LogEntry {
