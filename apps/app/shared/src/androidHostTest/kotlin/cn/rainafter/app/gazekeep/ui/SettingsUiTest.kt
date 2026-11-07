@@ -18,6 +18,7 @@ import cn.rainafter.app.gazekeep.ui.testing.readyState
 import cn.rainafter.app.gazekeep.ui.testing.text
 import gazekeep.shared.generated.resources.Res
 import gazekeep.shared.generated.resources.about_dep_libxposed
+import gazekeep.shared.generated.resources.about_feedback
 import gazekeep.shared.generated.resources.about_github
 import gazekeep.shared.generated.resources.about_website
 import gazekeep.shared.generated.resources.nav_settings
@@ -134,14 +135,19 @@ class SettingsUiTest {
   }
 
   @Test
-  fun aboutLinksOpenProjectRepositoryAndWebsite() {
+  fun aboutLinksOpenProjectRepositoryFeedbackAndWebsite() {
     val app = rule.launchApp(readyState())
     app.openTab(text(Res.string.nav_settings))
     app.click(text(Res.string.settings_about))
     app.click(text(Res.string.about_github))
+    app.click(text(Res.string.about_feedback))
     app.click(text(Res.string.about_website))
     assertEquals(
-      listOf("openUrl:https://github.com/IceTeacher/GazeKeep", "openUrl:https://gazekeep.rainafter.cn"),
+      listOf(
+        "openUrl:https://github.com/IceTeacher/GazeKeep",
+        "openUrl:https://github.com/IceTeacher/GazeKeep/issues",
+        "openUrl:https://gazekeep.rainafter.cn",
+      ),
       app.actions.calls,
     )
   }

@@ -50,6 +50,7 @@ import gazekeep.shared.generated.resources.about_dep_libxposed
 import gazekeep.shared.generated.resources.about_dep_miuix
 import gazekeep.shared.generated.resources.about_dep_mlkit
 import gazekeep.shared.generated.resources.about_dep_shizuku
+import gazekeep.shared.generated.resources.about_feedback
 import gazekeep.shared.generated.resources.about_github
 import gazekeep.shared.generated.resources.about_third_party_notices
 import gazekeep.shared.generated.resources.about_website
@@ -147,6 +148,10 @@ internal fun AboutScreen(
           ArrowPreference(
             title = stringResource(Res.string.about_github),
             onClick = { actions.openUrl(ProjectLinks.REPOSITORY) },
+          )
+          ArrowPreference(
+            title = stringResource(Res.string.about_feedback),
+            onClick = { actions.openUrl(ProjectLinks.ISSUES) },
           )
           ArrowPreference(
             title = stringResource(Res.string.about_website),
