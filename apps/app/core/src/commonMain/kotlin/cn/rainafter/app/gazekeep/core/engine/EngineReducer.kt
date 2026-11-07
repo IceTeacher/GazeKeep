@@ -130,8 +130,12 @@ object EngineReducer {
     }
   }
 
+  // 暗光 Unknown 不保亮，下一轮必经息屏或触摸；只有非暗光采集结果才清零暗光累计。
   private fun screenOff(snapshot: EngineSnapshot): Transition = Transition(
-    snapshot.copy(state = EngineState.ScreenOff, context = EngineContext()),
+    snapshot.copy(
+      state = EngineState.ScreenOff,
+      context = EngineContext(darkUnknownStreak = snapshot.context.darkUnknownStreak),
+    ),
     listOf(EngineEffect.CancelCapture, EngineEffect.CancelWake, EngineEffect.CancelHoldLimit, EngineEffect.Release),
   )
 
@@ -224,7 +228,6 @@ object EngineReducer {
       holdStartUptime = null,
       skippedScreenOffAtUptime = null,
       lookingStreak = 0,
-      darkUnknownStreak = 0,
       forcedYieldPending = false,
     )
     val next = snapshot.copy(state = EngineState.Yielded(YieldReason.WaitingDeadline), context = context)

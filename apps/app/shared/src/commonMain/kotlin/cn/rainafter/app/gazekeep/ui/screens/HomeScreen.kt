@@ -34,13 +34,16 @@ import cn.rainafter.app.gazekeep.ui.components.NoticeCard
 import cn.rainafter.app.gazekeep.ui.components.StatusChip
 import cn.rainafter.app.gazekeep.ui.contract.ControllerState
 import cn.rainafter.app.gazekeep.ui.contract.GazeKeepController
+import cn.rainafter.app.gazekeep.ui.contract.PlatformActions
 import cn.rainafter.app.gazekeep.ui.contract.UiNotice
 import cn.rainafter.app.gazekeep.ui.navigation.SettingsScreen
 import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseKeys
 import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseScrollTarget
+import cn.rainafter.app.gazekeep.ui.text.ProjectLinks
 import cn.rainafter.app.gazekeep.ui.text.backendLabel
 import cn.rainafter.app.gazekeep.ui.text.backendName
 import gazekeep.shared.generated.resources.Res
+import gazekeep.shared.generated.resources.about_feedback
 import gazekeep.shared.generated.resources.app_title
 import gazekeep.shared.generated.resources.home_chip_camera
 import gazekeep.shared.generated.resources.home_chip_granted
@@ -82,6 +85,7 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Info
+import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.PressFeedbackType
 
@@ -92,6 +96,7 @@ internal fun HomeScreen(
   state: ControllerState,
   scope: CoroutineScope,
   controller: GazeKeepController,
+  actions: PlatformActions,
   onNavigate: (SettingsScreen) -> Unit,
   bottomBar: @Composable () -> Unit = {},
   statusSubtitleOverride: String? = null,
@@ -165,6 +170,13 @@ internal fun HomeScreen(
               )
             },
             onClick = { onNavigate(SettingsScreen.Privacy) },
+          )
+        }
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+          ArrowPreference(
+            title = stringResource(Res.string.about_feedback),
+            onClick = { actions.openUrl(ProjectLinks.ISSUES) },
           )
         }
 

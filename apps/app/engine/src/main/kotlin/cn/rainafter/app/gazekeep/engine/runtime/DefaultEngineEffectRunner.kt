@@ -13,6 +13,7 @@ import cn.rainafter.app.gazekeep.core.engine.EngineSnapshot
 import cn.rainafter.app.gazekeep.core.engine.EngineState
 import cn.rainafter.app.gazekeep.core.model.GazeConfig
 import cn.rainafter.app.gazekeep.core.policy.GateContext
+import cn.rainafter.app.gazekeep.core.policy.GateDecision
 import cn.rainafter.app.gazekeep.core.policy.GatePolicy
 import cn.rainafter.app.gazekeep.engine.camera.CaptureOutcome
 import cn.rainafter.app.gazekeep.engine.capture.AttentionCaptureResult
@@ -72,14 +73,28 @@ class DefaultEngineEffectRunner(
         gateJob?.cancel()
         gateJob = scope.launch {
           val snapshot = snapshot()
-          val input = gateProbe.collect()
+          val context = GateContext(snapshot?.context?.darkUnknownStreak ?: 0)
+          val base = gateProbe.collect()
           currentCoroutineContext().ensureActive()
-          val decision = GatePolicy.decide(input, GateContext(snapshot?.context?.darkUnknownStreak ?: 0), config)
+          // 传感器值为 null 时 GatePolicy 不会因它们跳过；先判其余门控，放行后才打开传感器窗口。
+          var input = base
+          var decision = GatePolicy.decide(base, context, config)
+          var sensorMs: Long? = null
+          if (decision == GateDecision.Proceed) {
+            val opened = System.nanoTime()
+            input = gateProbe.withEnvironment(base)
+            sensorMs = (System.nanoTime() - opened) / 1_000_000
+            currentCoroutineContext().ensureActive()
+            decision = GatePolicy.decide(input, context, config)
+          }
           if (config.debugLogEnabled) {
+            // 传感器窗口只记耗时与是否取到读数，不记具体数值。
             Log.d(
               TAG,
               "gates interactive=${input.interactive} locked=${input.keyguardLocked} " +
-                "foreground=${input.foregroundPackage != null} decision=${logName(decision)}",
+                "foreground=${input.foregroundPackage != null} decision=${logName(decision)} " +
+                "sensorMs=$sensorMs proximity=${input.proximityNear != null} lux=${input.lux != null} " +
+                "faceDown=${input.faceDown != null}",
             )
           }
           emit(EngineEvent.GateResult(decision, input.foregroundPackage, effect.deadline))
@@ -103,14 +118,18 @@ class DefaultEngineEffectRunner(
             emit(EngineEvent.CaptureAborted(AbortReason.Error, token))
           } else {
             val outcome = result.outcome
+            if (config.debugLogEnabled) {
+              // 分段耗时用于真机功耗基线；只含枚举与毫秒数。
+              val timings = result.timings
+              Log.d(
+                TAG,
+                "capture outcome=$outcome attention=${result.attention} frames=${result.frames} " +
+                  "elapsed=${result.elapsedMs} firstFrame=${timings.firstFrameMs} " +
+                  "classify=${timings.classifyMs} tail=${timings.tailMs}",
+              )
+            }
             when (outcome) {
               is CaptureOutcome.Completed -> {
-                if (config.debugLogEnabled) {
-                  Log.d(
-                    TAG,
-                    "capture attention=${result.attention} frames=${result.frames} elapsed=${result.elapsedMs}",
-                  )
-                }
                 emit(EngineEvent.CaptureFinished(result.attention, result.frames, result.elapsedMs, token))
               }
 

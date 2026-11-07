@@ -9,7 +9,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 interface GateProbe {
+  /** 不打开传感器的门控输入；接近、光照与朝下保持 null。 */
   suspend fun collect(): GateInput
+
+  /** 补齐传感器读数；只在其余门控已放行时调用，避免必然跳过的轮次也打开传感器。 */
+  suspend fun withEnvironment(input: GateInput): GateInput = input
 }
 
 fun interface ForegroundAppSource {
@@ -32,10 +36,15 @@ class AndroidGateProbe(private val context: Context, private val foreground: For
       foregroundPackage = foreground.currentPackage(),
       audioMode = audio?.mode ?: AudioManager.MODE_NORMAL,
       frontCameraAvailable = environment.frontCameraAvailable(),
-      proximityNear = environment.proximityNear(),
-      lux = environment.lux(),
-      faceDown = environment.faceDown(),
+      proximityNear = null,
+      lux = null,
+      faceDown = null,
     )
+  }
+
+  override suspend fun withEnvironment(input: GateInput): GateInput {
+    val reading = environment.sample()
+    return input.copy(proximityNear = reading.proximityNear, lux = reading.lux, faceDown = reading.faceDown)
   }
 
   fun setInteractive(interactive: Boolean) = environment.setInteractive(interactive)

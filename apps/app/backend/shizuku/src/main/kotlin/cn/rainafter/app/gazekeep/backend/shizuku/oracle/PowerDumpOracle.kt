@@ -27,6 +27,7 @@ class PowerDumpOracle(
   private val clock: () -> Long = { SystemClock.uptimeMillis() },
   private val leadMs: Long = 2_000L,
   private val retryMs: Long = 1_000L,
+  private val wakeLockRetryMs: Long = 5_000L,
   private val isExternalActivity: (Long) -> Boolean = { true },
   // 轮询读取 dumpsys 不能占用调用方线程；测试注入虚拟时间调度器。
   private val pollDispatcher: CoroutineDispatcher = Dispatchers.Default,
@@ -34,48 +35,86 @@ class PowerDumpOracle(
   AutoCloseable {
   private val _deadlines = MutableSharedFlow<TimeoutDeadline>(replay = 1, extraBufferCapacity = 1)
   private var pollJob: Job? = null
+  private var running = false
   private var lastDeadline: TimeoutDeadline? = null
 
   override val deadlines: Flow<TimeoutDeadline> = _deadlines.asSharedFlow()
 
-  fun start() {
+  @Synchronized fun start() {
+    running = true
     if (pollJob?.isActive == true) return
     pollJob = scope.launch(pollDispatcher) {
       while (isActive) {
         val snapshot = runCatching { readPower() }.getOrNull()
-        val waitMs = publish(snapshot)
+        // 息屏时暂停轮询，由亮屏广播经 requestRead 恢复；否则每秒拉起 dumpsys 会持续耗电。
+        val waitMs = publish(snapshot) ?: break
         delay(waitMs)
       }
     }
   }
 
-  /** 外部活动或触摸发生后立即重新读取一次，避免等完本轮轮询。 */
-  fun requestRead() {
-    if (pollJob?.isActive != true) return
+  /** 外部活动、亮屏或释放后立即重新读取一次；轮询因息屏暂停时同样恢复。 */
+  @Synchronized fun requestRead() {
+    if (!running) return
     pollJob?.cancel()
+    pollJob = null
     start()
   }
 
-  override fun close() {
+  @Synchronized override fun close() {
+    running = false
     pollJob?.cancel()
     pollJob = null
     lastDeadline = null
   }
 
-  private fun publish(snapshot: PowerSnapshot?): Long {
-    if (snapshot == null || !snapshot.interactive || snapshot.hasScreenWakeLock) {
+  /** 返回下次读取的等待时间；null 表示已息屏，暂停轮询。 */
+  private fun publish(snapshot: PowerSnapshot?): Long? {
+    if (snapshot == null) {
       lastDeadline = null
       return retryMs
     }
-    val lastActivity = snapshot.lastUserActivityUptime ?: run {
+    if (!snapshot.interactive) {
+      lastDeadline = null
+      return null
+    }
+    if (snapshot.hasScreenWakeLock) {
+      // 其他应用自行保亮时系统不会熄屏，不发 deadline；锁释放不会触发 requestRead，只能靠轮询发现。
+      lastDeadline = null
+      return wakeLockWaitMs(deadlineOf(snapshot))
+    }
+    val deadline = deadlineOf(snapshot) ?: run {
       lastDeadline = null
       return retryMs
     }
-    val timeout = snapshot.screenOffTimeoutMs?.toLong()?.takeIf { it > 0L } ?: run {
-      lastDeadline = null
-      return retryMs
+    // 同一个系统活动 token 在进入采集窗口后会被每秒轮询到；重复发射会让
+    // reducer 重新开始采帧并取消上一轮，导致 Shizuku 后端永远来不及 extend。
+    if (lastDeadline != deadline) {
+      lastDeadline = deadline
+      _deadlines.tryEmit(deadline)
     }
-    val deadline = TimeoutDeadline(
+    val untilCheck = deadline.captureWakeAtUptime(leadMs) - clock() - 1_000L
+    return max(retryMs, untilCheck)
+  }
+
+  /**
+   * 持锁期间按候选 deadline 决定读取间隔：从检测点前 1 s 到熄屏点按常规间隔读取，
+   * 否则锁在检测窗口内释放时最多晚一个退避周期才发现，剩余时间不足会直接 TooLate。
+   * 窗口之外（含原截止时间已过）保持退避。
+   */
+  private fun wakeLockWaitMs(candidate: TimeoutDeadline?): Long {
+    val backoff = max(retryMs, wakeLockRetryMs)
+    candidate ?: return backoff
+    val now = clock()
+    if (now >= candidate.screenOffAtUptime) return backoff
+    val untilCheck = candidate.captureWakeAtUptime(leadMs) - now - 1_000L
+    return untilCheck.coerceIn(retryMs, backoff)
+  }
+
+  private fun deadlineOf(snapshot: PowerSnapshot): TimeoutDeadline? {
+    val lastActivity = snapshot.lastUserActivityUptime ?: return null
+    val timeout = snapshot.screenOffTimeoutMs?.toLong()?.takeIf { it > 0L } ?: return null
+    return TimeoutDeadline(
       screenOffAtUptime = lastActivity + timeout,
       screenDimAtUptime = ScreenDimmingPolicy.screenDimAt(
         lastActivity,
@@ -86,13 +125,5 @@ class PowerDumpOracle(
       lastExternalActivityUptime = lastActivity.takeIf(isExternalActivity),
       backend = BackendId.Shizuku,
     )
-    // 同一个系统活动 token 在进入采集窗口后会被每秒轮询到；重复发射会让
-    // reducer 重新开始采帧并取消上一轮，导致 Shizuku 后端永远来不及 extend。
-    if (lastDeadline != deadline) {
-      lastDeadline = deadline
-      _deadlines.tryEmit(deadline)
-    }
-    val untilCheck = deadline.captureWakeAtUptime(leadMs) - clock() - 1_000L
-    return max(retryMs, untilCheck)
   }
 }

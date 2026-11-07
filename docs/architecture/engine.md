@@ -14,7 +14,7 @@ TimeoutDeadline 保留真实 off 与有效 dim（0 < dim <= off），优先在 d
 
 Gate Skip、TooLate、Unknown/Away、中止、Extend 失败、关闭、权限丢失和切换释放后端。上限到点取消采集、唤醒与 Extend，Release 并锁定 MaxHold；后续 deadline 不再检测，直到 ScreenOff 或真实用户活动重置。硬件是否实际熄灭必须额外验收。
 
-ScreenOff 清累计状态，直到 ScreenOn 不采帧。真实触摸先取消旧采集、释放并清保亮累计，再等待新 deadline。独立 oracle 的新外部活动时间也走同一 reducer 路径；Shizuku 自身 userActivity 不算外部活动。
+ScreenOff 清除除暗光累计以外的累计状态，直到 ScreenOn 不采帧。真实触摸先取消旧采集、释放并清保亮累计（暗光累计除外），再等待新 deadline。独立 oracle 的新外部活动时间也走同一 reducer 路径；Shizuku 自身 userActivity 不算外部活动。
 
 DefaultEngineEffectRunner 的门控、采集与 Extend 归会话所有，取消异常继续传播；采集、门控与 Extend 返回后重新检查取消，旧任务即使忽略取消并返回成功，也不能回灌事件或更新新会话 oracle。Extend、Release 与 ForceRelease 使用互斥锁；ForceRelease 只由到达保亮上限发出，要求后端不推迟恢复临时设置（见 Shizuku 退路），后端切换时 BackendSession 对被切走的后端同样强制释放。释放后会话立即重读 Shizuku oracle：退路写回原超时会让熄屏点提前，沿用写回前读到的 deadline 会错过检测窗口。结果先回灌再触发 oracle 读取，避免新 deadline 抢先丢失保亮累计。会话销毁另有硬件清理。
 
@@ -22,10 +22,10 @@ DefaultEngineEffectRunner 的门控、采集与 Extend 归会话所有，取消�
 
 ## 门控、来源与日志
 
-GatePolicy 保持纯 Kotlin；AndroidGateProbe 拥有传感器和相机可用性订阅。前台来源按后端选择：无障碍事件、Shizuku shell 查询、LSPosed Handler 查询。生效范围在环境门控（通话、相机占用、口袋、倒扣、暗光）之前判定：仅白名单应用要求前台已知且在应用白名单内，否则 ForegroundUnknown 或 NotWhitelisted；排除黑名单应用同样要求前台已知（无法确认不在名单内时不放行），命中应用黑名单时 Blacklisted；全部应用不要求前台已知。只要前台已知，三种范围都跳过内置相机应用（CameraSensitiveApp）。未知前台不借用旧后端的缓存。传感器及相机边界见[采集架构](capture-classification.md)。
+GatePolicy 保持纯 Kotlin；AndroidGateProbe 拥有传感器和相机可用性订阅，传感器只在其余门控放行后的短窗口内读取。前台来源按后端选择：无障碍事件、Shizuku shell 查询、LSPosed Handler 查询。生效范围在环境门控（通话、相机占用、口袋、倒扣、暗光）之前判定：仅白名单应用要求前台已知且在应用白名单内，否则 ForegroundUnknown 或 NotWhitelisted；排除黑名单应用同样要求前台已知（无法确认不在名单内时不放行），命中应用黑名单时 Blacklisted；全部应用不要求前台已知。只要前台已知，三种范围都跳过内置相机应用（CameraSensitiveApp）。未知前台不借用旧后端的缓存。传感器及相机边界见[采集架构](capture-classification.md)。
 
 门控跳过后记录该轮熄屏截止时间；同一截止周期内（新截止时间相差不足 1 s 且无外部活动）的 deadline 更新只刷新前台包名，不重新门控，避免锁屏亮屏时系统持续微调截止时间造成反复 Locked 跳过。真实用户活动、息屏或新的截止周期清除该记录。
 
-暗光累计只计最终 Unknown 且至少两帧 TooDark；其他 Unknown 不增加暗光失败。连续两次暗光且 lux <3 时休眠，光照变亮后可以重新检测。
+暗光累计只计最终 Unknown 且至少两帧 TooDark；其他 Unknown 不增加暗光失败。暗光 Unknown 不保亮，下一轮必经触摸或重新亮屏，因此触摸与息屏都保留暗光累计；只有非暗光的采集结果和后端切换清零。连续两次暗光且 lux <3 时门控跳过、不开相机；lux 不低于 3 时照常检测，结果不再是暗光即清零。
 
 Auto 按 LSPosed→Shizuku→Accessibility 选择就绪后端；锁定只选指定后端。切换先取消旧会话并释放，切换期不 Extend。DecisionRecord 包含允许字段、门控/中止/分类原因与检测耗时，持久日志见[运行架构](android-runtime.md)。

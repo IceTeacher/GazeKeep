@@ -256,6 +256,36 @@ class EngineReducerTest {
     assertEquals(1, result.snapshot.context.darkUnknownStreak)
   }
 
+  private fun darkRound(snapshot: EngineSnapshot): EngineSnapshot {
+    val dark = FrameVerdict.NotLooking(FrameVerdict.Reason.TooDark)
+    return EngineReducer.reduce(
+      capturing(snapshot),
+      EngineEvent.CaptureFinished(Attention.Unknown, listOf(dark, dark), 500L),
+      13_000L,
+    ).snapshot
+  }
+
+  @Test
+  fun darkStreakSurvivesTouchBetweenDarkRounds() {
+    // 暗光 Unknown 不保亮，下一轮只能由触摸开启；触摸清零会让暗光门控永远无法触发。
+    val first = darkRound(ready())
+    val touched = EngineReducer.reduce(first, EngineEvent.UserActivity(14_000L), 14_000L).snapshot
+    val second = darkRound(touched)
+    assertEquals(2, second.context.darkUnknownStreak)
+    assertEquals(0, second.context.lookingStreak)
+  }
+
+  @Test
+  fun darkStreakSurvivesScreenOffButOtherContextResets() {
+    val first = darkRound(ready(context = EngineContext(holdStartUptime = 100L, lookingStreak = 3)))
+    val off = EngineReducer.reduce(first, EngineEvent.ScreenOff, 14_000L).snapshot
+    assertEquals(1, off.context.darkUnknownStreak)
+    assertEquals(null, off.context.holdStartUptime)
+    assertEquals(0, off.context.lookingStreak)
+    val on = EngineReducer.reduce(off, EngineEvent.ScreenOn, 15_000L).snapshot
+    assertEquals(2, darkRound(on).context.darkUnknownStreak)
+  }
+
   @Test
   fun oldCaptureTokenCannotExtendANewRound() {
     val active = capturing()

@@ -84,8 +84,6 @@ import gazekeep.shared.generated.resources.settings_max_hold
 import gazekeep.shared.generated.resources.settings_max_hold_summary
 import gazekeep.shared.generated.resources.settings_need_camera
 import gazekeep.shared.generated.resources.settings_need_self_test
-import gazekeep.shared.generated.resources.settings_privacy
-import gazekeep.shared.generated.resources.settings_privacy_commitments
 import gazekeep.shared.generated.resources.settings_ready
 import gazekeep.shared.generated.resources.settings_self_test
 import gazekeep.shared.generated.resources.settings_sensitivity
@@ -462,12 +460,6 @@ internal fun SettingsTabScreen(
             onClick = { onNavigate(SettingsScreen.Logs) },
           )
         }
-        ArrowPreference(
-          title = stringResource(Res.string.settings_privacy),
-          summary = stringResource(Res.string.settings_privacy_commitments),
-          startAction = { StartSettingIcon(MiuixIcons.Lock) },
-          onClick = { onNavigate(SettingsScreen.Privacy) },
-        )
         ArrowPreference(
           title = stringResource(Res.string.settings_about),
           summary = stringResource(Res.string.settings_about_summary),

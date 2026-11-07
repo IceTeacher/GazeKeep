@@ -7,6 +7,7 @@ data class EngineContext(
   val holdStartUptime: Long? = null,
   val lastExternalActivityUptime: Long? = null,
   val lookingStreak: Int = 0,
+  /** 连续暗光 Unknown 轮数；跨触摸与息屏保留，非暗光采集结果或切换后端时清零。 */
   val darkUnknownStreak: Int = 0,
   val forcedYieldPending: Boolean = false,
   val extendFailures: Int = 0,
