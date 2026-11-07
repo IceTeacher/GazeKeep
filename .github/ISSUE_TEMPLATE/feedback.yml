@@ -1,0 +1,84 @@
+name: 使用问题反馈
+description: 用着不顺手、出了问题，或者有什么想法，都可以在这里告诉我们
+title: "[反馈] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        谢谢你愿意花时间反馈！不用懂技术，也不用每一项都填，**能答多少就答多少**，用自己的话说就好。
+        English is welcome too.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: 遇到了什么情况？
+      description: 简单说说发生了什么。
+      placeholder: 例如：我一直盯着手机看小说，屏幕还是自己变暗、熄灭了。
+    validations:
+      required: true
+
+  - type: textarea
+    id: when
+    attributes:
+      label: 当时你在做什么？
+      description: 在用哪个 App、手机拿在手里还是放在桌上、周围亮不亮、有没有戴眼镜或口罩……想到什么写什么。
+      placeholder: 例如：晚上躺在床上用微信看文章，只开了床头灯，手机拿在手里。
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: 这种情况多久出现一次？
+      options:
+        - 每次都会
+        - 经常会
+        - 偶尔会
+        - 只遇到过一次
+        - 说不准
+
+  - type: textarea
+    id: expect
+    attributes:
+      label: 你希望它怎么样？
+      description: 可以不填。
+      placeholder: 例如：我在看屏幕的时候，希望屏幕一直亮着。
+
+  - type: input
+    id: phone
+    attributes:
+      label: 手机型号
+      description: GazeKeep 主页的「设备型号」里能看到；不知道也可以写手机品牌。
+      placeholder: 例如：小米 14
+
+  - type: input
+    id: version
+    attributes:
+      label: GazeKeep 版本
+      description: GazeKeep 主页的「应用版本」里能看到。
+      placeholder: 例如：v1.1.4
+
+  - type: dropdown
+    id: backend
+    attributes:
+      label: 用的是哪种工作方式？
+      description: GazeKeep 主页最上面的状态卡片，最后一行就是。
+      options:
+        - LSPosed
+        - Shizuku
+        - 无障碍
+        - 不知道 / 没找到
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: 截图（可选）
+      description: |
+        最省事的办法：截一张 GazeKeep 主页，上面已经有版本、手机型号和工作方式，上面几项就可以不填了。图片可以直接拖进这个框，或者复制后粘贴。
+        请不要上传拍到人脸的照片，也注意遮住聊天内容、手机号等个人信息。
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志（可选，会的话再填）
+      description: |
+        在 GazeKeep「设置 → 详细日志」打开开关，再让问题出现一次，然后到「查看日志」里分享或导出，把文件拖进这个框。
+        日志里会记录你当时在用哪些 App（只有 App 的英文包名），介意的话不发也完全没关系。
