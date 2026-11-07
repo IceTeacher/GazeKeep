@@ -1,6 +1,7 @@
 package cn.rainafter.app.gazekeep.backend.shizuku.oracle
 
 import cn.rainafter.app.gazekeep.backend.shizuku.protocol.PowerSnapshot
+import cn.rainafter.app.gazekeep.core.backend.MIN_CAPTURE_WINDOW_MS
 import cn.rainafter.app.gazekeep.core.backend.TimeoutDeadline
 import cn.rainafter.app.gazekeep.core.backend.captureWakeAtUptime
 import cn.rainafter.app.gazekeep.core.model.BackendId
@@ -13,6 +14,8 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 
 class PowerDumpOracleTest {
   private fun TestScope.oracle(
@@ -61,6 +64,50 @@ class PowerDumpOracleTest {
     oracle.close()
 
     // 视频等应用自行保亮时按 5 s 退避：0、5、10 s 各读一次。
+    assertEquals(3, reads)
+  }
+
+  @Test
+  fun wakeLockReleasedInsideCheckWindowIsSeenBeforeCaptureBudgetRunsOut() = runTest {
+    // 截止 10 s、降亮 7 s、提前量 2 s：检测点 5 s。别的应用在 6 s 释放亮屏锁，释放不会触发 requestRead。
+    val releaseAt = 6_000L
+    val oracle = PowerDumpOracle(
+      readPower = {
+        PowerSnapshot(0L, 10_000, 3_000, hasScreenWakeLock = testScheduler.currentTime < releaseAt, interactive = true)
+      },
+      scope = backgroundScope,
+      clock = { testScheduler.currentTime },
+      leadMs = 2_000L,
+      pollDispatcher = StandardTestDispatcher(testScheduler),
+    )
+    var emittedAt: Long? = null
+    backgroundScope.launch(StandardTestDispatcher(testScheduler)) {
+      oracle.deadlines.first()
+      emittedAt = testScheduler.currentTime
+    }
+
+    oracle.start()
+    advanceTimeBy(12_000L)
+    runCurrent()
+    oracle.close()
+
+    // 必须在熄屏前留出完整采集窗口内发出 deadline，否则 reducer 直接 TooLate。
+    val at = assertNotNull(emittedAt)
+    assertTrue(10_000L - at > MIN_CAPTURE_WINDOW_MS, "deadline emitted at $at")
+  }
+
+  @Test
+  fun wakeLockHeldPastScreenOffDeadlineKeepsBackoff() = runTest {
+    var reads = 0
+    // 锁持有已超过原截止时间：释放后系统按自身规则处理，轮询频率无法挽回，保持退避。
+    val held = PowerSnapshot(1_000L, 10_000, null, hasScreenWakeLock = true, interactive = true)
+    val oracle = oracle({ held.also { reads++ } }, clock = 20_000L, leadMs = 8_000L)
+
+    oracle.start()
+    advanceTimeBy(10_000L)
+    runCurrent()
+    oracle.close()
+
     assertEquals(3, reads)
   }
 

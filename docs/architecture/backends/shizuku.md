@@ -16,7 +16,7 @@ UserService 进程单独退出而 Shizuku 仍在线时不会再收到 binderRece
 
 shell 协议 v3 保持已有事务编号与 PowerSnapshot 字段顺序，追加前台包查询；UserService 绑定版本跟随协议版本，触发旧服务更新；版本不匹配不就绪，避免连接旧 UserService。查询只解析明确 resumed activity，冲突/异常返回未知。shell 命令限时，原始 dumpsys 不跨进程、不进日志。
 
-PowerDumpOracle 使用实际有效超时，兼容 HyperOS 的 excludingAttention 字段。保留 dim/off，同一 deadline 去重。每次读取都在 shell 侧拉起 `dumpsys power`，因此按状态降低频率：读取失败或字段缺失时 1 s 后重试；其他应用持有亮屏锁时 5 s 退避，锁释放后最多晚 5 s 发现新 deadline，漏检时屏幕照常熄灭；息屏时暂停轮询，由亮屏广播、触摸或释放后的 requestRead 恢复；有 deadline 时等到唤醒点前 1 s 再读。成功 userActivity 的 uptime 用于区分自身与外部触摸，不将自身续期视为新保亮会话。
+PowerDumpOracle 使用实际有效超时，兼容 HyperOS 的 excludingAttention 字段。保留 dim/off，同一 deadline 去重。每次读取都在 shell 侧拉起 `dumpsys power`，因此按状态降低频率：读取失败或字段缺失时 1 s 后重试；其他应用持有亮屏锁时不发 deadline，锁释放也不会触发 requestRead，因此按当前活动时间推算的候选 deadline 决定间隔：从检测点前 1 s 到熄屏点按 1 s 读取，避免锁在检测窗口内释放后来不及采集而 TooLate；窗口之外（含原截止时间已过）5 s 退避；息屏时暂停轮询，由亮屏广播、触摸或释放后的 requestRead 恢复；有 deadline 时等到唤醒点前 1 s 再读。成功 userActivity 的 uptime 用于区分自身与外部触摸，不将自身续期视为新保亮会话。
 
 ## 验证
 

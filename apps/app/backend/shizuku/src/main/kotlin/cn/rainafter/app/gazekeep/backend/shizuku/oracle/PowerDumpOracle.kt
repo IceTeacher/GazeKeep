@@ -79,19 +79,42 @@ class PowerDumpOracle(
       return null
     }
     if (snapshot.hasScreenWakeLock) {
-      // 其他应用自行保亮时系统不会熄屏，退避读取；锁释放后最多晚一个退避周期发现 deadline。
+      // 其他应用自行保亮时系统不会熄屏，不发 deadline；锁释放不会触发 requestRead，只能靠轮询发现。
       lastDeadline = null
-      return wakeLockRetryMs
+      return wakeLockWaitMs(deadlineOf(snapshot))
     }
-    val lastActivity = snapshot.lastUserActivityUptime ?: run {
-      lastDeadline = null
-      return retryMs
-    }
-    val timeout = snapshot.screenOffTimeoutMs?.toLong()?.takeIf { it > 0L } ?: run {
+    val deadline = deadlineOf(snapshot) ?: run {
       lastDeadline = null
       return retryMs
     }
-    val deadline = TimeoutDeadline(
+    // 同一个系统活动 token 在进入采集窗口后会被每秒轮询到；重复发射会让
+    // reducer 重新开始采帧并取消上一轮，导致 Shizuku 后端永远来不及 extend。
+    if (lastDeadline != deadline) {
+      lastDeadline = deadline
+      _deadlines.tryEmit(deadline)
+    }
+    val untilCheck = deadline.captureWakeAtUptime(leadMs) - clock() - 1_000L
+    return max(retryMs, untilCheck)
+  }
+
+  /**
+   * 持锁期间按候选 deadline 决定读取间隔：从检测点前 1 s 到熄屏点按常规间隔读取，
+   * 否则锁在检测窗口内释放时最多晚一个退避周期才发现，剩余时间不足会直接 TooLate。
+   * 窗口之外（含原截止时间已过）保持退避。
+   */
+  private fun wakeLockWaitMs(candidate: TimeoutDeadline?): Long {
+    val backoff = max(retryMs, wakeLockRetryMs)
+    candidate ?: return backoff
+    val now = clock()
+    if (now >= candidate.screenOffAtUptime) return backoff
+    val untilCheck = candidate.captureWakeAtUptime(leadMs) - now - 1_000L
+    return untilCheck.coerceIn(retryMs, backoff)
+  }
+
+  private fun deadlineOf(snapshot: PowerSnapshot): TimeoutDeadline? {
+    val lastActivity = snapshot.lastUserActivityUptime ?: return null
+    val timeout = snapshot.screenOffTimeoutMs?.toLong()?.takeIf { it > 0L } ?: return null
+    return TimeoutDeadline(
       screenOffAtUptime = lastActivity + timeout,
       screenDimAtUptime = ScreenDimmingPolicy.screenDimAt(
         lastActivity,
@@ -102,13 +125,5 @@ class PowerDumpOracle(
       lastExternalActivityUptime = lastActivity.takeIf(isExternalActivity),
       backend = BackendId.Shizuku,
     )
-    // 同一个系统活动 token 在进入采集窗口后会被每秒轮询到；重复发射会让
-    // reducer 重新开始采帧并取消上一轮，导致 Shizuku 后端永远来不及 extend。
-    if (lastDeadline != deadline) {
-      lastDeadline = deadline
-      _deadlines.tryEmit(deadline)
-    }
-    val untilCheck = deadline.captureWakeAtUptime(leadMs) - clock() - 1_000L
-    return max(retryMs, untilCheck)
   }
 }

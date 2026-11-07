@@ -87,7 +87,7 @@
 
 ## 不改变判定的降耗（2026-11-07，issue #14）
 
-改动：Shizuku PowerDumpOracle 息屏暂停轮询、他人持亮屏锁时 5 s 退避；接近/光照/加速度只在其余门控放行后的 ≤1000 ms 窗口内注册（真机实测后由 500 ms 调整）；详细日志开启时 logcat 输出采集分段耗时与门控窗口耗时（只含枚举、毫秒数和读数是否取得）。原计划的「宽松灵敏度关闭 ML Kit 睁眼分类」经真机验证会让 HeadTurned 失效，已撤回，分类固定为 ALL。
+改动：Shizuku PowerDumpOracle 息屏暂停轮询、他人持亮屏锁时在检测窗口外 5 s 退避（PR #23 复查后补上：窗口内仍按 1 s 读取，`PowerDumpOracleTest` 的窗口内释放用例在仅退避的实现下于熄屏点才发出 deadline）；接近/光照/加速度只在其余门控放行后的 ≤1000 ms 窗口内注册（真机实测后由 500 ms 调整）；详细日志开启时 logcat 输出采集分段耗时与门控窗口耗时（只含枚举、毫秒数和读数是否取得）。原计划的「宽松灵敏度关闭 ML Kit 睁眼分类」经真机验证会让 HeadTurned 失效，已撤回，分类固定为 ALL。
 
 - 主机：`PowerDumpOracleTest` 新增息屏与亮屏锁用例，旧实现 10 s 内均读取 11 次；`DefaultEngineEffectRunnerTest` 新增「其余门控跳过不开传感器窗口」「窗口读数仍可跳过」，后者旧实现失败；另增 `SensorWindowTest`、采集分段耗时用例与 GatePolicy 缺失读数不跳过用例。`pnpm --filter @gazekeep/app verify`、文档/资产/架构检查、ktlint 与 `git diff --check` 通过。窗口时长与 ML Kit 分类模式依赖设备与模型运行时，无法用主机测试复现，以下真机结果为依据。
 - 模拟器（`Pixel_8_API_35`、黑图前摄、light 0、系统超时 30 s、标准灵敏度）：三轮门控各在同一秒内注册并注销三个传感器，第三轮仍为 `skip=TooDarkRepeatedly`；Shizuku 息屏 16 s 未见 `dumpsys` 子进程。
@@ -133,6 +133,7 @@
 - [ ] 维护者离线备份正式签名密钥库与密码；密钥丢失后无法覆盖升级已安装版本。
 - [ ] 在 HyperOS 以外的 ROM 上核对应用列表的系统应用判定（预装应用的标志因 ROM 而异）与无障碍后端的前台识别。
 - [ ] 排查按应用语言为英文时页面偶发显示中文的问题（触发条件未知，见上方真机验收）。
+- [ ] Shizuku 解析未读取 `lastUserActivityTimeNoChangeLights`（HyperOS dump 中存在该字段）：按 AOSP 规则，带 ON_AFTER_RELEASE 的亮屏锁（如视频窗口）释放后熄屏点顺延到释放时刻 + 超时，现有 deadline 偏早会提前 TooLate，之后不再检测；新旧版都受影响，需真机验证视频自然播完的场景后再修。
 - [ ] issue #14 剩余项：用外接功率计或断开 ADB 做长时功耗对比；真机验收暗光门控；决定是否做自适应提前量与连续注视后单帧判定；对比 640×480 与 480×360 分析分辨率的分类计数场景。
 - [ ] 排查外部开启无障碍后页面就绪状态不刷新的问题，以及 `ScreenTimeoutRestoreTest` 按前提跳过时残留已开启服务的问题。
 
