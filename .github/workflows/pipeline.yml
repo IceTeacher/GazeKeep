@@ -263,8 +263,20 @@ jobs:
           pnpm --filter web run package:edgeone
           result="$RUNNER_TEMP/edgeone-deploy.log"
           # WHY：EdgeOne 直传项目没有分支别名，预览每次生成独立地址；项目需已有生产部署，否则 CLI 拒绝发布预览。
-          pnpm --filter web exec edgeone makers deploy .edgeone -n "$EDGEONE_PROJECT" -e preview \
-            -t "$EDGEONE_API_TOKEN" --json --skip-ai-gateway-sync | tee "$result"
+          # WHY：CLI 选址时中国站接口偶发失败会退到国际站，找不到项目或报令牌无效；部署后查询地址也可能 522。
+          # 重新部署只会多一条同内容的部署记录，因此整体有限重试。
+          for attempt in 1 2 3; do
+            if pnpm --filter web exec edgeone makers deploy .edgeone -n "$EDGEONE_PROJECT" -e preview \
+              -t "$EDGEONE_API_TOKEN" --json --skip-ai-gateway-sync | tee "$result"; then
+              break
+            fi
+            if [ "$attempt" = 3 ]; then
+              echo "EdgeOne 部署连续 3 次失败" >&2
+              exit 1
+            fi
+            echo "::warning::EdgeOne 部署第 $attempt 次失败，$((attempt * 30)) 秒后重试"
+            sleep $((attempt * 30))
+          done
           detail="$(jq -Rc 'fromjson? | objects | select(.status == "success")' "$result" | tail -n 1)"
           if [ -z "$detail" ]; then
             echo "EdgeOne 未返回成功的部署结果" >&2
@@ -346,8 +358,20 @@ jobs:
           done
           pnpm --filter web run package:edgeone
           result="$RUNNER_TEMP/edgeone-deploy.log"
-          pnpm --filter web exec edgeone makers deploy .edgeone -n "$EDGEONE_PROJECT" -e production \
-            -t "$EDGEONE_API_TOKEN" --json --skip-ai-gateway-sync | tee "$result"
+          # WHY：CLI 选址时中国站接口偶发失败会退到国际站，找不到项目或报令牌无效；部署后查询地址也可能 522。
+          # 重新部署只会多一条同内容的部署记录，因此整体有限重试。
+          for attempt in 1 2 3; do
+            if pnpm --filter web exec edgeone makers deploy .edgeone -n "$EDGEONE_PROJECT" -e production \
+              -t "$EDGEONE_API_TOKEN" --json --skip-ai-gateway-sync | tee "$result"; then
+              break
+            fi
+            if [ "$attempt" = 3 ]; then
+              echo "EdgeOne 部署连续 3 次失败" >&2
+              exit 1
+            fi
+            echo "::warning::EdgeOne 部署第 $attempt 次失败，$((attempt * 30)) 秒后重试"
+            sleep $((attempt * 30))
+          done
           detail="$(jq -Rc 'fromjson? | objects | select(.status == "success")' "$result" | tail -n 1)"
           if [ -z "$detail" ]; then
             echo "EdgeOne 未返回成功的部署结果" >&2
