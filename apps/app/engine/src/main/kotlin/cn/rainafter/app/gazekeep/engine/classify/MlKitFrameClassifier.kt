@@ -19,6 +19,7 @@ class MlKitFrameClassifier(private val thresholds: ClassifierThresholds = Classi
   private val detector: FaceDetector = FaceDetection.getClient(
     FaceDetectorOptions.Builder()
       .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
+      // 宽松灵敏度也须保持 ALL：Xiaomi 12 Pro 实测关闭分类后头部欧拉角恒为 0，HeadTurned 永不触发。
       .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
       .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
       .setContourMode(FaceDetectorOptions.CONTOUR_MODE_NONE)

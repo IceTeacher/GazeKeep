@@ -7,13 +7,16 @@ import cn.rainafter.app.gazekeep.core.backend.TimeoutDeadline
 import cn.rainafter.app.gazekeep.core.engine.CapturePlan
 import cn.rainafter.app.gazekeep.core.engine.EngineEffect
 import cn.rainafter.app.gazekeep.core.engine.EngineEvent
+import cn.rainafter.app.gazekeep.core.model.AppFilterMode
 import cn.rainafter.app.gazekeep.core.model.Attention
 import cn.rainafter.app.gazekeep.core.model.BackendId
 import cn.rainafter.app.gazekeep.core.model.GazeConfig
 import cn.rainafter.app.gazekeep.core.model.Readiness
 import cn.rainafter.app.gazekeep.core.model.Sensitivity
 import cn.rainafter.app.gazekeep.core.policy.GateContext
+import cn.rainafter.app.gazekeep.core.policy.GateDecision
 import cn.rainafter.app.gazekeep.core.policy.GateInput
+import cn.rainafter.app.gazekeep.core.policy.SkipReason
 import cn.rainafter.app.gazekeep.engine.camera.CaptureOutcome
 import cn.rainafter.app.gazekeep.engine.capture.AttentionCaptureResult
 import cn.rainafter.app.gazekeep.engine.gate.GateProbe
@@ -56,9 +59,10 @@ class DefaultEngineEffectRunnerTest {
     onExtended: () -> Unit = { error("must not extend") },
     backend: KeepAwakeBackend? = null,
     onReleased: () -> Unit = {},
+    config: GazeConfig = GazeConfig(),
   ) = DefaultEngineEffectRunner(
     parentScope = scope,
-    config = GazeConfig(),
+    config = config,
     gateProbe = gate,
     scheduler = scheduler,
     snapshot = { null },
@@ -83,6 +87,57 @@ class DefaultEngineEffectRunnerTest {
       runner.run(EngineEffect.StartCapture(plan), events::add)
       oldCapture.complete(looking)
       assertEquals(listOf<EngineEvent>(EngineEvent.CaptureFinished(Attention.Looking, emptyList(), 100L)), events)
+    } finally {
+      runner.close()
+      scope.cancel()
+    }
+  }
+
+  private val proceedingInput = GateInput(true, false, "app", 0, true, null, null, null)
+
+  @Test
+  fun earlierGateSkipDoesNotOpenTheSensorWindow() = runBlocking {
+    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+    val deadline = TimeoutDeadline(10_000L)
+    val gate = object : GateProbe {
+      override suspend fun collect() = proceedingInput.copy(interactive = false)
+      override suspend fun withEnvironment(input: GateInput): GateInput = error("sensor window must stay closed")
+    }
+    val runner = runner(scope, gate = gate, config = GazeConfig(appFilterMode = AppFilterMode.All))
+    val events = mutableListOf<EngineEvent>()
+    try {
+      runner.run(EngineEffect.RunGates(deadline), events::add)
+      assertEquals(
+        listOf<EngineEvent>(EngineEvent.GateResult(GateDecision.Skip(SkipReason.ScreenOff), "app", deadline)),
+        events,
+      )
+    } finally {
+      runner.close()
+      scope.cancel()
+    }
+  }
+
+  @Test
+  fun sensorWindowStillGatesAfterOtherChecksPass() = runBlocking {
+    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+    val deadline = TimeoutDeadline(10_000L)
+    var sampled = 0
+    val gate = object : GateProbe {
+      override suspend fun collect() = proceedingInput
+      override suspend fun withEnvironment(input: GateInput): GateInput {
+        sampled++
+        return input.copy(proximityNear = true)
+      }
+    }
+    val runner = runner(scope, gate = gate, config = GazeConfig(appFilterMode = AppFilterMode.All))
+    val events = mutableListOf<EngineEvent>()
+    try {
+      runner.run(EngineEffect.RunGates(deadline), events::add)
+      assertEquals(1, sampled)
+      assertEquals(
+        listOf<EngineEvent>(EngineEvent.GateResult(GateDecision.Skip(SkipReason.Pocket), "app", deadline)),
+        events,
+      )
     } finally {
       runner.close()
       scope.cancel()

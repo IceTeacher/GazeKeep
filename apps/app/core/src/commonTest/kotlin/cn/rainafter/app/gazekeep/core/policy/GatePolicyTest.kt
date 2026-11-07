@@ -83,4 +83,13 @@ class GatePolicyTest {
     )
     assertEquals(skip(SkipReason.InCall), decide(inCall, config(AppFilterMode.All)))
   }
+
+  // 运行器先以空传感器读数判定，放行后才打开传感器窗口；缺失读数绝不能导致跳过。
+  @Test fun missingSensorReadingsNeverSkip() {
+    val noSensors = input(reader).copy(proximityNear = null, lux = null, faceDown = null)
+    assertEquals(
+      GateDecision.Proceed,
+      GatePolicy.decide(noSensors, GateContext(darkUnknownStreak = 5), config(AppFilterMode.All)),
+    )
+  }
 }
