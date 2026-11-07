@@ -264,6 +264,7 @@ internal fun SettingsNavHost(
         state = state,
         scope = scope,
         controller = controller,
+        actions = actions,
         onNavigate = backStack::navigateTo,
         bottomBar = { BottomNavBar(selectedTab = SettingsScreen.Home) },
         statusSubtitleOverride = homeStatusOverride,

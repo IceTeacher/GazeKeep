@@ -40,6 +40,7 @@ import gazekeep.shared.generated.resources.settings_language_english
 import gazekeep.shared.generated.resources.settings_language_system
 import gazekeep.shared.generated.resources.settings_max_hold
 import gazekeep.shared.generated.resources.settings_need_self_test
+import gazekeep.shared.generated.resources.settings_privacy
 import gazekeep.shared.generated.resources.settings_self_test
 import org.junit.Rule
 import org.junit.runner.RunWith
@@ -132,6 +133,15 @@ class SettingsUiTest {
     app.openTab(text(Res.string.nav_settings))
     app.assertShown(text(Res.string.settings_self_test))
     app.assertShown(text(Res.string.settings_need_self_test))
+  }
+
+  @Test
+  fun settingsTabNoLongerListsPrivacy() {
+    val app = rule.launchApp(readyState())
+    app.openTab(text(Res.string.nav_settings))
+    // 隐私页只从首页隐私卡片与关于页进入。
+    app.assertShown(text(Res.string.settings_about))
+    app.assertNotShown(text(Res.string.settings_privacy))
   }
 
   @Test

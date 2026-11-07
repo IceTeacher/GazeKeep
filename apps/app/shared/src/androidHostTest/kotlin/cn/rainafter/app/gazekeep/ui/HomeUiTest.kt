@@ -1,7 +1,9 @@
 package cn.rainafter.app.gazekeep.ui
 
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithText
 import cn.rainafter.app.gazekeep.core.model.Attention
 import cn.rainafter.app.gazekeep.core.model.BackendId
 import cn.rainafter.app.gazekeep.ui.contract.UiNotice
@@ -9,7 +11,9 @@ import cn.rainafter.app.gazekeep.ui.testing.launchApp
 import cn.rainafter.app.gazekeep.ui.testing.readyState
 import cn.rainafter.app.gazekeep.ui.testing.text
 import gazekeep.shared.generated.resources.Res
+import gazekeep.shared.generated.resources.about_feedback
 import gazekeep.shared.generated.resources.home_decision_looking
+import gazekeep.shared.generated.resources.home_privacy_card_title
 import gazekeep.shared.generated.resources.home_status_decision
 import gazekeep.shared.generated.resources.home_status_stopped
 import gazekeep.shared.generated.resources.home_status_waiting
@@ -26,6 +30,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -72,6 +77,17 @@ class HomeUiTest {
     val app = rule.launchApp(running.copy(config = running.config.copy(enabled = true)))
     app.assertShown(text(Res.string.home_status_waiting))
     app.assertNotShown(text(Res.string.home_status_working))
+  }
+
+  @Test
+  fun feedbackEntryBelowPrivacyOpensIssuesLikeAboutPage() {
+    val app = rule.launchApp(readyState())
+    // 首页反馈入口紧跟隐私卡片，打开的地址与关于页的「问题反馈」相同。
+    val privacy = rule.onNodeWithText(text(Res.string.home_privacy_card_title)).getUnclippedBoundsInRoot()
+    val feedback = rule.onNodeWithText(text(Res.string.about_feedback)).getUnclippedBoundsInRoot()
+    assertTrue(feedback.top > privacy.bottom)
+    app.click(text(Res.string.about_feedback))
+    assertEquals(listOf("openUrl:https://github.com/IceTeacher/GazeKeep/issues"), app.actions.calls)
   }
 
   @Test
