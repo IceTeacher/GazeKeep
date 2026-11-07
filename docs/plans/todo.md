@@ -127,7 +127,8 @@
 - 线上冒烟：以令牌 Cookie 访问默认域名，根路径 302 到 `/zh/`（先于静态 `index.html` 生效），`/zh/`、`/en/`、两个 KMP 目录 200，`/stats/script.js` 经边缘函数返回 Umami 脚本；`check-web-deploy.ts` 改为 Cookie 携带令牌后对该部署通过。
 - 域名切换：维护者将 `gazekeep.rainafter.cn` 切到 EdgeOne（CNAME 至 `pages.dnsoe4.com`），响应头为 `Server: edgeone makers`，`check-web-deploy.ts` 对生产域名通过；`web-preview`、`web-production` 环境中的 Cloudflare secret 与变量已删除。
 - CI：PR #25 的预览发布一次通过，冒烟与 PR 评论正常；合并后 `dev` 预览与 `main` 生产发布在 12:39–12:47 间共失败 3 次，分别为 `Invalid EDGEONE_PAGES_API_TOKEN`、`Makers project name exists` 与部署成功后查询地址返回 522，均为 CLI 接口选址或 EdgeOne API 的间歇故障；重跑后预览成功，生产部署 `dp5r43y6ptux` 为 Success 且 `UsedInProd`，生产域名冒烟通过。为此给部署命令加了最多 3 次的整体重试，尚未在 CI 中运行。
-- 未执行：`request.eo.clientIp` 写入后 Umami 的地区判定与控制台回滚。
+- 统计：维护者确认切换后 Umami 能按访客 IP 正确判断地区，`request.eo.clientIp` 写入 `X-Forwarded-For` 生效。
+- 未执行：控制台回滚。
 - 依赖：移除 Wrangler 后 Vite 的可选 peer `esbuild` 改由 edgeone 依赖的 0.19.12 满足（要求 ^0.27 或 ^0.28），`pnpm peers check` 报未满足；Vite 8 默认不使用 esbuild，`build:site` 正常，未做其他处理。
 
 ## 发布与模块仓库
@@ -147,7 +148,7 @@
 - [ ] 排查按应用语言为英文时页面偶发显示中文的问题（触发条件未知，见上方真机验收）。
 - [ ] Shizuku 解析未读取 `lastUserActivityTimeNoChangeLights`（HyperOS dump 中存在该字段）：按 AOSP 规则，带 ON_AFTER_RELEASE 的亮屏锁（如视频窗口）释放后熄屏点顺延到释放时刻 + 超时，现有 deadline 偏早会提前 TooLate，之后不再检测；新旧版都受影响，需真机验证视频自然播完的场景后再修。
 - [ ] issue #14 剩余项：用外接功率计或断开 ADB 做长时功耗对比；真机验收暗光门控；决定是否做自适应提前量与连续注视后单帧判定；对比 640×480 与 480×360 分析分辨率的分类计数场景。
-- [ ] 官网 EdgeOne 收尾：观察 CI 部署重试的实际效果，核对 Umami 访客地区与控制台回滚；在 Cloudflare 侧下线旧 Pages 项目与 Web Analytics 站点。
+- [ ] 官网 EdgeOne 收尾：观察 CI 部署重试的实际效果并核对控制台回滚；在 Cloudflare 侧下线旧 Pages 项目与 Web Analytics 站点。
 - [ ] 排查外部开启无障碍后页面就绪状态不刷新的问题，以及 `ScreenTimeoutRestoreTest` 按前提跳过时残留已开启服务的问题。
 
 以上未执行项不计为当前版本通过；实际 APK、设备、ROM、框架和权限条件变化时必须重新标识产物并重跑受影响验收。
