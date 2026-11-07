@@ -14,16 +14,21 @@ pnpm --filter web dev --host 127.0.0.1
 
 完整构建先运行 KMP Wasm/JS 分发任务，同步资源至 `public/kmp-showcase/`，然后校验隐私资源并生成静态页面。首次构建需要 JDK、Android SDK 与 Gradle/Node 依赖下载条件；Kotlin 内部 Yarn 与根 pnpm workspace 的检查冲突由构建脚本局部处理。
 
-开发服务沿用本地 `dev` 配置；`dev`、`check` 和 `build:site` 会先校验并同步隐私资源。纯官网修改已有 KMP 产物时可运行 `pnpm --filter web run build:site`；生产部署使用完整 `build`。日常发布由 GitHub Actions 完成（预览、生产与冒烟规则见[官网架构](../../docs/architecture/web/website.md#六当前构建与后续验收)）；`pnpm --filter web run deploy` 仅用于本地应急，登录 Wrangler 后构建并直传到 `gazekeep` 项目的 `main` 分支。静态产物位于本目录 `dist/`。根路径 `/` 由 `public/_redirects` 在 Cloudflare Pages 服务端 302 跳转到 `/zh/`；`astro preview` 不读取该文件，会改用 `index.astro` 的兜底页跳转，可用 `pnpm --filter web exec wrangler pages dev dist` 验证服务端跳转。
+开发服务沿用本地 `dev` 配置；`dev`、`check` 和 `build:site` 会先校验并同步隐私资源。纯官网修改已有 KMP 产物时可运行 `pnpm --filter web run build:site`；生产部署使用完整 `build`。静态产物位于本目录 `dist/`。日常发布由 GitHub Actions 完成（预览、生产与冒烟规则见[官网架构](../../docs/architecture/web/website.md#六当前构建与后续验收)）；`pnpm --filter web run deploy -- -t "$(cat ~/.config/edgeone-token)"` 仅用于本地应急，完整构建、打包并直传到 `gazekeep` 项目的生产环境；令牌文件放在仓库外并设为 600 权限。
 
-首次配置 Cloudflare Pages：
+根路径 `/` 由 `edgeone.json` 的 `redirects` 在 EdgeOne 服务端 302 跳转到 `/zh/`；`astro preview` 不读取该配置，会改用 `index.astro` 的兜底页跳转。统计代理位于 `edge-functions/stats/`。
+
+首次配置 EdgeOne Makers：
+
+1. 在 EdgeOne Makers 控制台创建「直接上传」项目并选择加速区域（创建后不可更改），按需绑定自定义域名。
+2. 在控制台「API Token」页创建带有效期的令牌，供 CI 使用。
+3. 完成首次生产发布；EdgeOne 要求已有生产部署才能发布预览。以 `edgeone login` 的登录凭据部署时上传凭据接口会返回 `Project is not exist`，需用 API Token：
 
 ```bash
-pnpm --filter web exec wrangler login
-pnpm --filter web exec wrangler pages project create gazekeep --production-branch main --force
+pnpm --filter web run deploy -- -t "$(cat ~/.config/edgeone-token)"
 ```
 
-完整构建依赖 JDK、Android SDK 与 Gradle，因此由 CI 构建后使用 Cloudflare Pages Direct Upload。Direct Upload 项目不能原地切换为 Git 集成；如需 Cloudflare 自动从 Git 构建，需新建 Git 集成项目并提供 KMP 所需工具链。
+`pnpm --filter web run package:edgeone` 只把已构建的 `dist/` 与 `edge-functions/` 打包为 `.edgeone/`，并核对路由与环境泄漏；目录中存在 `.env` 或 `.env.local` 时拒绝打包，避免本地变量写入边缘函数包。完整构建依赖 JDK、Android SDK 与 Gradle，因此由 CI 构建后直传，不使用 EdgeOne 的 Git 集成与云端构建。
 
 ## 验证
 

@@ -226,7 +226,7 @@ jobs:
     timeout-minutes: 15
     environment:
       name: web-preview
-      url: ${{ steps.deploy.outputs.alias_url || steps.deploy.outputs.deployment_url }}
+      url: ${{ steps.deploy.outputs.deployment_url }}
     permissions:
       contents: read
       pull-requests: write
@@ -246,35 +246,36 @@ jobs:
           name: web-dist
           path: apps/web/dist
       - id: deploy
-        name: Deploy preview to Cloudflare Pages
+        name: Deploy preview to EdgeOne Makers
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          EDGEONE_API_TOKEN: ${{ secrets.EDGEONE_API_TOKEN }}
+          EDGEONE_PROJECT: ${{ vars.EDGEONE_PROJECT }}
           COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
-          for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID PAGES_PROJECT; do
+          for name in EDGEONE_API_TOKEN EDGEONE_PROJECT; do
             if [ -z "${!name:-}" ]; then
               echo "web-preview 环境缺少配置：$name" >&2
               exit 1
             fi
           done
-          branch=dev
-          if [ -n "$PR_NUMBER" ]; then branch="pr-$PR_NUMBER"; fi
-          result="$RUNNER_TEMP/wrangler-output.ndjson"
-          WRANGLER_OUTPUT_FILE_PATH="$result" pnpm --filter web exec wrangler pages deploy dist \
-            --project-name "$PAGES_PROJECT" --branch "$branch" --commit-hash "$COMMIT_SHA" --commit-dirty=false
-          detail="$(jq -ec 'select(.type == "pages-deploy-detailed")' "$result")"
+          # 打包脚本只把最小环境交给 CLI，并在上传前核对路由与环境泄漏，令牌不会进入边缘函数包。
+          pnpm --filter web run package:edgeone
+          result="$RUNNER_TEMP/edgeone-deploy.log"
+          # WHY：EdgeOne 直传项目没有分支别名，预览每次生成独立地址；项目需已有生产部署，否则 CLI 拒绝发布预览。
+          pnpm --filter web exec edgeone makers deploy .edgeone -n "$EDGEONE_PROJECT" -e preview \
+            -t "$EDGEONE_API_TOKEN" --json --skip-ai-gateway-sync | tee "$result"
+          detail="$(jq -Rc 'fromjson? | objects | select(.status == "success")' "$result" | tail -n 1)"
+          if [ -z "$detail" ]; then
+            echo "EdgeOne 未返回成功的部署结果" >&2
+            exit 1
+          fi
           deployment_url="$(jq -er '.url' <<<"$detail")"
-          alias_url="$(jq -r '.alias // empty' <<<"$detail")"
           echo "deployment_url=$deployment_url" >>"$GITHUB_OUTPUT"
-          echo "alias_url=$alias_url" >>"$GITHUB_OUTPUT"
           {
             echo "## 官网预览"
-            echo "- 分支别名：${alias_url:-未返回}"
             echo "- 本次部署：$deployment_url"
+            echo "- 控制台：$(jq -r '.consoleUrl // "未返回"' <<<"$detail")"
             echo "- 提交：\`$COMMIT_SHA\`"
           } >>"$GITHUB_STEP_SUMMARY"
       - name: Smoke test preview
@@ -288,13 +289,12 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment_url }}
-          ALIAS_URL: ${{ steps.deploy.outputs.alias_url }}
         run: |
           set -euo pipefail
           marker='<!-- gazekeep-web-preview -->'
           body="$(printf '%s\n' "$marker" '### 官网预览' '' '| 项目 | 内容 |' '| --- | --- |' \
-            "| 分支别名 | ${ALIAS_URL:-未返回} |" "| 本次部署 | $DEPLOYMENT_URL |" "| 提交 | \`$COMMIT_SHA\` |" \
-            '' '部署冒烟已通过；预览仅供评审，不代表真实浏览器或 WebGPU 渲染验收。')"
+            "| 本次部署 | $DEPLOYMENT_URL |" "| 提交 | \`$COMMIT_SHA\` |" \
+            '' '部署冒烟已通过；预览仅供评审，不代表真实浏览器或 WebGPU 渲染验收。链接可能带 EdgeOne 临时访问令牌，失效后以最新一次部署为准。')"
           # 原地更新同一条评论，避免每次 push 都追加新评论。
           comment_id="$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
             --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"$marker\"))) | .id" | head -n 1)"
@@ -331,33 +331,33 @@ jobs:
         with:
           name: web-dist
           path: apps/web/dist
-      - name: Deploy to Cloudflare Pages production
+      - name: Deploy to EdgeOne Makers production
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT }}
+          EDGEONE_API_TOKEN: ${{ secrets.EDGEONE_API_TOKEN }}
+          EDGEONE_PROJECT: ${{ vars.EDGEONE_PROJECT }}
           WEB_URL: ${{ vars.GAZEKEEP_WEB_URL }}
         run: |
           set -euo pipefail
-          for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID PAGES_PROJECT WEB_URL; do
+          for name in EDGEONE_API_TOKEN EDGEONE_PROJECT WEB_URL; do
             if [ -z "${!name:-}" ]; then
               echo "web-production 环境缺少配置：$name" >&2
               exit 1
             fi
           done
-          result="$RUNNER_TEMP/wrangler-output.ndjson"
-          WRANGLER_OUTPUT_FILE_PATH="$result" pnpm --filter web exec wrangler pages deploy dist \
-            --project-name "$PAGES_PROJECT" --branch main --commit-hash "$GITHUB_SHA" --commit-dirty=false
-          detail="$(jq -ec 'select(.type == "pages-deploy-detailed")' "$result")"
-          # WHY：项目生产分支若被改动，main 会落成预览；此时必须失败而不是误报已发布。
-          if [ "$(jq -r '.environment' <<<"$detail")" != production ]; then
-            echo "部署未进入生产环境：$(jq -c '{environment, production_branch}' <<<"$detail")" >&2
+          pnpm --filter web run package:edgeone
+          result="$RUNNER_TEMP/edgeone-deploy.log"
+          pnpm --filter web exec edgeone makers deploy .edgeone -n "$EDGEONE_PROJECT" -e production \
+            -t "$EDGEONE_API_TOKEN" --json --skip-ai-gateway-sync | tee "$result"
+          detail="$(jq -Rc 'fromjson? | objects | select(.status == "success")' "$result" | tail -n 1)"
+          if [ -z "$detail" ]; then
+            echo "EdgeOne 未返回成功的部署结果" >&2
             exit 1
           fi
           {
             echo "## 官网生产发布"
             echo "- 站点：$WEB_URL"
-            echo "- 本次部署：$(jq -r '.url' <<<"$detail")"
+            echo "- 本次部署：$(jq -r '.url' <<<"$detail")（$(jq -r '.type' <<<"$detail")）"
+            echo "- 控制台：$(jq -r '.consoleUrl // "未返回"' <<<"$detail")"
             echo "- 提交：\`$GITHUB_SHA\`"
           } >>"$GITHUB_STEP_SUMMARY"
       - name: Smoke test production

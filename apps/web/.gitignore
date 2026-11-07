@@ -30,5 +30,6 @@ src/data/privacy.generated.json
 # Vitest 浏览器测试的失败截图与对比输出
 .vitest/
 
-# Wrangler 本地开发与部署缓存
-.wrangler/
+# Tencent Cloud EdgeOne：上传目录、项目关联与 CLI 中间产物；保留该标记行，CLI 识别后不再自动追加
+.edgeone/
+.tef_dist/

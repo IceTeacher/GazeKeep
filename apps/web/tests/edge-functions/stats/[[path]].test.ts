@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { onRequest } from "../../../functions/stats/[[path]].ts";
+import { onRequest } from "../../../edge-functions/stats/[[path]].ts";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -23,19 +23,29 @@ test("脚本请求保留子路径与查询参数转发到 Umami，并原样返�
   expect(await response.text()).toBe("ok");
 });
 
+/** 模拟 EdgeOne 边缘函数运行时：访客 IP 挂在 request.eo.clientIp 上。 */
+function edgeRequest(input: string, init: RequestInit, clientIp: string) {
+  return Object.assign(new Request(input, init), { eo: { clientIp } });
+}
+
 test("上报请求保留方法、请求体与 User-Agent，并以访客 IP 写入 X-Forwarded-For", async () => {
   const calls = stubUpstream();
   await onRequest({
-    request: new Request("https://gazekeep.rainafter.cn/stats/api/send", {
-      method: "POST",
-      body: '{"type":"event"}',
-      headers: {
-        "content-type": "application/json",
-        "user-agent": "Mozilla/5.0 Test",
-        "cf-connecting-ip": "203.0.113.7",
-        cookie: "site=secret",
+    request: edgeRequest(
+      "https://gazekeep.rainafter.cn/stats/api/send",
+      {
+        method: "POST",
+        body: '{"type":"event"}',
+        headers: {
+          "content-type": "application/json",
+          "user-agent": "Mozilla/5.0 Test",
+          // 客户端可伪造的请求头不能冒充访客 IP。
+          "x-forwarded-for": "198.51.100.9",
+          cookie: "site=secret",
+        },
       },
-    }),
+      "203.0.113.7",
+    ),
   });
   const [forwarded] = calls;
   expect(forwarded.method).toBe("POST");

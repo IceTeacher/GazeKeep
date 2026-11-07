@@ -1,11 +1,13 @@
 import { expect, test } from "vitest";
 import { readFile } from "node:fs/promises";
 
-test("根路径由 Cloudflare Pages 服务端 302 跳转到中文站", async () => {
-  const rules = (await readFile(new URL("../../public/_redirects", import.meta.url), "utf8"))
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith("#"))
-    .map((line) => line.split(/\s+/));
-  expect(rules.find(([from]) => from === "/")).toEqual(["/", "/zh/", "302"]);
+test("根路径由 EdgeOne 服务端 302 跳转到中文站", async () => {
+  const config = JSON.parse(await readFile(new URL("../../edgeone.json", import.meta.url), "utf8")) as {
+    redirects?: { source: string; destination: string; statusCode?: number }[];
+  };
+  expect(config.redirects?.find(({ source }) => source === "/")).toEqual({
+    source: "/",
+    destination: "/zh/",
+    statusCode: 302,
+  });
 });

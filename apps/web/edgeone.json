@@ -1,0 +1,7 @@
+{
+  "$schema": "https://cdnstatic.tencentcs.com/edgeone/pages/docs/edgeone.schema.json",
+  "installCommand": "true",
+  "buildCommand": "true",
+  "outputDirectory": "dist",
+  "redirects": [{ "source": "/", "destination": "/zh/", "statusCode": 302 }]
+}
