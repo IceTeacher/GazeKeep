@@ -15,15 +15,54 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class PowerDumpOracleTest {
-  private fun TestScope.oracle(read: suspend () -> PowerSnapshot?, clock: Long, leadMs: Long, retryMs: Long = 1_000L) =
-    PowerDumpOracle(
-      readPower = read,
-      scope = backgroundScope,
-      clock = { clock },
-      leadMs = leadMs,
-      retryMs = retryMs,
-      pollDispatcher = StandardTestDispatcher(testScheduler),
-    )
+  private fun TestScope.oracle(
+    read: suspend () -> PowerSnapshot?,
+    clock: Long,
+    leadMs: Long,
+    retryMs: Long = 1_000L,
+    wakeLockRetryMs: Long = 5_000L,
+  ) = PowerDumpOracle(
+    readPower = read,
+    scope = backgroundScope,
+    clock = { clock },
+    leadMs = leadMs,
+    retryMs = retryMs,
+    wakeLockRetryMs = wakeLockRetryMs,
+    pollDispatcher = StandardTestDispatcher(testScheduler),
+  )
+
+  @Test
+  fun pausesPollingWhileScreenOffUntilReadIsRequested() = runTest {
+    var reads = 0
+    val off = PowerSnapshot(1_000L, 60_000, null, hasScreenWakeLock = false, interactive = false)
+    val oracle = oracle({ off.also { reads++ } }, clock = 1_000L, leadMs = 8_000L)
+
+    oracle.start()
+    advanceTimeBy(10_000L)
+    runCurrent()
+    // 息屏期间不再每秒拉起 dumpsys；亮屏广播通过 requestRead 恢复。
+    assertEquals(1, reads)
+
+    oracle.requestRead()
+    runCurrent()
+    assertEquals(2, reads)
+    oracle.close()
+  }
+
+  @Test
+  fun backsOffWhileScreenWakeLockIsHeld() = runTest {
+    var reads = 0
+    val held = PowerSnapshot(1_000L, 60_000, null, hasScreenWakeLock = true, interactive = true)
+    val oracle = oracle({ held.also { reads++ } }, clock = 1_000L, leadMs = 8_000L)
+
+    oracle.start()
+    advanceTimeBy(10_000L)
+    runCurrent()
+    oracle.close()
+
+    // 视频等应用自行保亮时按 5 s 退避：0、5、10 s 各读一次。
+    assertEquals(3, reads)
+  }
 
   @Test
   fun publishesDimmingTimeAndPreservesRealScreenOffDeadline() = runTest {

@@ -27,6 +27,7 @@ class PowerDumpOracle(
   private val clock: () -> Long = { SystemClock.uptimeMillis() },
   private val leadMs: Long = 2_000L,
   private val retryMs: Long = 1_000L,
+  private val wakeLockRetryMs: Long = 5_000L,
   private val isExternalActivity: (Long) -> Boolean = { true },
   // 轮询读取 dumpsys 不能占用调用方线程；测试注入虚拟时间调度器。
   private val pollDispatcher: CoroutineDispatcher = Dispatchers.Default,
@@ -34,38 +35,53 @@ class PowerDumpOracle(
   AutoCloseable {
   private val _deadlines = MutableSharedFlow<TimeoutDeadline>(replay = 1, extraBufferCapacity = 1)
   private var pollJob: Job? = null
+  private var running = false
   private var lastDeadline: TimeoutDeadline? = null
 
   override val deadlines: Flow<TimeoutDeadline> = _deadlines.asSharedFlow()
 
-  fun start() {
+  @Synchronized fun start() {
+    running = true
     if (pollJob?.isActive == true) return
     pollJob = scope.launch(pollDispatcher) {
       while (isActive) {
         val snapshot = runCatching { readPower() }.getOrNull()
-        val waitMs = publish(snapshot)
+        // 息屏时暂停轮询，由亮屏广播经 requestRead 恢复；否则每秒拉起 dumpsys 会持续耗电。
+        val waitMs = publish(snapshot) ?: break
         delay(waitMs)
       }
     }
   }
 
-  /** 外部活动或触摸发生后立即重新读取一次，避免等完本轮轮询。 */
-  fun requestRead() {
-    if (pollJob?.isActive != true) return
+  /** 外部活动、亮屏或释放后立即重新读取一次；轮询因息屏暂停时同样恢复。 */
+  @Synchronized fun requestRead() {
+    if (!running) return
     pollJob?.cancel()
+    pollJob = null
     start()
   }
 
-  override fun close() {
+  @Synchronized override fun close() {
+    running = false
     pollJob?.cancel()
     pollJob = null
     lastDeadline = null
   }
 
-  private fun publish(snapshot: PowerSnapshot?): Long {
-    if (snapshot == null || !snapshot.interactive || snapshot.hasScreenWakeLock) {
+  /** 返回下次读取的等待时间；null 表示已息屏，暂停轮询。 */
+  private fun publish(snapshot: PowerSnapshot?): Long? {
+    if (snapshot == null) {
       lastDeadline = null
       return retryMs
+    }
+    if (!snapshot.interactive) {
+      lastDeadline = null
+      return null
+    }
+    if (snapshot.hasScreenWakeLock) {
+      // 其他应用自行保亮时系统不会熄屏，退避读取；锁释放后最多晚一个退避周期发现 deadline。
+      lastDeadline = null
+      return wakeLockRetryMs
     }
     val lastActivity = snapshot.lastUserActivityUptime ?: run {
       lastDeadline = null
