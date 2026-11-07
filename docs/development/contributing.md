@@ -95,20 +95,20 @@ runner 固定为 `ubuntu-24.04`，避免 `ubuntu-latest` 迁移系统时 Android
 - `changes`：`scripts/repo-tools/scripts/ci-changes.ts` 按差异判断 Android 与官网是否受影响。根配置、锁文件、`.github/` 或基线未知（手动触发、首次推送或强推）时全量回归；官网同时受 `apps/app/shared`、Gradle 根配置、版本目录与 Kotlin/JS 锁文件影响。push 与 PR 还会判断这棵树是否已验证：head 本身，或合并提交中被合入的分支头与 head 树完全一致，且该提交有本流水线成功的 push 运行时输出 `verified=true`。它覆盖 dev 推送后开 PR、合并到 `main` 与合并后同步 `dev` 三种重复；`main` 在合并前被单独改动时树不一致，仍完整回归。手动触发不复用。
 - `repo`：已验证的 push 运行跳过（提交已在原运行中检查），PR 始终运行。包括 Hook、文档、Agent 资产、架构、全仓格式、repo-tools lint 与测试，并对本次提交区间执行 commitlint 与 `git diff --check`。
 - `app`：受影响且未验证时运行 `pnpm --filter @gazekeep/app verify`；实机套件不进入 CI。
-- `web`：受影响时完整构建官网（含 KMP Showcase），再运行单元测试、容器内浏览器与截图测试（`test:browser:docker`）、lint 与 `astro check`，产物交给发布 job 复用。已验证的树只在 `main` 推送时构建（供生产发布），跳过测试；其余场景整个 job 跳过，因此 dev→main 的 PR 不再单独部署 `pr-<编号>` 预览，以 `dev` 预览为准。发布规则见[官网架构](../architecture/web/website.md#六当前构建与后续验收)，冒烟由 `check-web-deploy.ts` 执行。
+- `web`：受影响时完整构建官网（含 KMP Showcase），再运行单元测试、容器内浏览器与截图测试（`test:browser:docker`）、lint 与 `astro check`，产物交给发布 job 复用。已验证的树只在 `main` 推送时构建（供生产发布），跳过测试；其余场景整个 job 跳过，因此 dev→main 的 PR 不再单独部署预览，以 `dev` 预览为准。发布规则见[官网架构](../architecture/web/website.md#六当前构建与后续验收)，冒烟由 `check-web-deploy.ts` 执行。
 - `release.yml`：tag 不重跑门禁。`gate` 要求 tag 等于 `v<versionName>`、位于 `main` 并已提交发布说明 `docs/releases/<tag>.md`（格式见[发布规范](release.md#发布说明)），再等待 `main` 上同一提交的 pipeline 成功（运行中则轮询，失败、约 5 分钟仍无记录或约 55 分钟超时都不发版）。`release-apk` 在 `release` 环境中用正式签名构建压缩 Release，按 ABI 输出 `arm64-v8a`、`armeabi-v7a`、`x86_64` 与 `universal` 四个包，逐个执行 APK 静态门禁（含 ABI 检查），并用 `apksigner` 核对证书指纹与登记值一致，然后创建标题为 tag 的 GitHub 预发布（正文为发布说明加生成的安装包一节，附各 APK 与 SHA-256 文件；证书与提交只写入 Step summary），APK 同时作为 artifact 保留 7 天。签名配置缺失或指纹不一致时失败，不产出 unsigned 版本。转为正式版由维护者在 GitHub 上手动操作。
 - `lsposed-repo.yml`：本仓库 Release 转为正式版（`release: released`）或手动输入 tag 时运行，只接受正式版。在 `lsposed-repo` 环境中重新核对四个 APK 的 SHA-256 与签名证书，推送 `apps/app/distribution/lsposed/` 元数据与由根 README 生成的 README并在 LSPosed 模块仓库创建 `<versionCode>-<versionName>` Release，规则见[发布规范](release.md#lsposed-模块仓库)。`repo` job 运行 `pnpm verify:lsposed-repo` 预先检查元数据。
 
 公开仓库的 workflow 不写明文部署地址、项目名或凭据，配置集中在四个 GitHub Environment（LSPosed 模块仓库名由包名决定且公开，直接写在 workflow 中）：
 
-| Environment      | 部署来源               | secret                                                                                               | variable                                                 |
-| ---------------- | ---------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| `web-preview`    | `dev` 推送、同仓库 PR  | `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`                                                      | `CLOUDFLARE_PAGES_PROJECT`                               |
-| `web-production` | 仅 `main`              | `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`                                                      | `CLOUDFLARE_PAGES_PROJECT`、`GAZEKEEP_WEB_URL`（站点根） |
-| `release`        | 仅 `v*.*.*` tag        | `GAZEKEEP_KEYSTORE_BASE64`、`GAZEKEEP_STORE_PASSWORD`、`GAZEKEEP_KEY_ALIAS`、`GAZEKEEP_KEY_PASSWORD` | `GAZEKEEP_SIGNING_CERT_SHA256`                           |
-| `lsposed-repo`   | `main` 与 `v*.*.*` tag | `LSPOSED_REPO_TOKEN`                                                                                 | `GAZEKEEP_SIGNING_CERT_SHA256`                           |
+| Environment      | 部署来源               | secret                                                                                               | variable                                        |
+| ---------------- | ---------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `web-preview`    | `dev` 推送、同仓库 PR  | `EDGEONE_API_TOKEN`                                                                                  | `EDGEONE_PROJECT`                               |
+| `web-production` | 仅 `main`              | `EDGEONE_API_TOKEN`                                                                                  | `EDGEONE_PROJECT`、`GAZEKEEP_WEB_URL`（站点根） |
+| `release`        | 仅 `v*.*.*` tag        | `GAZEKEEP_KEYSTORE_BASE64`、`GAZEKEEP_STORE_PASSWORD`、`GAZEKEEP_KEY_ALIAS`、`GAZEKEEP_KEY_PASSWORD` | `GAZEKEEP_SIGNING_CERT_SHA256`                  |
+| `lsposed-repo`   | `main` 与 `v*.*.*` tag | `LSPOSED_REPO_TOKEN`                                                                                 | `GAZEKEEP_SIGNING_CERT_SHA256`                  |
 
-Cloudflare token 只授予 Account › Cloudflare Pages:Edit。fork PR 拿不到 secret，只运行门禁；PR 评论权限只授予预览 job，`changes` 与 `gate` 额外授予 `actions: read` 以查询流水线运行，`contents: write` 只授予 `release-apk`。
+EdgeOne API Token 在 Makers 控制台创建并设置有效期；官方文档未说明可按项目收窄权限，因此只放在两个发布环境，到期前轮换。fork PR 拿不到 secret，只运行门禁；PR 评论权限只授予预览 job，`changes` 与 `gate` 额外授予 `actions: read` 以查询流水线运行，`contents: write` 只授予 `release-apk`。
 
 ## APK 静态门禁
 

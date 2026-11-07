@@ -10,13 +10,18 @@ const PROBES: { path: string; status: number; location?: string }[] = [
   { path: "/kmp-showcase/js/", status: 200 },
 ];
 
-async function probeOnce(base: URL, fetcher: Fetcher) {
+// EdgeOne 默认域名需带临时访问令牌；只放行这两个参数，其余查询仍视为非站点根。
+const ACCESS_PARAMS = ["eo_token", "eo_time"];
+
+async function probeOnce(base: URL, cookie: string, fetcher: Fetcher) {
   const errors: string[] = [];
+  // 网关对带令牌的查询先 302 写入同值 Cookie 再跳回原路径；直接以 Cookie 携带，探测才能看到站点自身的响应。
+  const headers: Record<string, string> = cookie ? { cookie } : {};
   for (const probe of PROBES) {
-    const url = new URL(probe.path, base);
+    const url = new URL(probe.path, base.origin);
     try {
       // 根路径跳转本身是验收对象，不能让 fetch 自动跟随。
-      const response = await fetcher(url, { redirect: "manual", signal: AbortSignal.timeout(15_000) });
+      const response = await fetcher(url, { redirect: "manual", headers, signal: AbortSignal.timeout(15_000) });
       if (response.status !== probe.status) errors.push(`${probe.path} 返回 ${response.status}，预期 ${probe.status}`);
       else if (probe.location) {
         const target = new URL(response.headers.get("location") ?? "", url);
@@ -37,10 +42,16 @@ export async function checkWebDeploy(
 ) {
   const base = new URL(address);
   if (base.protocol !== "https:") throw new Error(`部署地址必须使用 https：${address}`);
-  if (base.pathname !== "/" || base.search || base.hash) throw new Error(`部署地址必须是站点根：${address}`);
+  const extra = [...base.searchParams.keys()].some((key) => !ACCESS_PARAMS.includes(key));
+  // 报错不回显地址，避免预览访问令牌写入日志。
+  if (base.pathname !== "/" || extra || base.hash)
+    throw new Error(`部署地址必须是站点根：${base.origin}${base.pathname}`);
+  const cookie = ACCESS_PARAMS.filter((key) => base.searchParams.has(key))
+    .map((key) => `${key}=${base.searchParams.get(key)}`)
+    .join("; ");
   let errors: string[] = [];
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    errors = await probeOnce(base, fetcher);
+    errors = await probeOnce(base, cookie, fetcher);
     if (!errors.length) return [];
     if (attempt < attempts) await sleep(delayMs);
   }
@@ -51,5 +62,5 @@ if (isMain(import.meta.url))
   await cli(async () => {
     const { values } = context({ url: { type: "string" } });
     if (!values.url) throw new Error("用法：check-web-deploy.ts --url <站点根地址>");
-    report(await checkWebDeploy(values.url), `官网部署冒烟通过：${values.url}`);
+    report(await checkWebDeploy(values.url), `官网部署冒烟通过：${new URL(values.url).origin}`);
   });

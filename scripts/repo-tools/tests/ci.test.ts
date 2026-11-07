@@ -63,11 +63,11 @@ const healthy: Record<string, [number, string?]> = {
 
 test("部署冒烟要求根路径 302 到中文站且双语与 KMP 入口可用", async () => {
   const { calls, fetcher } = responder(healthy);
-  assert.deepEqual(await checkWebDeploy("https://dev.example.pages.dev", { fetcher, attempts: 1 }), []);
+  assert.deepEqual(await checkWebDeploy("https://gazekeep-dev.edgeone.example", { fetcher, attempts: 1 }), []);
   assert.deepEqual(calls, Object.keys(healthy));
-  const absolute = responder({ ...healthy, "/": [302, "https://dev.example.pages.dev/zh/"] });
+  const absolute = responder({ ...healthy, "/": [302, "https://gazekeep-dev.edgeone.example/zh/"] });
   assert.deepEqual(
-    await checkWebDeploy("https://dev.example.pages.dev/", { fetcher: absolute.fetcher, attempts: 1 }),
+    await checkWebDeploy("https://gazekeep-dev.edgeone.example/", { fetcher: absolute.fetcher, attempts: 1 }),
     [],
   );
 });
@@ -90,6 +90,27 @@ test("跳转目标、状态码错误或地址非法时冒烟失败", async () =>
   );
   await assert.rejects(checkWebDeploy("http://a.example", { fetcher: missing.fetcher, attempts: 1 }), /https/);
   await assert.rejects(checkWebDeploy("https://a.example/zh/", { fetcher: missing.fetcher, attempts: 1 }), /站点根/);
+});
+
+test("EdgeOne 访问令牌改为 Cookie 携带，探测路径不带查询，其他查询参数仍视为非站点根", async () => {
+  // 真实网关对带令牌的查询先 302 写入同值 Cookie 再跳回原路径，令牌留在查询上会让每个探测都变成 302。
+  const seen: { search: string; cookie: string | null }[] = [];
+  const healthyFetcher = responder(healthy).fetcher;
+  const fetcher = async (address: string | URL | Request, init?: RequestInit) => {
+    seen.push({ search: new URL(String(address)).search, cookie: new Headers(init?.headers).get("cookie") });
+    return healthyFetcher(address, init);
+  };
+  const preview = "https://gazekeep-abc.edgeone.example/?eo_token=t0k&eo_time=1762500000";
+  assert.deepEqual(await checkWebDeploy(preview, { fetcher, attempts: 1 }), []);
+  assert.deepEqual(
+    seen,
+    Array(Object.keys(healthy).length).fill({ search: "", cookie: "eo_token=t0k; eo_time=1762500000" }),
+  );
+  seen.length = 0;
+  await checkWebDeploy("https://a.example", { fetcher, attempts: 1 });
+  assert.ok(seen.every(({ cookie }) => cookie === null));
+  await assert.rejects(checkWebDeploy("https://a.example/?utm=1", { fetcher, attempts: 1 }), /站点根/);
+  await assert.rejects(checkWebDeploy("https://a.example/?eo_token=t0k#x", { fetcher, attempts: 1 }), /站点根/);
 });
 
 test("新部署传播期间按次数重试，网络错误计入失败", async () => {
