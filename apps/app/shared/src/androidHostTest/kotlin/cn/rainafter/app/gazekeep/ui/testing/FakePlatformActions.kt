@@ -53,8 +53,12 @@ class FakePlatformActions(
     calls += "shareLogs"
   }
 
+  /** 最近一次导出的正文，用于核对导出取最新日志而不是页面定格的列表。 */
+  var exportedText: String? = null
+
   override fun exportLogs(text: String) {
     calls += "exportLogs"
+    exportedText = text
   }
 
   override fun appLanguage(): AppLanguage? = language

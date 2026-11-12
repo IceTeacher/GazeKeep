@@ -1,6 +1,7 @@
 package cn.rainafter.app.gazekeep.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,16 +20,20 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -56,12 +61,16 @@ import gazekeep.shared.generated.resources.logs_level_verbose
 import gazekeep.shared.generated.resources.logs_level_warning
 import gazekeep.shared.generated.resources.logs_menu_card_view
 import gazekeep.shared.generated.resources.logs_menu_clear
+import gazekeep.shared.generated.resources.logs_menu_live
 import gazekeep.shared.generated.resources.logs_menu_raw_view
 import gazekeep.shared.generated.resources.logs_menu_scroll_bottom
 import gazekeep.shared.generated.resources.logs_menu_scroll_top
+import gazekeep.shared.generated.resources.logs_new_entries
 import gazekeep.shared.generated.resources.logs_search_placeholder
 import gazekeep.shared.generated.resources.logs_title
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.miuix.kmp.basic.Card
@@ -93,15 +102,31 @@ internal fun LogScreen(
   var rawView by rememberSaveable { mutableStateOf(false) }
   var showFilterPopup by remember { mutableStateOf(false) }
   var showMorePopup by remember { mutableStateOf(false) }
+  var live by rememberSaveable { mutableStateOf(true) }
+  var feed by remember { mutableStateOf(startLogFeed(state.logs)) }
   val listState = rememberLazyListState()
+  val atTop by remember { derivedStateOf { !listState.canScrollBackward } }
+  val latestLogs by rememberUpdatedState(state.logs)
 
   LaunchedEffect(Unit) {
     controller.refreshLogs()
   }
 
+  // 只在本页存活期间合并日志，离开页面随组合取消；节流避免密集写入时逐条重排列表。
+  LaunchedEffect(listState) {
+    snapshotFlow { Triple(latestLogs, live, atTop) }
+      .conflate()
+      .collect { (latest, isLive, isAtTop) ->
+        // 列表按 key 锚定视口，新条目插到前端时会停在旧条目上；停在顶部时与数据同帧请求回到首项以跟随最新。
+        if (isLive && isAtTop) listState.requestScrollToItem(0)
+        feed = feed.receive(latest, isLive, isAtTop)
+        delay(LOG_REFRESH_THROTTLE_MS)
+      }
+  }
+
   val selectedLevel = LogLevel.entries.getOrNull(selectedLevelOrdinal)
-  val filteredLogs = remember(state.logs, search, selectedLevel) {
-    state.logs.filter { entry ->
+  val matches = remember(search, selectedLevel) {
+    { entry: LogEntry ->
       val levelMatched = selectedLevel == null || entry.level.priority >= selectedLevel.priority
       val searchMatched = search.isBlank() ||
         entry.message.contains(search, ignoreCase = true) ||
@@ -111,6 +136,18 @@ internal fun LogScreen(
       levelMatched && searchMatched
     }
   }
+  val filteredLogs = remember(feed.shown, matches) { feed.shown.filter(matches) }
+  val unseen = remember(feed, state.logs, matches) { feed.unseenCount(state.logs, matches) }
+
+  /** 回到最新并恢复实时；与数据同帧请求首项，避免按旧条目 key 锚定。 */
+  fun jumpToLatest() {
+    live = true
+    listState.requestScrollToItem(0)
+    feed = feed.catchUp(state.logs)
+  }
+
+  // 分享与导出始终取最新全量日志（仍按当前筛选），不受暂停时定格的列表影响。
+  fun exportText() = formatLogsAsRawText(state.logs.filter(matches), actions)
 
   val filterLabels = listOf(
     stringResource(Res.string.logs_level_all),
@@ -122,6 +159,7 @@ internal fun LogScreen(
     stringResource(Res.string.logs_level_fatal),
   )
 
+  val liveLabel = stringResource(Res.string.logs_menu_live)
   val moreViewLabel = stringResource(
     if (rawView) Res.string.logs_menu_card_view else Res.string.logs_menu_raw_view,
   )
@@ -165,7 +203,7 @@ internal fun LogScreen(
 
       IconButton(
         onClick = {
-          actions.shareLogs(formatLogsAsRawText(filteredLogs, actions))
+          actions.shareLogs(exportText())
         },
       ) {
         Icon(
@@ -176,7 +214,7 @@ internal fun LogScreen(
 
       IconButton(
         onClick = {
-          actions.exportLogs(formatLogsAsRawText(filteredLogs, actions))
+          actions.exportLogs(exportText())
         },
       ) {
         Icon(
@@ -199,10 +237,20 @@ internal fun LogScreen(
         ) {
           ListPopupColumn {
             DropdownImpl(
-              text = moreViewLabel,
-              optionSize = 4,
-              isSelected = false,
+              text = liveLabel,
+              optionSize = 5,
+              isSelected = live,
               index = 0,
+              onSelectedIndexChange = {
+                showMorePopup = false
+                if (live) live = false else jumpToLatest()
+              },
+            )
+            DropdownImpl(
+              text = moreViewLabel,
+              optionSize = 5,
+              isSelected = false,
+              index = 1,
               onSelectedIndexChange = {
                 rawView = !rawView
                 showMorePopup = false
@@ -211,9 +259,9 @@ internal fun LogScreen(
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
             DropdownImpl(
               text = scrollTopLabel,
-              optionSize = 4,
+              optionSize = 5,
               isSelected = false,
-              index = 1,
+              index = 2,
               onSelectedIndexChange = {
                 showMorePopup = false
                 if (filteredLogs.isNotEmpty()) {
@@ -223,9 +271,9 @@ internal fun LogScreen(
             )
             DropdownImpl(
               text = scrollBottomLabel,
-              optionSize = 4,
+              optionSize = 5,
               isSelected = false,
-              index = 2,
+              index = 3,
               onSelectedIndexChange = {
                 showMorePopup = false
                 if (filteredLogs.isNotEmpty()) {
@@ -236,9 +284,9 @@ internal fun LogScreen(
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
             DropdownImpl(
               text = clearLogsLabel,
-              optionSize = 4,
+              optionSize = 5,
               isSelected = false,
-              index = 3,
+              index = 4,
               onSelectedIndexChange = {
                 showMorePopup = false
                 controller.clearLogs()
@@ -262,42 +310,67 @@ internal fun LogScreen(
         )
       }
 
-      if (filteredLogs.isEmpty()) {
-        Box(
-          modifier = Modifier.fillMaxSize().padding(32.dp),
-          contentAlignment = Alignment.Center,
-        ) {
-          Text(
-            text = stringResource(Res.string.logs_empty),
-            style = MiuixTheme.textStyles.subtitle,
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            textAlign = TextAlign.Center,
-          )
-        }
-      } else {
-        LazyColumn(
-          state = listState,
-          modifier = Modifier
-            .fillMaxSize()
-            .nestedScroll(scrollBehavior.nestedScrollConnection),
-          contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
-          verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-          items(
-            items = filteredLogs,
-            key = { it.id },
-            contentType = { if (rawView) "raw" else "card" },
-          ) { entry ->
-            if (rawView) {
-              RawLogItem(entry = entry, actions = actions)
-            } else {
-              LogCardItem(entry = entry, actions = actions)
+      Box(modifier = Modifier.fillMaxSize()) {
+        if (filteredLogs.isEmpty()) {
+          Box(
+            modifier = Modifier.fillMaxSize().padding(32.dp),
+            contentAlignment = Alignment.Center,
+          ) {
+            Text(
+              text = stringResource(Res.string.logs_empty),
+              style = MiuixTheme.textStyles.subtitle,
+              color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+              textAlign = TextAlign.Center,
+            )
+          }
+        } else {
+          LazyColumn(
+            state = listState,
+            modifier = Modifier
+              .fillMaxSize()
+              .nestedScroll(scrollBehavior.nestedScrollConnection),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+          ) {
+            items(
+              items = filteredLogs,
+              key = { it.id },
+              contentType = { if (rawView) "raw" else "card" },
+            ) { entry ->
+              if (rawView) {
+                RawLogItem(entry = entry, actions = actions)
+              } else {
+                LogCardItem(entry = entry, actions = actions)
+              }
             }
           }
+        }
+        if (unseen > 0) {
+          NewLogsPill(
+            count = unseen,
+            onClick = ::jumpToLatest,
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp),
+          )
         }
       }
     }
   }
+}
+
+/** 离开顶部或暂停实时日志时提示未读条数，点按回到最新并恢复实时。 */
+@Composable
+private fun NewLogsPill(count: Int, onClick: () -> Unit, modifier: Modifier = Modifier) {
+  Text(
+    text = stringResource(Res.string.logs_new_entries, count),
+    style = MiuixTheme.textStyles.footnote1,
+    fontWeight = FontWeight.Medium,
+    color = MiuixTheme.colorScheme.onPrimary,
+    modifier = modifier
+      .clip(RoundedCornerShape(50))
+      .background(MiuixTheme.colorScheme.primary)
+      .clickable(role = Role.Button, onClick = onClick)
+      .padding(horizontal = 14.dp, vertical = 7.dp),
+  )
 }
 
 @Composable
@@ -390,3 +463,6 @@ private fun formatLogsAsRawText(entries: List<LogEntry>, actions: PlatformAction
 private fun formatSingleLogLine(entry: LogEntry, actions: PlatformActions): String =
   "${actions.formatLogTimestamp(entry.timestampMs)} ${entry.level.badge}/${entry.tag} " +
     "(${entry.source} -> ${entry.target}): ${entry.message}"
+
+/** 实时日志合并间隔：足以合并一次检测周期内的多条写入，又不让用户感到滞后。 */
+private const val LOG_REFRESH_THROTTLE_MS = 150L

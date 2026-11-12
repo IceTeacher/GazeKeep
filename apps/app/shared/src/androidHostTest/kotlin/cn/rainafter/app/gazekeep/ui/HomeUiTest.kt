@@ -80,14 +80,14 @@ class HomeUiTest {
   }
 
   @Test
-  fun feedbackEntryBelowPrivacyOpensIssuesLikeAboutPage() {
+  fun feedbackEntryBelowPrivacyOpensPinnedIssueLikeAboutPage() {
     val app = rule.launchApp(readyState())
     // 首页反馈入口紧跟隐私卡片，打开的地址与关于页的「问题反馈」相同。
     val privacy = rule.onNodeWithText(text(Res.string.home_privacy_card_title)).getUnclippedBoundsInRoot()
     val feedback = rule.onNodeWithText(text(Res.string.about_feedback)).getUnclippedBoundsInRoot()
     assertTrue(feedback.top > privacy.bottom)
     app.click(text(Res.string.about_feedback))
-    assertEquals(listOf("openUrl:https://github.com/IceTeacher/GazeKeep/issues"), app.actions.calls)
+    assertEquals(listOf("openUrl:https://github.com/IceTeacher/GazeKeep/issues/24"), app.actions.calls)
   }
 
   @Test

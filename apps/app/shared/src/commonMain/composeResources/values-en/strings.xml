@@ -185,11 +185,13 @@
     <string name="logs_level_warning">WARNING</string>
     <string name="logs_level_error">ERROR</string>
     <string name="logs_level_fatal">FATAL</string>
+    <string name="logs_menu_live">Live logs</string>
     <string name="logs_menu_raw_view">Raw view</string>
     <string name="logs_menu_card_view">Card view</string>
     <string name="logs_menu_scroll_top">Scroll to top</string>
     <string name="logs_menu_scroll_bottom">Scroll to bottom</string>
     <string name="logs_menu_clear">Clear logs now</string>
+    <string name="logs_new_entries">New logs: %1$d</string>
     <string name="logs_action_filter">Filter log levels</string>
     <string name="logs_action_share">Share logs</string>
     <string name="logs_action_export">Export logs</string>

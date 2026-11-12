@@ -155,7 +155,7 @@ class SettingsUiTest {
     assertEquals(
       listOf(
         "openUrl:https://github.com/IceTeacher/GazeKeep",
-        "openUrl:https://github.com/IceTeacher/GazeKeep/issues",
+        "openUrl:https://github.com/IceTeacher/GazeKeep/issues/24",
         "openUrl:https://gazekeep.rainafter.cn",
       ),
       app.actions.calls,

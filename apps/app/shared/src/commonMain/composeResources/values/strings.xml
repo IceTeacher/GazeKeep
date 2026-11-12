@@ -147,11 +147,13 @@
     <string name="logs_level_warning">WARNING</string>
     <string name="logs_level_error">ERROR</string>
     <string name="logs_level_fatal">FATAL</string>
+    <string name="logs_menu_live">查看实时日志</string>
     <string name="logs_menu_raw_view">原始视图</string>
     <string name="logs_menu_card_view">卡片视图</string>
     <string name="logs_menu_scroll_top">滚动到顶部</string>
     <string name="logs_menu_scroll_bottom">滚动到底部</string>
     <string name="logs_menu_clear">立即清空日志</string>
+    <string name="logs_new_entries">有 %1$d 条新日志</string>
     <string name="logs_action_filter">筛选日志级别</string>
     <string name="logs_action_share">分享日志</string>
     <string name="logs_action_export">导出日志</string>
