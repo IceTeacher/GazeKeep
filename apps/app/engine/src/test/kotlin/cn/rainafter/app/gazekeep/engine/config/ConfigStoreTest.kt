@@ -4,6 +4,7 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import cn.rainafter.app.gazekeep.core.model.AppFilterMode
@@ -44,6 +45,8 @@ class ConfigStoreTest {
       assertEquals(AppFilterMode.Whitelist, initial.config.appFilterMode)
       assertTrue(initial.config.whitelistPackages.isEmpty())
       assertTrue(initial.config.blacklistPackages.isEmpty())
+      assertTrue(initial.config.pauseOnPowerSave)
+      assertEquals(15, initial.config.lowBatteryThreshold)
       assertNull(initial.selfTestPassedAt)
     } finally {
       job.cancelAndJoin()
@@ -65,6 +68,8 @@ class ConfigStoreTest {
       whitelistPackages = setOf("example.reader"),
       blacklistPackages = setOf("example.video"),
       maxHoldMinutes = 10,
+      pauseOnPowerSave = false,
+      lowBatteryThreshold = 20,
       debugLogEnabled = true,
       hideCameraIndicator = true,
     )
@@ -220,9 +225,34 @@ class ConfigStoreTest {
     )
   }
 
+  @Test fun powerSaveAndLowBatteryValidationAndFallback() = runBlocking {
+    val directory = Files.createTempDirectory("gazekeep-config-test").toFile()
+    val job = SupervisorJob()
+    val dataStore = PreferenceDataStoreFactory.create(scope = CoroutineScope(job + Dispatchers.IO)) {
+      directory.resolve("settings.preferences_pb")
+    }
+    try {
+      val store = ConfigStore(dataStore)
+      for (level in listOf(0, 10, 15, 20)) {
+        store.update { it.copy(lowBatteryThreshold = level) }
+        assertEquals(level, store.settings.first().config.lowBatteryThreshold)
+      }
+      assertFailsWith<IllegalArgumentException> { store.update { it.copy(lowBatteryThreshold = 12) } }
+      assertFailsWith<IllegalArgumentException> { store.update { it.copy(lowBatteryThreshold = -1) } }
+      assertEquals(20, store.settings.first().config.lowBatteryThreshold)
+
+      dataStore.edit { it[LOW_BATTERY_THRESHOLD] = 99 }
+      assertEquals(15, store.settings.first().config.lowBatteryThreshold)
+    } finally {
+      job.cancelAndJoin()
+      directory.deleteRecursively()
+    }
+  }
+
   private companion object {
     val LEGACY_WHITELIST = booleanPreferencesKey("whitelist_enabled")
     val FILTER_MODE = stringPreferencesKey("app_filter_mode")
     val PACKAGES = stringSetPreferencesKey("packages")
+    val LOW_BATTERY_THRESHOLD = intPreferencesKey("low_battery_threshold")
   }
 }

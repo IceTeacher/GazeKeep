@@ -12,6 +12,9 @@ data class GateInput(
   val proximityNear: Boolean?,
   val lux: Float?,
   val faceDown: Boolean?,
+  val powerSaveMode: Boolean = false,
+  val batteryPercent: Int? = null,
+  val isCharging: Boolean = false,
 )
 
 data class GateContext(val darkUnknownStreak: Int = 0)
@@ -24,6 +27,8 @@ sealed interface GateDecision {
 enum class SkipReason {
   ScreenOff,
   Locked,
+  PowerSaveMode,
+  LowBattery,
   NotWhitelisted,
   Blacklisted,
   ForegroundUnknown,
@@ -38,14 +43,38 @@ enum class SkipReason {
 object GatePolicy {
   private val cameraPackages = setOf(
     "com.android.camera",
+    "com.android.camera2",
     "com.google.android.GoogleCamera",
     "com.miui.camera",
-    "com.android.camera2",
+    "com.oplus.camera",
+    "com.oppo.camera",
+    "com.oneplus.camera",
+    "com.vivo.camera",
+    "com.sec.android.app.camera",
+    "com.huawei.camera",
+    "com.hihonor.camera",
+    "com.nothing.camera",
+    "com.meizu.media.camera",
+    "com.asus.camera",
+    "com.motorola.camera3",
+    "com.motorola.cameraone",
+    "com.sonyericsson.android.camera",
+    "com.sonymobile.photopro",
   )
 
   fun decide(input: GateInput, context: GateContext, config: GazeConfig): GateDecision {
     if (!input.interactive) return GateDecision.Skip(SkipReason.ScreenOff)
     if (input.keyguardLocked) return GateDecision.Skip(SkipReason.Locked)
+    if (config.pauseOnPowerSave && input.powerSaveMode) {
+      return GateDecision.Skip(SkipReason.PowerSaveMode)
+    }
+    if (config.lowBatteryThreshold > 0 &&
+      !input.isCharging &&
+      input.batteryPercent != null &&
+      input.batteryPercent <= config.lowBatteryThreshold
+    ) {
+      return GateDecision.Skip(SkipReason.LowBattery)
+    }
     val packageName = input.foregroundPackage
     // 白名单与黑名单都必须先确认前台：无法确认不在黑名单内时同样不放行。
     if (packageName == null && config.appFilterMode != AppFilterMode.All) {

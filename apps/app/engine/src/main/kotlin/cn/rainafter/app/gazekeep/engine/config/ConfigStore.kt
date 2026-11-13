@@ -52,12 +52,16 @@ class ConfigStore internal constructor(private val store: DataStore<Preferences>
     private val WHITELIST_PACKAGES = stringSetPreferencesKey("packages")
     private val BLACKLIST_PACKAGES = stringSetPreferencesKey("blacklist_packages")
     private val MAX_HOLD = intPreferencesKey("max_hold_minutes")
+    private val PAUSE_ON_POWER_SAVE = booleanPreferencesKey("pause_on_power_save")
+    private val LOW_BATTERY_THRESHOLD = intPreferencesKey("low_battery_threshold")
     private val SELF_TEST = longPreferencesKey("self_test_passed_at")
     internal val MIGRATED = booleanPreferencesKey("m4_migrated")
 
     private fun isValidLeadMillis(value: Long): Boolean = value in 0L..60_000L && value % 1_000L == 0L
 
     private fun isValidMaxHoldMinutes(value: Int): Boolean = value in 0..1_440
+
+    private fun isValidLowBatteryThreshold(value: Int): Boolean = value in GazeConfig.LOW_BATTERY_LEVELS
 
     /**
      * 本版写入时总会删除旧开关，旧开关仍在说明升级前或降级后由旧版写入，以它为准。
@@ -85,6 +89,8 @@ class ConfigStore internal constructor(private val store: DataStore<Preferences>
         whitelistPackages = values[WHITELIST_PACKAGES].orEmpty(),
         blacklistPackages = values[BLACKLIST_PACKAGES].orEmpty(),
         maxHoldMinutes = values[MAX_HOLD]?.takeIf(::isValidMaxHoldMinutes) ?: 30,
+        pauseOnPowerSave = values[PAUSE_ON_POWER_SAVE] ?: true,
+        lowBatteryThreshold = values[LOW_BATTERY_THRESHOLD]?.takeIf(::isValidLowBatteryThreshold) ?: 15,
       ),
       selfTestPassedAt = values[SELF_TEST],
     )
@@ -92,6 +98,7 @@ class ConfigStore internal constructor(private val store: DataStore<Preferences>
     private fun writeConfig(values: MutablePreferences, config: GazeConfig) {
       require(isValidLeadMillis(config.leadMillis))
       require(isValidMaxHoldMinutes(config.maxHoldMinutes))
+      require(isValidLowBatteryThreshold(config.lowBatteryThreshold))
       values[ENABLED] = config.enabled
       values[DEBUG_LOG] = config.debugLogEnabled
       values[HIDE_CAMERA_INDICATOR] = config.hideCameraIndicator
@@ -104,6 +111,8 @@ class ConfigStore internal constructor(private val store: DataStore<Preferences>
       values[WHITELIST_PACKAGES] = config.whitelistPackages
       values[BLACKLIST_PACKAGES] = config.blacklistPackages
       values[MAX_HOLD] = config.maxHoldMinutes
+      values[PAUSE_ON_POWER_SAVE] = config.pauseOnPowerSave
+      values[LOW_BATTERY_THRESHOLD] = config.lowBatteryThreshold
     }
   }
 }

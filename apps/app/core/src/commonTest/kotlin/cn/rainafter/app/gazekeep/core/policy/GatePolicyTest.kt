@@ -92,4 +92,64 @@ class GatePolicyTest {
       GatePolicy.decide(noSensors, GateContext(darkUnknownStreak = 5), config(AppFilterMode.All)),
     )
   }
+
+  @Test fun powerSaveSkipsWhenEnabledAndPrecedesScope() {
+    val cfg = config(AppFilterMode.Whitelist).copy(pauseOnPowerSave = true)
+    assertEquals(skip(SkipReason.PowerSaveMode), decide(input(null).copy(powerSaveMode = true), cfg))
+    assertEquals(
+      skip(SkipReason.ScreenOff),
+      decide(input(reader, interactive = false).copy(powerSaveMode = true), cfg),
+    )
+    assertEquals(
+      skip(SkipReason.Locked),
+      decide(input(reader, keyguardLocked = true).copy(powerSaveMode = true), cfg),
+    )
+    assertEquals(
+      GateDecision.Proceed,
+      decide(
+        input(reader).copy(powerSaveMode = true),
+        config(AppFilterMode.Whitelist, whitelist = setOf(reader)).copy(pauseOnPowerSave = false),
+      ),
+    )
+  }
+
+  @Test fun lowBatterySkipsUnpluggedAtOrBelowThreshold() {
+    val cfg = config(AppFilterMode.All).copy(pauseOnPowerSave = false, lowBatteryThreshold = 15)
+    assertEquals(skip(SkipReason.LowBattery), decide(input(reader).copy(batteryPercent = 15, isCharging = false), cfg))
+    assertEquals(skip(SkipReason.LowBattery), decide(input(reader).copy(batteryPercent = 5, isCharging = false), cfg))
+    assertEquals(GateDecision.Proceed, decide(input(reader).copy(batteryPercent = 16, isCharging = false), cfg))
+    assertEquals(GateDecision.Proceed, decide(input(reader).copy(batteryPercent = 5, isCharging = true), cfg))
+    assertEquals(GateDecision.Proceed, decide(input(reader).copy(batteryPercent = null, isCharging = false), cfg))
+    assertEquals(
+      GateDecision.Proceed,
+      decide(input(reader).copy(batteryPercent = 5, isCharging = false), cfg.copy(lowBatteryThreshold = 0)),
+    )
+    assertEquals(
+      skip(SkipReason.PowerSaveMode),
+      decide(
+        input(reader).copy(powerSaveMode = true, batteryPercent = 5, isCharging = false),
+        cfg.copy(pauseOnPowerSave = true),
+      ),
+    )
+  }
+
+  @Test fun oemCameraAppsAreSkipped() {
+    val oemCameras = listOf(
+      "com.oplus.camera",
+      "com.oppo.camera",
+      "com.oneplus.camera",
+      "com.vivo.camera",
+      "com.sec.android.app.camera",
+      "com.huawei.camera",
+      "com.hihonor.camera",
+      "com.nothing.camera",
+      "com.meizu.media.camera",
+      "com.asus.camera",
+      "com.motorola.camera3",
+      "com.sonyericsson.android.camera",
+    )
+    for (pkg in oemCameras) {
+      assertEquals(skip(SkipReason.CameraSensitiveApp), decide(input(pkg), config(AppFilterMode.All)), pkg)
+    }
+  }
 }

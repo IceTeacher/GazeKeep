@@ -9,12 +9,19 @@ data class GazeConfig(
   val whitelistPackages: Set<String> = emptySet(),
   val blacklistPackages: Set<String> = emptySet(),
   val maxHoldMinutes: Int = 30,
+  val pauseOnPowerSave: Boolean = true,
+  val lowBatteryThreshold: Int = 15,
   val debugLogEnabled: Boolean = false,
   val hideCameraIndicator: Boolean = false,
 ) {
   init {
     require(leadMillis >= 0L)
     require(maxHoldMinutes >= 0)
+    require(lowBatteryThreshold in LOW_BATTERY_LEVELS)
+  }
+
+  companion object {
+    val LOW_BATTERY_LEVELS = setOf(0, 10, 15, 20)
   }
 }
 
