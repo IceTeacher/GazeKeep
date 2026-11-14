@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import cn.rainafter.app.gazekeep.engine.config.ConfigStore
+import cn.rainafter.app.gazekeep.service.GazeQuickTileService
 import cn.rainafter.app.gazekeep.service.GazeService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -26,6 +27,7 @@ object ServiceActivation {
     pending = null
     RuntimeStatusStore.intentionalStop = true
     context.stopService(Intent(context, GazeService::class.java))
+    GazeQuickTileService.requestRefresh(context)
   }
   fun reconfigure(context: Context) {
     stop(context)

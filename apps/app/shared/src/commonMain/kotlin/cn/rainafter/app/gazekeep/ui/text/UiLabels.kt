@@ -21,6 +21,7 @@ import gazekeep.shared.generated.resources.settings_accessibility
 import gazekeep.shared.generated.resources.settings_auto
 import gazekeep.shared.generated.resources.settings_empty_scope
 import gazekeep.shared.generated.resources.settings_lsposed
+import gazekeep.shared.generated.resources.settings_need_backend
 import gazekeep.shared.generated.resources.settings_need_camera
 import gazekeep.shared.generated.resources.settings_need_self_test
 import gazekeep.shared.generated.resources.settings_not_ready
@@ -32,6 +33,7 @@ import org.jetbrains.compose.resources.stringResource
 internal fun noticeLabel(notice: UiNotice) = when (notice) {
   UiNotice.NeedsCamera -> Res.string.settings_need_camera
   UiNotice.NeedsSelfTest -> Res.string.settings_need_self_test
+  UiNotice.NeedsBackend -> Res.string.settings_need_backend
   UiNotice.EmptyScope -> Res.string.settings_empty_scope
   UiNotice.SaveFailed -> Res.string.settings_save_failed
 }

@@ -2,6 +2,7 @@ package cn.rainafter.app.gazekeep.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -51,6 +53,10 @@ import gazekeep.shared.generated.resources.logs_action_export
 import gazekeep.shared.generated.resources.logs_action_filter
 import gazekeep.shared.generated.resources.logs_action_more
 import gazekeep.shared.generated.resources.logs_action_share
+import gazekeep.shared.generated.resources.logs_clear_dialog_confirm
+import gazekeep.shared.generated.resources.logs_clear_dialog_message
+import gazekeep.shared.generated.resources.logs_clear_dialog_title
+import gazekeep.shared.generated.resources.logs_copied
 import gazekeep.shared.generated.resources.logs_empty
 import gazekeep.shared.generated.resources.logs_level_all
 import gazekeep.shared.generated.resources.logs_level_debug
@@ -68,11 +74,14 @@ import gazekeep.shared.generated.resources.logs_menu_scroll_top
 import gazekeep.shared.generated.resources.logs_new_entries
 import gazekeep.shared.generated.resources.logs_search_placeholder
 import gazekeep.shared.generated.resources.logs_title
+import gazekeep.shared.generated.resources.settings_dialog_cancel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.DropdownImpl
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
@@ -86,6 +95,7 @@ import top.yukonga.miuix.kmp.icon.extended.Download
 import top.yukonga.miuix.kmp.icon.extended.MoreCircle
 import top.yukonga.miuix.kmp.icon.extended.Share
 import top.yukonga.miuix.kmp.icon.extended.Tune
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.overlay.OverlayListPopup
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -102,9 +112,22 @@ internal fun LogScreen(
   var rawView by rememberSaveable { mutableStateOf(false) }
   var showFilterPopup by remember { mutableStateOf(false) }
   var showMorePopup by remember { mutableStateOf(false) }
+  var showClearDialog by remember { mutableStateOf(false) }
+  var clearCount by remember { mutableStateOf(0) }
+  var copySequence by remember { mutableStateOf(0) }
+  var copiedBannerVisible by remember { mutableStateOf(false) }
+  val focusManager = LocalFocusManager.current
   var live by rememberSaveable { mutableStateOf(true) }
   var feed by remember { mutableStateOf(startLogFeed(state.logs)) }
   val listState = rememberLazyListState()
+
+  LaunchedEffect(copySequence) {
+    if (copySequence > 0) {
+      copiedBannerVisible = true
+      delay(1_800L)
+      copiedBannerVisible = false
+    }
+  }
   val atTop by remember { derivedStateOf { !listState.canScrollBackward } }
   val latestLogs by rememberUpdatedState(state.logs)
 
@@ -172,7 +195,12 @@ internal fun LogScreen(
     onBack = onBack,
     actions = {
       Box {
-        IconButton(onClick = { showFilterPopup = true }) {
+        IconButton(
+          onClick = {
+            focusManager.clearFocus()
+            showFilterPopup = true
+          },
+        ) {
           Icon(
             imageVector = MiuixIcons.Tune,
             contentDescription = stringResource(Res.string.logs_action_filter),
@@ -224,7 +252,12 @@ internal fun LogScreen(
       }
 
       Box {
-        IconButton(onClick = { showMorePopup = true }) {
+        IconButton(
+          onClick = {
+            focusManager.clearFocus()
+            showMorePopup = true
+          },
+        ) {
           Icon(
             imageVector = MiuixIcons.MoreCircle,
             contentDescription = stringResource(Res.string.logs_action_more),
@@ -289,7 +322,8 @@ internal fun LogScreen(
               index = 4,
               onSelectedIndexChange = {
                 showMorePopup = false
-                controller.clearLogs()
+                clearCount = state.logs.size
+                showClearDialog = true
               },
             )
           }
@@ -337,10 +371,14 @@ internal fun LogScreen(
               key = { it.id },
               contentType = { if (rawView) "raw" else "card" },
             ) { entry ->
+              val copyEntry: () -> Unit = {
+                actions.copyToClipboard(formatSingleLogLine(entry, actions))
+                copySequence++
+              }
               if (rawView) {
-                RawLogItem(entry = entry, actions = actions)
+                RawLogItem(entry = entry, actions = actions, onCopy = copyEntry)
               } else {
-                LogCardItem(entry = entry, actions = actions)
+                LogCardItem(entry = entry, actions = actions, onCopy = copyEntry)
               }
             }
           }
@@ -351,6 +389,49 @@ internal fun LogScreen(
             onClick = ::jumpToLatest,
             modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp),
           )
+        }
+        if (copiedBannerVisible) {
+          Text(
+            text = stringResource(Res.string.logs_copied),
+            style = MiuixTheme.textStyles.footnote1,
+            fontWeight = FontWeight.Medium,
+            color = MiuixTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier
+              .align(Alignment.BottomCenter)
+              .padding(bottom = 12.dp)
+              .clip(RoundedCornerShape(50))
+              .background(MiuixTheme.colorScheme.primaryContainer)
+              .padding(horizontal = 14.dp, vertical = 7.dp),
+          )
+        }
+      }
+    }
+
+    OverlayDialog(
+      show = showClearDialog,
+      title = stringResource(Res.string.logs_clear_dialog_title),
+      summary = stringResource(Res.string.logs_clear_dialog_message, clearCount),
+      onDismissRequest = { showClearDialog = false },
+    ) {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+      ) {
+        Button(
+          onClick = { showClearDialog = false },
+          modifier = Modifier.weight(1f),
+        ) {
+          Text(stringResource(Res.string.settings_dialog_cancel))
+        }
+        Button(
+          onClick = {
+            showClearDialog = false
+            controller.clearLogs()
+          },
+          colors = ButtonDefaults.buttonColorsPrimary(),
+          modifier = Modifier.weight(1f),
+        ) {
+          Text(stringResource(Res.string.logs_clear_dialog_confirm))
         }
       }
     }
@@ -374,7 +455,7 @@ private fun NewLogsPill(count: Int, onClick: () -> Unit, modifier: Modifier = Mo
 }
 
 @Composable
-private fun LogCardItem(entry: LogEntry, actions: PlatformActions) {
+private fun LogCardItem(entry: LogEntry, actions: PlatformActions, onCopy: () -> Unit) {
   val badgeColor = when (entry.level) {
     LogLevel.Verbose -> Color(0xFF6B7280)
     LogLevel.Debug -> Color(0xFF10B981)
@@ -385,7 +466,9 @@ private fun LogCardItem(entry: LogEntry, actions: PlatformActions) {
   }
 
   Card(
-    modifier = Modifier.fillMaxWidth(),
+    modifier = Modifier
+      .fillMaxWidth()
+      .combinedClickable(onClick = onCopy, onLongClick = onCopy),
     cornerRadius = 14.dp,
   ) {
     Column(
@@ -447,13 +530,16 @@ private fun LogCardItem(entry: LogEntry, actions: PlatformActions) {
 }
 
 @Composable
-private fun RawLogItem(entry: LogEntry, actions: PlatformActions) {
+private fun RawLogItem(entry: LogEntry, actions: PlatformActions, onCopy: () -> Unit) {
   Text(
     text = formatSingleLogLine(entry, actions),
     style = MiuixTheme.textStyles.footnote1,
     fontFamily = FontFamily.Monospace,
     color = MiuixTheme.colorScheme.onSurface,
-    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+    modifier = Modifier
+      .fillMaxWidth()
+      .combinedClickable(onClick = onCopy, onLongClick = onCopy)
+      .padding(vertical = 2.dp),
   )
 }
 

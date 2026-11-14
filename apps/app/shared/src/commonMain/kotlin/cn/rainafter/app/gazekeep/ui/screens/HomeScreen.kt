@@ -26,9 +26,14 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import cn.rainafter.app.gazekeep.core.engine.AbortReason
+import cn.rainafter.app.gazekeep.core.engine.DecisionReason
+import cn.rainafter.app.gazekeep.core.engine.LastOutcome
 import cn.rainafter.app.gazekeep.core.model.Attention
 import cn.rainafter.app.gazekeep.core.model.BackendId
+import cn.rainafter.app.gazekeep.core.model.FrameVerdict
 import cn.rainafter.app.gazekeep.core.model.Readiness
+import cn.rainafter.app.gazekeep.core.policy.SkipReason
 import cn.rainafter.app.gazekeep.ui.components.AppScaffold
 import cn.rainafter.app.gazekeep.ui.components.NoticeCard
 import cn.rainafter.app.gazekeep.ui.components.StatusChip
@@ -62,9 +67,29 @@ import gazekeep.shared.generated.resources.home_info_backend_status
 import gazekeep.shared.generated.resources.home_info_camera_selftest
 import gazekeep.shared.generated.resources.home_info_device_model
 import gazekeep.shared.generated.resources.home_info_fingerprint
+import gazekeep.shared.generated.resources.home_outcome_aborted_camera
+import gazekeep.shared.generated.resources.home_outcome_aborted_other
+import gazekeep.shared.generated.resources.home_outcome_extend_skipped
+import gazekeep.shared.generated.resources.home_outcome_max_hold
+import gazekeep.shared.generated.resources.home_outcome_too_dark
+import gazekeep.shared.generated.resources.home_outcome_too_late
 import gazekeep.shared.generated.resources.home_privacy_card_summary
 import gazekeep.shared.generated.resources.home_privacy_card_title
+import gazekeep.shared.generated.resources.home_skip_blacklisted
+import gazekeep.shared.generated.resources.home_skip_camera_app
+import gazekeep.shared.generated.resources.home_skip_camera_busy
+import gazekeep.shared.generated.resources.home_skip_dark_repeated
+import gazekeep.shared.generated.resources.home_skip_face_down
+import gazekeep.shared.generated.resources.home_skip_foreground_unknown
+import gazekeep.shared.generated.resources.home_skip_in_call
+import gazekeep.shared.generated.resources.home_skip_locked
+import gazekeep.shared.generated.resources.home_skip_low_battery
+import gazekeep.shared.generated.resources.home_skip_not_whitelisted
+import gazekeep.shared.generated.resources.home_skip_pocket
+import gazekeep.shared.generated.resources.home_skip_power_save
+import gazekeep.shared.generated.resources.home_skip_screen_off
 import gazekeep.shared.generated.resources.home_status_decision
+import gazekeep.shared.generated.resources.home_status_skip
 import gazekeep.shared.generated.resources.home_status_stopped
 import gazekeep.shared.generated.resources.home_status_tap_to_start
 import gazekeep.shared.generated.resources.home_status_waiting
@@ -128,6 +153,10 @@ internal fun HomeScreen(
             onClick = when (notice) {
               UiNotice.NeedsCamera, UiNotice.NeedsSelfTest -> {
                 { onNavigate(SettingsScreen.SelfTest) }
+              }
+
+              UiNotice.NeedsBackend -> {
+                { onNavigate(SettingsScreen.Backend) }
               }
 
               UiNotice.EmptyScope -> {
@@ -233,7 +262,9 @@ private fun StatusBannerCard(state: ControllerState, statusSubtitleOverride: Str
         Attention.Unknown -> stringResource(Res.string.m0_result_unknown)
         null -> stringResource(Res.string.home_decision_pending)
       }
-      statusSubtitleOverride ?: stringResource(Res.string.home_status_decision, decisionLabel)
+      statusSubtitleOverride
+        ?: state.lastOutcome?.let { outcomeSubtitle(it) }
+        ?: stringResource(Res.string.home_status_decision, decisionLabel)
     }
 
     HomeRunStatus.Waiting -> stringResource(
@@ -428,4 +459,59 @@ private fun SystemInfoCard(state: ControllerState) {
       summary = state.systemInfo.systemFingerprint,
     )
   }
+}
+
+@Composable
+private fun outcomeSubtitle(outcome: LastOutcome): String? = when (outcome.reason) {
+  DecisionReason.GateSkipped -> {
+    val reasonRes = when (outcome.skipReason) {
+      SkipReason.ScreenOff -> Res.string.home_skip_screen_off
+      SkipReason.Locked -> Res.string.home_skip_locked
+      SkipReason.PowerSaveMode -> Res.string.home_skip_power_save
+      SkipReason.LowBattery -> Res.string.home_skip_low_battery
+      SkipReason.NotWhitelisted -> Res.string.home_skip_not_whitelisted
+      SkipReason.Blacklisted -> Res.string.home_skip_blacklisted
+      SkipReason.ForegroundUnknown -> Res.string.home_skip_foreground_unknown
+      SkipReason.InCall -> Res.string.home_skip_in_call
+      SkipReason.CameraSensitiveApp -> Res.string.home_skip_camera_app
+      SkipReason.CameraBusy -> Res.string.home_skip_camera_busy
+      SkipReason.Pocket -> Res.string.home_skip_pocket
+      SkipReason.FaceDown -> Res.string.home_skip_face_down
+      SkipReason.TooDarkRepeatedly -> Res.string.home_skip_dark_repeated
+      null -> null
+    }
+    reasonRes?.let { stringResource(Res.string.home_status_skip, stringResource(it)) }
+  }
+
+  DecisionReason.MaxHold -> stringResource(Res.string.home_outcome_max_hold)
+
+  DecisionReason.TooLate -> stringResource(Res.string.home_outcome_too_late)
+
+  DecisionReason.StaleExtend,
+  DecisionReason.FailedExtend,
+  -> stringResource(Res.string.home_outcome_extend_skipped)
+
+  DecisionReason.Aborted -> when (outcome.abortReason) {
+    AbortReason.CameraInUse,
+    AbortReason.CameraDisabled,
+    -> stringResource(Res.string.home_outcome_aborted_camera)
+
+    AbortReason.Deadline -> stringResource(Res.string.home_outcome_too_late)
+
+    AbortReason.Cancelled,
+    AbortReason.PermissionLost,
+    AbortReason.Error,
+    null,
+    -> stringResource(Res.string.home_outcome_aborted_other)
+  }
+
+  DecisionReason.NotLooking,
+  DecisionReason.Unknown,
+  -> if (outcome.frameReason == FrameVerdict.Reason.TooDark) {
+    stringResource(Res.string.home_outcome_too_dark)
+  } else {
+    null
+  }
+
+  DecisionReason.Extended -> null
 }

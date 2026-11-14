@@ -102,10 +102,17 @@ class DeviceSession {
 
   fun require(text: String): UiObject2 = checkNotNull(find(text)) { "未找到文本：$text" }
 
-  /** 文本可能位于列表下方，先向下滚动查找。 */
+  /** 文本可能位于列表下方或被底部悬浮导航栏遮挡，先向下滚动到视口安全区后再返回。 */
   fun scrollToText(text: String): UiObject2 {
+    val safeBottom = device.displayHeight * 3 / 4
+    var lastBounds: android.graphics.Rect? = null
     repeat(6) {
-      device.findObject(By.text(text))?.let { return it }
+      device.findObject(By.text(text))?.let { obj ->
+        val bounds = obj.visibleBounds
+        if (bounds.height() > 0 && bounds.centerY() < safeBottom) return obj
+        if (bounds == lastBounds) return obj
+        lastBounds = bounds
+      }
       device.swipe(
         device.displayWidth / 2,
         device.displayHeight * 3 / 4,

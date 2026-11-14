@@ -27,6 +27,8 @@ import cn.rainafter.app.gazekeep.ui.text.backendLabel
 import cn.rainafter.app.gazekeep.ui.text.backendName
 import cn.rainafter.app.gazekeep.ui.text.readinessLabel
 import gazekeep.shared.generated.resources.Res
+import gazekeep.shared.generated.resources.backend_open_app_info
+import gazekeep.shared.generated.resources.backend_restricted_hint
 import gazekeep.shared.generated.resources.m2_accessibility_open_settings
 import gazekeep.shared.generated.resources.m2_backend_auto_status
 import gazekeep.shared.generated.resources.m2_shizuku_refresh
@@ -108,40 +110,69 @@ internal fun BackendScreen(
         BackendLock.Accessibility -> state.backends[BackendId.Accessibility]
         BackendLock.Auto -> null
       }
-      if (selected is Readiness.NeedsSetup) {
-        when (selected.step) {
-          SetupStep.EnableAccessibilityService -> {
-            Button(
-              onClick = actions::openAccessibilitySettings,
-              colors = ButtonDefaults.buttonColorsPrimary(),
-              modifier = Modifier.fillMaxWidth(),
-            ) {
-              Text(stringResource(Res.string.m2_accessibility_open_settings))
-            }
-          }
+      val autoNeedsSetup = state.config.backendLock == BackendLock.Auto &&
+        state.backends.values.none { it == Readiness.Ready }
+      val shizukuSetupStep = when {
+        state.config.backendLock == BackendLock.Shizuku -> (selected as? Readiness.NeedsSetup)?.step
+        autoNeedsSetup -> (state.backends[BackendId.Shizuku] as? Readiness.NeedsSetup)?.step
+        else -> null
+      }
+      val accessibilityNeedsEnable = when {
+        state.config.backendLock == BackendLock.Accessibility ->
+          (selected as? Readiness.NeedsSetup)?.step == SetupStep.EnableAccessibilityService
 
-          SetupStep.StartShizuku -> {
-            Button(
-              onClick = actions::openShizukuApp,
-              colors = ButtonDefaults.buttonColorsPrimary(),
-              modifier = Modifier.fillMaxWidth(),
-            ) {
-              Text(stringResource(Res.string.settings_open_shizuku))
-            }
-          }
+        autoNeedsSetup ->
+          (state.backends[BackendId.Accessibility] as? Readiness.NeedsSetup)?.step ==
+            SetupStep.EnableAccessibilityService
 
-          SetupStep.GrantShizukuPermission -> {
-            Button(
-              onClick = actions::requestShizukuPermission,
-              colors = ButtonDefaults.buttonColorsPrimary(),
-              modifier = Modifier.fillMaxWidth(),
-            ) {
-              Text(stringResource(Res.string.m2_shizuku_request_permission))
-            }
-          }
+        else -> false
+      }
 
-          else -> Unit
+      when (shizukuSetupStep) {
+        SetupStep.StartShizuku -> {
+          Button(
+            onClick = actions::openShizukuApp,
+            colors = ButtonDefaults.buttonColorsPrimary(),
+            modifier = Modifier.fillMaxWidth(),
+          ) {
+            Text(stringResource(Res.string.settings_open_shizuku))
+          }
         }
+
+        SetupStep.GrantShizukuPermission -> {
+          Button(
+            onClick = actions::requestShizukuPermission,
+            colors = ButtonDefaults.buttonColorsPrimary(),
+            modifier = Modifier.fillMaxWidth(),
+          ) {
+            Text(stringResource(Res.string.m2_shizuku_request_permission))
+          }
+        }
+
+        else -> Unit
+      }
+
+      if (accessibilityNeedsEnable) {
+        Button(
+          onClick = actions::openAccessibilitySettings,
+          colors = ButtonDefaults.buttonColorsPrimary(),
+          modifier = Modifier.fillMaxWidth(),
+        ) {
+          Text(stringResource(Res.string.m2_accessibility_open_settings))
+        }
+        Button(
+          onClick = actions::openAppDetailsSettings,
+          colors = ButtonDefaults.buttonColors(),
+          modifier = Modifier.fillMaxWidth(),
+        ) {
+          Text(stringResource(Res.string.backend_open_app_info))
+        }
+        Text(
+          text = stringResource(Res.string.backend_restricted_hint),
+          style = MiuixTheme.textStyles.body2,
+          color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+          modifier = Modifier.fillMaxWidth(),
+        )
       }
 
       Button(

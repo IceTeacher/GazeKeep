@@ -23,6 +23,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import cn.rainafter.app.gazekeep.core.model.AppFilterMode
+import cn.rainafter.app.gazekeep.core.model.GazeConfig
 import cn.rainafter.app.gazekeep.core.model.Sensitivity
 import cn.rainafter.app.gazekeep.core.model.scopedPackages
 import cn.rainafter.app.gazekeep.core.policy.canConfigureHideCameraIndicator
@@ -80,10 +81,16 @@ import gazekeep.shared.generated.resources.settings_lead_custom_hint
 import gazekeep.shared.generated.resources.settings_lead_custom_value
 import gazekeep.shared.generated.resources.settings_lead_summary
 import gazekeep.shared.generated.resources.settings_loose
+import gazekeep.shared.generated.resources.settings_low_battery_level
+import gazekeep.shared.generated.resources.settings_low_battery_off
+import gazekeep.shared.generated.resources.settings_low_battery_threshold
+import gazekeep.shared.generated.resources.settings_low_battery_threshold_summary
 import gazekeep.shared.generated.resources.settings_max_hold
 import gazekeep.shared.generated.resources.settings_max_hold_summary
 import gazekeep.shared.generated.resources.settings_need_camera
 import gazekeep.shared.generated.resources.settings_need_self_test
+import gazekeep.shared.generated.resources.settings_power_save_pause
+import gazekeep.shared.generated.resources.settings_power_save_pause_summary
 import gazekeep.shared.generated.resources.settings_ready
 import gazekeep.shared.generated.resources.settings_self_test
 import gazekeep.shared.generated.resources.settings_sensitivity
@@ -414,6 +421,40 @@ internal fun SettingsTabScreen(
             onClick = { onNavigate(SettingsScreen.Apps) },
           )
         }
+      }
+
+      val lowBatteryLevels = GazeConfig.LOW_BATTERY_LEVELS.sorted()
+      val lowBatteryIndex = lowBatteryLevels.indexOf(state.config.lowBatteryThreshold).let {
+        if (it >= 0) it else 0
+      }
+      val lowBatteryLabels = lowBatteryLevels.map { level ->
+        if (level == 0) {
+          stringResource(Res.string.settings_low_battery_off)
+        } else {
+          stringResource(Res.string.settings_low_battery_level, level)
+        }
+      }
+      Card(modifier = Modifier.fillMaxWidth()) {
+        SwitchPreference(
+          title = stringResource(Res.string.settings_power_save_pause),
+          summary = stringResource(Res.string.settings_power_save_pause_summary),
+          startAction = { StartSettingIcon(MiuixIcons.Layers) },
+          checked = state.config.pauseOnPowerSave,
+          onCheckedChange = { enabled ->
+            scope.launch { controller.updateConfig { it.copy(pauseOnPowerSave = enabled) } }
+          },
+        )
+        OverlayDropdownPreference(
+          title = stringResource(Res.string.settings_low_battery_threshold),
+          summary = stringResource(Res.string.settings_low_battery_threshold_summary),
+          startAction = { StartSettingIcon(MiuixIcons.Timer) },
+          items = lowBatteryLabels,
+          selectedIndex = lowBatteryIndex,
+          onSelectedIndexChange = { index ->
+            val selectedLevel = lowBatteryLevels[index]
+            scope.launch { controller.updateConfig { it.copy(lowBatteryThreshold = selectedLevel) } }
+          },
+        )
       }
 
       val appLanguage = actions.appLanguage()

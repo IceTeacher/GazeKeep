@@ -1,6 +1,7 @@
 package cn.rainafter.app.gazekeep.ui
 
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
@@ -29,6 +30,7 @@ import gazekeep.shared.generated.resources.settings_app_scope_all
 import gazekeep.shared.generated.resources.settings_app_scope_blacklist
 import gazekeep.shared.generated.resources.settings_app_scope_blacklist_summary
 import gazekeep.shared.generated.resources.settings_app_scope_whitelist
+import gazekeep.shared.generated.resources.settings_app_scope_whitelist_summary
 import gazekeep.shared.generated.resources.settings_apps
 import gazekeep.shared.generated.resources.settings_back
 import gazekeep.shared.generated.resources.settings_background_policy
@@ -38,8 +40,13 @@ import gazekeep.shared.generated.resources.settings_hold_unlimited
 import gazekeep.shared.generated.resources.settings_language
 import gazekeep.shared.generated.resources.settings_language_english
 import gazekeep.shared.generated.resources.settings_language_system
+import gazekeep.shared.generated.resources.settings_low_battery_level
+import gazekeep.shared.generated.resources.settings_low_battery_off
+import gazekeep.shared.generated.resources.settings_low_battery_threshold
+import gazekeep.shared.generated.resources.settings_low_battery_threshold_summary
 import gazekeep.shared.generated.resources.settings_max_hold
 import gazekeep.shared.generated.resources.settings_need_self_test
+import gazekeep.shared.generated.resources.settings_power_save_pause
 import gazekeep.shared.generated.resources.settings_privacy
 import gazekeep.shared.generated.resources.settings_self_test
 import org.junit.Rule
@@ -49,6 +56,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -174,5 +182,41 @@ class SettingsUiTest {
     rule.onNodeWithText(text(Res.string.about_dep_libxposed)).performScrollTo()
     rule.waitForIdle()
     assertEquals(before, back.getUnclippedBoundsInRoot())
+  }
+
+  @Test
+  fun powerSaveAndLowBatterySettingsUpdateConfig() {
+    val app = rule.launchApp(readyState())
+    app.openTab(text(Res.string.nav_settings))
+    val powerSave = text(Res.string.settings_power_save_pause)
+    rule.onNodeWithText(powerSave).performScrollTo()
+    app.click(powerSave)
+    assertEquals(false, app.controller.state.value.config.pauseOnPowerSave)
+
+    val lowBattery = text(Res.string.settings_low_battery_threshold)
+    rule.onNodeWithText(lowBattery).performScrollTo()
+    app.click(lowBattery)
+    app.click(text(Res.string.settings_low_battery_level, 20))
+    assertEquals(20, app.controller.state.value.config.lowBatteryThreshold)
+    app.assertShown(text(Res.string.settings_low_battery_level, 20))
+    app.assertShown(text(Res.string.settings_low_battery_threshold_summary))
+
+    app.click(lowBattery)
+    app.click(text(Res.string.settings_low_battery_off))
+    assertEquals(0, app.controller.state.value.config.lowBatteryThreshold)
+  }
+
+  @Test
+  @Config(qualifiers = "+en", fontScale = 1.3f)
+  fun englishLargeFontScopeSummaryRemainsReadable() {
+    val base = readyState()
+    val app = rule.launchApp(base.copy(config = base.config.copy(appFilterMode = AppFilterMode.Whitelist)))
+    app.openTab(text(Res.string.nav_settings))
+    rule.onNodeWithText(text(Res.string.settings_app_scope)).performScrollTo()
+    val summaryNode = rule.onNodeWithText(text(Res.string.settings_app_scope_whitelist_summary))
+    summaryNode.assertIsDisplayed()
+    val titleBounds = rule.onNodeWithText(text(Res.string.settings_app_scope)).getUnclippedBoundsInRoot()
+    val summaryBounds = summaryNode.getUnclippedBoundsInRoot()
+    assertTrue((summaryBounds.right - summaryBounds.left) >= (titleBounds.right - titleBounds.left) * 0.8f)
   }
 }

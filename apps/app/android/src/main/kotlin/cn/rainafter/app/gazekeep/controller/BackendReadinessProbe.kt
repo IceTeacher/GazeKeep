@@ -1,10 +1,12 @@
 package cn.rainafter.app.gazekeep.controller
 
 import android.Manifest
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
 import android.provider.Settings
+import android.view.accessibility.AccessibilityManager
 import androidx.core.content.ContextCompat
 import cn.rainafter.app.gazekeep.backend.a11y.GazeA11yService
 import cn.rainafter.app.gazekeep.backend.lsposed.LsposedKeepAwakeBackend
@@ -44,9 +46,20 @@ class BackendReadinessProbe(private val context: Context) {
         else -> Readiness.Ready
       }
     }.getOrDefault(Readiness.NeedsSetup(SetupStep.StartShizuku))
-    val expected = ComponentName(context, GazeA11yService::class.java).flattenToString()
-    val enabled = Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
-      .orEmpty().split(':').any { it.equals(expected, true) }
+    val expected = ComponentName(context, GazeA11yService::class.java)
+    val enabledInSettings = isAccessibilityServiceListed(
+      Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES),
+      expected,
+    )
+    val enabledInManager = context.getSystemService(AccessibilityManager::class.java)
+      ?.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+      ?.any { info ->
+        val serviceInfo = info.resolveInfo?.serviceInfo
+        serviceInfo != null &&
+          serviceInfo.packageName == expected.packageName &&
+          serviceInfo.name == expected.className
+      } == true
+    val enabled = enabledInSettings || enabledInManager
     return BackendReadinessSnapshot(
       cameraGranted =
       ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
@@ -64,5 +77,16 @@ class BackendReadinessProbe(private val context: Context) {
         lsposed.checkIndicatorHookReadiness()
       },
     )
+  }
+
+  internal companion object {
+    fun isAccessibilityServiceListed(rawSetting: String?, expected: ComponentName): Boolean {
+      if (rawSetting.isNullOrBlank()) return false
+      return rawSetting.split(':').any { entry ->
+        val trimmed = entry.trim()
+        trimmed.equals(expected.flattenToString(), ignoreCase = true) ||
+          ComponentName.unflattenFromString(trimmed) == expected
+      }
+    }
   }
 }

@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.performTextInput
 import cn.rainafter.app.gazekeep.ui.contract.LogEntry
 import cn.rainafter.app.gazekeep.ui.contract.LogLevel
 import cn.rainafter.app.gazekeep.ui.testing.UiTestSession
@@ -16,10 +17,19 @@ import cn.rainafter.app.gazekeep.ui.testing.readyState
 import cn.rainafter.app.gazekeep.ui.testing.text
 import gazekeep.shared.generated.resources.Res
 import gazekeep.shared.generated.resources.logs_action_export
+import gazekeep.shared.generated.resources.logs_action_filter
 import gazekeep.shared.generated.resources.logs_action_more
+import gazekeep.shared.generated.resources.logs_clear_dialog_confirm
+import gazekeep.shared.generated.resources.logs_clear_dialog_title
+import gazekeep.shared.generated.resources.logs_copied
+import gazekeep.shared.generated.resources.logs_empty
+import gazekeep.shared.generated.resources.logs_level_error
+import gazekeep.shared.generated.resources.logs_menu_clear
 import gazekeep.shared.generated.resources.logs_menu_live
 import gazekeep.shared.generated.resources.logs_new_entries
+import gazekeep.shared.generated.resources.logs_search_placeholder
 import gazekeep.shared.generated.resources.nav_settings
+import gazekeep.shared.generated.resources.settings_dialog_cancel
 import gazekeep.shared.generated.resources.settings_view_logs
 import org.junit.Rule
 import org.junit.runner.RunWith
@@ -120,5 +130,47 @@ class LogUiTest {
     val exported = checkNotNull(app.actions.exportedText)
     assertTrue("sample-message-31" in exported)
     assertEquals(31, exported.lines().size)
+  }
+
+  @Test
+  fun clearLogsRequiresConfirmationAndRespectsCancel() {
+    val app = openLogs()
+    rule.onNodeWithContentDescription(text(Res.string.logs_action_more)).performClick()
+    rule.waitForIdle()
+    app.click(text(Res.string.logs_menu_clear))
+    app.assertShown(text(Res.string.logs_clear_dialog_title))
+    app.click(text(Res.string.settings_dialog_cancel))
+    assertTrue("clearLogs" !in app.controller.calls)
+    displayed("sample-message-30")
+
+    rule.onNodeWithContentDescription(text(Res.string.logs_action_more)).performClick()
+    rule.waitForIdle()
+    app.click(text(Res.string.logs_menu_clear))
+    app.click(text(Res.string.logs_clear_dialog_confirm))
+    assertTrue("clearLogs" in app.controller.calls)
+    app.assertShown(text(Res.string.logs_empty))
+  }
+
+  @Test
+  fun tappingLogEntryCopiesSingleFormattedLine() {
+    val app = openLogs()
+    app.click("sample-message-30")
+    val copied = checkNotNull(app.actions.copiedText)
+    assertTrue("sample-message-30" in copied)
+    app.assertShown(text(Res.string.logs_copied))
+  }
+
+  @Test
+  fun openingFilterAndMorePopupsFromSearchWorksCleanly() {
+    val app = openLogs()
+    rule.onNodeWithText(text(Res.string.logs_search_placeholder)).performTextInput("sample")
+    rule.onNodeWithContentDescription(text(Res.string.logs_action_filter)).performClick()
+    rule.waitForIdle()
+    rule.onNodeWithText(text(Res.string.logs_level_error)).assertIsDisplayed()
+    rule.onNodeWithText(text(Res.string.logs_level_error)).performClick()
+    rule.waitForIdle()
+    rule.onNodeWithContentDescription(text(Res.string.logs_action_more)).performClick()
+    rule.waitForIdle()
+    rule.onNodeWithText(text(Res.string.logs_menu_clear)).assertIsDisplayed()
   }
 }

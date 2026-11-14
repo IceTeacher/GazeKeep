@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import cn.rainafter.app.gazekeep.core.model.AppFilterMode
 import cn.rainafter.app.gazekeep.ui.components.AppScaffold
 import cn.rainafter.app.gazekeep.ui.contract.ControllerState
 import cn.rainafter.app.gazekeep.ui.contract.GazeKeepController
@@ -41,6 +42,7 @@ import gazekeep.shared.generated.resources.self_test_notification_permission
 import gazekeep.shared.generated.resources.self_test_preview_hint
 import gazekeep.shared.generated.resources.self_test_retry_away_hint
 import gazekeep.shared.generated.resources.self_test_retry_looking_hint
+import gazekeep.shared.generated.resources.self_test_select_apps
 import gazekeep.shared.generated.resources.self_test_status_current
 import gazekeep.shared.generated.resources.self_test_status_done
 import gazekeep.shared.generated.resources.self_test_status_pending
@@ -65,6 +67,7 @@ internal fun SelfTestScreen(
   actions: PlatformActions,
   onBack: () -> Unit,
   onComplete: () -> Unit,
+  onSelectApps: () -> Unit = {},
 ) {
   val step1Done = test.step != SelfTestStep.Looking
   val step2Done = test.step == SelfTestStep.Complete
@@ -185,6 +188,8 @@ internal fun SelfTestScreen(
         }
       } else if (test.step == SelfTestStep.Complete) {
         val alreadyEnabled = state.config.enabled
+        val needsWhitelistSetup =
+          state.config.appFilterMode == AppFilterMode.Whitelist && state.config.whitelistPackages.isEmpty()
         Button(
           onClick = {
             scope.launch {
@@ -202,6 +207,22 @@ internal fun SelfTestScreen(
               if (alreadyEnabled) Res.string.self_test_finish else Res.string.self_test_enable,
             ),
           )
+        }
+        if (needsWhitelistSetup) {
+          Button(
+            onClick = {
+              scope.launch {
+                if (!alreadyEnabled) {
+                  controller.setEnabled(true)
+                }
+                onSelectApps()
+              }
+            },
+            colors = ButtonDefaults.buttonColors(),
+            modifier = Modifier.fillMaxWidth(),
+          ) {
+            Text(stringResource(Res.string.self_test_select_apps))
+          }
         }
       } else {
         val captureLabel = when {

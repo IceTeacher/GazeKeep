@@ -37,6 +37,10 @@ class FakePlatformActions(
     calls += "openAccessibilitySettings"
   }
 
+  override fun openAppDetailsSettings() {
+    calls += "openAppDetailsSettings"
+  }
+
   override fun requestShizukuPermission() {
     calls += "requestShizukuPermission"
   }
@@ -47,6 +51,13 @@ class FakePlatformActions(
 
   override fun openUrl(url: String) {
     calls += "openUrl:$url"
+  }
+
+  var copiedText: String? = null
+
+  override fun copyToClipboard(text: String) {
+    calls += "copyToClipboard"
+    copiedText = text
   }
 
   override fun shareLogs(text: String) {

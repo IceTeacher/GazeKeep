@@ -1,6 +1,8 @@
 package cn.rainafter.app.gazekeep.platform
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -76,6 +78,14 @@ class AndroidPlatformActions(
     activity.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
   }
 
+  override fun openAppDetailsSettings() {
+    runCatching {
+      activity.startActivity(
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", activity.packageName, null)),
+      )
+    }
+  }
+
   override fun requestShizukuPermission() {
     runCatching { if (Shizuku.pingBinder()) Shizuku.requestPermission(2301) }
   }
@@ -110,11 +120,15 @@ class AndroidPlatformActions(
       .putExtra("package_label", activity.applicationInfo.loadLabel(activity.packageManager).toString())
     // 省电策略页属于 ROM 私有入口，不可用时退回应用详情页，由用户手动进入省电策略。
     runCatching { activity.startActivity(policy) }.onFailure {
-      runCatching {
-        activity.startActivity(
-          Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", activity.packageName, null)),
-        )
-      }
+      openAppDetailsSettings()
+    }
+  }
+
+  override fun copyToClipboard(text: String) {
+    if (text.isBlank()) return
+    runCatching {
+      activity.getSystemService(ClipboardManager::class.java)
+        ?.setPrimaryClip(ClipData.newPlainText("gazekeep_log", text))
     }
   }
 

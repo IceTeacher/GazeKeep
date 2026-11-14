@@ -1,11 +1,18 @@
 package cn.rainafter.app.gazekeep.controller
 
 import android.content.Context
+import android.database.ContentObserver
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.provider.Settings
+import android.view.accessibility.AccessibilityManager
 import androidx.camera.core.Preview
 import cn.rainafter.app.gazekeep.applist.LaunchableAppsRepository
 import cn.rainafter.app.gazekeep.backend.a11y.GazeA11yService
 import cn.rainafter.app.gazekeep.core.model.AppFilterMode
 import cn.rainafter.app.gazekeep.core.model.GazeConfig
+import cn.rainafter.app.gazekeep.core.model.Readiness
 import cn.rainafter.app.gazekeep.core.policy.EnableRequirement
 import cn.rainafter.app.gazekeep.core.policy.enableRequirement
 import cn.rainafter.app.gazekeep.core.policy.shouldSyncHideCameraIndicator
@@ -15,6 +22,7 @@ import cn.rainafter.app.gazekeep.notification.DecisionLogs
 import cn.rainafter.app.gazekeep.runtime.RuntimeStatusStore
 import cn.rainafter.app.gazekeep.runtime.ServiceActivation
 import cn.rainafter.app.gazekeep.selftest.SelfTestCoordinator
+import cn.rainafter.app.gazekeep.service.GazeQuickTileService
 import cn.rainafter.app.gazekeep.ui.contract.ControllerState
 import cn.rainafter.app.gazekeep.ui.contract.GazeKeepController
 import cn.rainafter.app.gazekeep.ui.contract.UiNotice
@@ -59,11 +67,36 @@ class AndroidGazeKeepController(
   private val permissionListener = Shizuku.OnRequestPermissionResultListener { _, _ -> refresh() }
   private val binderReceived = Shizuku.OnBinderReceivedListener { refresh() }
   private val binderDead = Shizuku.OnBinderDeadListener { refresh() }
+  private val accessibilityManager = this.context.getSystemService(AccessibilityManager::class.java)
+  private val accessibilityStateListener = AccessibilityManager.AccessibilityStateChangeListener { refresh() }
+  private val accessibilityServicesListener = if (Build.VERSION.SDK_INT >= 33) {
+    AccessibilityManager.AccessibilityServicesStateChangeListener { refresh() }
+  } else {
+    null
+  }
+  private val accessibilitySettingsObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
+    override fun onChange(selfChange: Boolean) {
+      refresh()
+    }
+  }
 
   init {
     Shizuku.addRequestPermissionResultListener(permissionListener)
     Shizuku.addBinderReceivedListenerSticky(binderReceived)
     Shizuku.addBinderDeadListener(binderDead)
+    accessibilityManager?.addAccessibilityStateChangeListener(accessibilityStateListener)
+    if (Build.VERSION.SDK_INT >= 33 && accessibilityServicesListener != null) {
+      accessibilityManager?.addAccessibilityServicesStateChangeListener(accessibilityServicesListener)
+    }
+    runCatching {
+      val resolver = this.context.contentResolver
+      Settings.Secure.getUriFor(Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)?.let { uri ->
+        resolver.registerContentObserver(uri, false, accessibilitySettingsObserver)
+      }
+      Settings.Secure.getUriFor(Settings.Secure.ACCESSIBILITY_ENABLED)?.let { uri ->
+        resolver.registerContentObserver(uri, false, accessibilitySettingsObserver)
+      }
+    }
     scope.launch(Dispatchers.IO) {
       val notices = runCatching {
         this@AndroidGazeKeepController.context.assets.open("THIRD_PARTY_NOTICES.txt")
@@ -105,9 +138,12 @@ class AndroidGazeKeepController(
             serviceRunning = runtime.running,
             activeBackend = runtime.backend,
             lastDecision = runtime.lastDecision,
+            lastOutcome = runtime.lastOutcome,
+            notice = if (it.notice == UiNotice.NeedsBackend && runtime.backend != null) null else it.notice,
           )
         }
         syncIndicatorState()
+        GazeQuickTileService.requestRefresh(context)
       }
     }
     scope.launch {
@@ -118,16 +154,23 @@ class AndroidGazeKeepController(
     scope.launch { GazeA11yService.connected.collect { refresh() } }
   }
 
+  private fun applyReadiness(readiness: BackendReadinessSnapshot) {
+    mutableState.update {
+      val backendReady = readiness.backends.values.any { value -> value == Readiness.Ready }
+      it.copy(
+        cameraGranted = readiness.cameraGranted,
+        backends = readiness.backends,
+        hideCameraIndicatorReady = readiness.hideCameraIndicatorReady,
+        notice = if (it.notice == UiNotice.NeedsBackend && backendReady) null else it.notice,
+      )
+    }
+  }
+
   override fun refresh() {
     scope.launch {
       val readiness = readinessProbe.read()
-      mutableState.update {
-        it.copy(
-          cameraGranted = readiness.cameraGranted,
-          backends = readiness.backends,
-          hideCameraIndicatorReady = readiness.hideCameraIndicatorReady,
-        )
-      }
+      applyReadiness(readiness)
+      GazeQuickTileService.requestRefresh(context)
       syncIndicatorState()
       // 首次读取只记录基线，避免每次打开应用都把默认未授权当作权限恢复。
       val wasGranted = lastCameraGranted
@@ -176,7 +219,8 @@ class AndroidGazeKeepController(
   }
 
   override suspend fun setEnabled(enabled: Boolean) {
-    if (!state.value.loaded) return
+    // 从磁贴冷启动时，配置流可能尚未完成首帧加载，先等待就绪再执行开关变更。
+    state.first { it.loaded }
     if (enabled) {
       val settings = try {
         store.settings.first()
@@ -186,6 +230,13 @@ class AndroidGazeKeepController(
         mutableState.update { it.copy(notice = UiNotice.SaveFailed) }
         stopEngine()
         return
+      }
+      if (state.value.backends.isEmpty()) {
+        val readiness = readinessProbe.read()
+        applyReadiness(readiness)
+        if (lastCameraGranted == null) {
+          lastCameraGranted = readiness.cameraGranted
+        }
       }
       when (enableRequirement(state.value.cameraGranted, settings.selfTestPassedAt != null)) {
         EnableRequirement.Camera -> {
@@ -204,10 +255,15 @@ class AndroidGazeKeepController(
       RuntimeStatusStore.clearLastDecision()
     }
     updateConfig { it.copy(enabled = enabled) }
-    val config = state.value.config
-    if (enabled && config.appFilterMode == AppFilterMode.Whitelist && config.whitelistPackages.isEmpty()) {
+    val current = state.value
+    val config = current.config
+    val backendMissing = current.backends.isNotEmpty() && current.backends.values.none { it == Readiness.Ready }
+    if (enabled && backendMissing) {
+      mutableState.update { it.copy(notice = UiNotice.NeedsBackend) }
+    } else if (enabled && config.appFilterMode == AppFilterMode.Whitelist && config.whitelistPackages.isEmpty()) {
       mutableState.update { it.copy(notice = UiNotice.EmptyScope) }
     }
+    GazeQuickTileService.requestRefresh(context)
   }
 
   private fun stopEngine() {
@@ -242,6 +298,11 @@ class AndroidGazeKeepController(
   override fun close() {
     appsRepository.close()
     selfTestCoordinator.close()
+    accessibilityManager?.removeAccessibilityStateChangeListener(accessibilityStateListener)
+    if (Build.VERSION.SDK_INT >= 33 && accessibilityServicesListener != null) {
+      accessibilityManager?.removeAccessibilityServicesStateChangeListener(accessibilityServicesListener)
+    }
+    runCatching { context.contentResolver.unregisterContentObserver(accessibilitySettingsObserver) }
     Shizuku.removeRequestPermissionResultListener(permissionListener)
     Shizuku.removeBinderReceivedListener(binderReceived)
     Shizuku.removeBinderDeadListener(binderDead)

@@ -20,6 +20,7 @@ import cn.rainafter.app.gazekeep.core.engine.DecisionRecord
 import cn.rainafter.app.gazekeep.core.engine.EngineEvent
 import cn.rainafter.app.gazekeep.core.engine.EngineSnapshot
 import cn.rainafter.app.gazekeep.core.engine.EngineState
+import cn.rainafter.app.gazekeep.core.engine.toLastOutcome
 import cn.rainafter.app.gazekeep.core.model.BackendId
 import cn.rainafter.app.gazekeep.core.model.BackendLock
 import cn.rainafter.app.gazekeep.core.model.GazeConfig
@@ -144,7 +145,7 @@ class BackendSession(
       },
       onRecord = { record ->
         recordDecision(record)
-        record.attention?.let(RuntimeStatusStore::recordDecision)
+        RuntimeStatusStore.recordOutcome(record.toLastOutcome(), record.attention)
       },
       onNotify = notifier::notifyAlert,
       // Shizuku 退路写回原超时后，按真实熄屏点重新安排检测。
