@@ -112,17 +112,17 @@ class PowerDumpOracle(
   }
 
   private fun deadlineOf(snapshot: PowerSnapshot): TimeoutDeadline? {
-    val lastActivity = snapshot.lastUserActivityUptime ?: return null
+    val effectiveActivity = snapshot.effectiveLastActivityUptime ?: return null
     val timeout = snapshot.screenOffTimeoutMs?.toLong()?.takeIf { it > 0L } ?: return null
     return TimeoutDeadline(
-      screenOffAtUptime = lastActivity + timeout,
+      screenOffAtUptime = effectiveActivity + timeout,
       screenDimAtUptime = ScreenDimmingPolicy.screenDimAt(
-        lastActivity,
+        effectiveActivity,
         timeout,
         snapshot.dimDurationMs?.toLong(),
       ),
-      token = ExtendToken.Seq(lastActivity),
-      lastExternalActivityUptime = lastActivity.takeIf(isExternalActivity),
+      token = ExtendToken.Seq(effectiveActivity),
+      lastExternalActivityUptime = snapshot.lastUserActivityUptime?.takeIf(isExternalActivity),
       backend = BackendId.Shizuku,
     )
   }

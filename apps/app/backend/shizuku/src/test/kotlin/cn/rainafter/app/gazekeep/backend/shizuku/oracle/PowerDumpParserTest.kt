@@ -63,4 +63,39 @@ class PowerDumpParserTest {
     assertEquals(15000, snapshot.screenOffTimeoutMs)
     assertTrue(snapshot.interactive)
   }
+
+  @Test
+  fun parsesNoChangeLightsSeparatelyWithoutReplacingNormalUserActivity() {
+    val snapshot = PowerDumpParser.parse(
+      """
+        mWakefulness=Awake
+        mScreenOffTimeoutSetting=15000
+        Screen off timeout: 15000 ms
+        Screen dim duration: 3000 ms
+         mLastUserActivityTime(excludingAttention)=35350
+          lastUserActivityTime=27180 (1257054 ms ago)
+          lastUserActivityTimeNoChangeLights=35350 (1248884 ms ago)
+      """.trimIndent(),
+    )
+
+    assertEquals(27180L, snapshot.lastUserActivityUptime)
+    assertEquals(35350L, snapshot.lastUserActivityNoChangeLightsUptime)
+    assertEquals(35350L, snapshot.effectiveLastActivityUptime)
+  }
+
+  @Test
+  fun parsesLegacyNoChangeLightsAlongsideGroupLastActivity() {
+    val snapshot = PowerDumpParser.parse(
+      """
+        mWakefulness=Awake
+        mScreenOffTimeoutSetting=30000
+        mLastUserActivityTime=20000
+        lastUserActivityTimeNoChangeLights=45000
+      """.trimIndent(),
+    )
+
+    assertEquals(20000L, snapshot.lastUserActivityUptime)
+    assertEquals(45000L, snapshot.lastUserActivityNoChangeLightsUptime)
+    assertEquals(45000L, snapshot.effectiveLastActivityUptime)
+  }
 }

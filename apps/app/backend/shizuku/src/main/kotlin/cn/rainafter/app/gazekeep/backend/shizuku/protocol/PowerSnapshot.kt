@@ -7,4 +7,13 @@ data class PowerSnapshot(
   val dimDurationMs: Int?,
   val hasScreenWakeLock: Boolean,
   val interactive: Boolean,
-)
+  val lastUserActivityNoChangeLightsUptime: Long? = null,
+) {
+  /** 系统计算熄屏与 dim 时会取常规活动与 NoChangeLights 活动的较大者。 */
+  val effectiveLastActivityUptime: Long?
+    get() = when {
+      lastUserActivityUptime == null -> lastUserActivityNoChangeLightsUptime
+      lastUserActivityNoChangeLightsUptime == null -> lastUserActivityUptime
+      else -> maxOf(lastUserActivityUptime, lastUserActivityNoChangeLightsUptime)
+    }
+}
