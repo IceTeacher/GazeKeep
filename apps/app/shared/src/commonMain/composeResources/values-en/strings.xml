@@ -47,17 +47,17 @@
   >No face, side view, multiple faces, low light or camera failure will let the screen sleep.</string>
     <string name="settings_app_scope">App scope</string>
     <string name="settings_app_scope_all">All apps</string>
-    <string name="settings_app_scope_whitelist">Selected apps only</string>
-    <string name="settings_app_scope_blacklist">All except excluded apps</string>
+    <string name="settings_app_scope_whitelist">Whitelist only</string>
+    <string name="settings_app_scope_blacklist">Blacklist</string>
     <string
     name="settings_app_scope_all_summary"
-  >Checks in any foreground app; camera apps are still skipped.</string>
+  >Check any foreground app except camera apps.</string>
     <string
     name="settings_app_scope_whitelist_summary"
-  >Keep awake only when the foreground app is confirmed to be in the list.</string>
+  >Keep awake only when foreground app is listed.</string>
     <string
     name="settings_app_scope_blacklist_summary"
-  >Excluded apps never stay awake, nor does an app that cannot be identified.</string>
+  >Skip blacklisted or unidentified apps.</string>
     <string name="settings_apps">App list</string>
     <string name="settings_app_count">Selected: %1$d</string>
     <string name="settings_blacklist_count">Excluded: %1$d</string>
@@ -185,11 +185,13 @@
     <string name="logs_level_warning">WARNING</string>
     <string name="logs_level_error">ERROR</string>
     <string name="logs_level_fatal">FATAL</string>
+    <string name="logs_menu_live">Live logs</string>
     <string name="logs_menu_raw_view">Raw view</string>
     <string name="logs_menu_card_view">Card view</string>
     <string name="logs_menu_scroll_top">Scroll to top</string>
     <string name="logs_menu_scroll_bottom">Scroll to bottom</string>
     <string name="logs_menu_clear">Clear logs now</string>
+    <string name="logs_new_entries">New logs: %1$d</string>
     <string name="logs_action_filter">Filter log levels</string>
     <string name="logs_action_share">Share logs</string>
     <string name="logs_action_export">Export logs</string>
@@ -247,4 +249,39 @@
     <string name="about_dep_camerax">AndroidX CameraX</string>
     <string name="about_dep_shizuku">Shizuku API</string>
     <string name="about_dep_libxposed">libxposed API</string>
+    <string name="settings_need_backend">No keep-awake backend is ready yet. Tap to enable Accessibility or Shizuku</string>
+    <string name="home_status_skip">Last skip: %1$s</string>
+    <string name="home_outcome_too_dark">Too dark; letting screen follow system timeout</string>
+    <string name="home_outcome_max_hold">Max keep-awake limit reached until touch or screen off</string>
+    <string name="home_outcome_too_late">Too close to screen timeout</string>
+    <string name="home_outcome_extend_skipped">Not extended (timeout changed or backend not ready)</string>
+    <string name="home_outcome_aborted_torch">Aborted while flash or torch is active</string>
+    <string name="home_outcome_aborted_camera">Aborted because front camera is in use</string>
+    <string name="home_outcome_aborted_other">Detection interrupted before finishing</string>
+    <string name="home_skip_screen_off">Screen is off</string>
+    <string name="home_skip_locked">Skipped on lock screen</string>
+    <string name="home_skip_power_save">Battery Saver is active</string>
+    <string name="home_skip_low_battery">Battery at or below threshold while unplugged</string>
+    <string name="home_skip_not_whitelisted">Foreground app is not whitelisted</string>
+    <string name="home_skip_blacklisted">Foreground app is blacklisted</string>
+    <string name="home_skip_foreground_unknown">Foreground app unavailable</string>
+    <string name="home_skip_in_call">Paused during a call</string>
+    <string name="home_skip_camera_app">Paused in camera app</string>
+    <string name="home_skip_camera_busy">Front camera in use</string>
+    <string name="home_skip_pocket">Proximity sensor covered</string>
+    <string name="home_skip_face_down">Phone is face down</string>
+    <string name="home_skip_dark_repeated">Paused after repeated dark scenes</string>
+    <string name="settings_power_save_pause">Pause on Battery Saver</string>
+    <string name="settings_power_save_pause_summary">Pause detection and keep-awake while Battery Saver is enabled.</string>
+    <string name="settings_low_battery_threshold">Low battery threshold</string>
+    <string name="settings_low_battery_threshold_summary">Pause when unplugged at or below this battery level.</string>
+    <string name="settings_low_battery_off">Off</string>
+    <string name="settings_low_battery_level">%1$d% or below</string>
+    <string name="backend_open_app_info">Open app info (Restricted settings)</string>
+    <string name="backend_restricted_hint">On Android 13+, if Accessibility is blocked for sideloaded APKs, open App info and allow Restricted settings first.</string>
+    <string name="self_test_select_apps">Select apps to keep awake</string>
+    <string name="logs_clear_dialog_title">Clear all logs?</string>
+    <string name="logs_clear_dialog_message">Permanently removes %1$d locally saved log entries. This cannot be undone.</string>
+    <string name="logs_clear_dialog_confirm">Clear</string>
+    <string name="logs_copied">Log entry copied</string>
 </resources>

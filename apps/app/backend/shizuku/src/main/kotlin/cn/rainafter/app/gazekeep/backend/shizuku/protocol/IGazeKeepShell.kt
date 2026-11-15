@@ -62,6 +62,7 @@ interface IGazeKeepShell : IInterface {
           reply?.writeInt(snapshot.dimDurationMs ?: UNKNOWN_INT)
           reply?.writeInt(if (snapshot.hasScreenWakeLock) 1 else 0)
           reply?.writeInt(if (snapshot.interactive) 1 else 0)
+          reply?.writeLong(snapshot.lastUserActivityNoChangeLightsUptime ?: UNKNOWN_LONG)
           true
         }
 
@@ -101,7 +102,7 @@ interface IGazeKeepShell : IInterface {
       private const val UNKNOWN_LONG = Long.MIN_VALUE
       private const val UNKNOWN_INT = Int.MIN_VALUE
       private const val TRANSACTION_FOREGROUND = IBinder.FIRST_CALL_TRANSACTION + 5
-      const val PROTOCOL_VERSION = 3
+      const val PROTOCOL_VERSION = 4
 
       fun asInterface(binder: IBinder?): IGazeKeepShell? {
         if (binder == null) return null
@@ -146,6 +147,7 @@ interface IGazeKeepShell : IInterface {
           dimDurationMs = reply.readInt().takeUnless { it == UNKNOWN_INT },
           hasScreenWakeLock = reply.readInt() != 0,
           interactive = reply.readInt() != 0,
+          lastUserActivityNoChangeLightsUptime = reply.readLong().takeUnless { it == UNKNOWN_LONG },
         )
       }
 

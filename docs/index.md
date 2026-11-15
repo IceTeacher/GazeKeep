@@ -21,6 +21,6 @@
 | [测试与验收](development/testing.md)      | 主机检查、页面场景、实机矩阵与证据要求 |
 | [发布门禁](development/release.md)        | 许可声明、签名、产物检查与发布验收     |
 
-任务与计划统一放在 [plans/](plans/)，包括[任务清单](plans/todo.md)和[v1 稳定性与发布规划](plans/20261014-v1-stability-release.md)，不按进行中或已完成拆分目录。
+任务与计划统一放在 [plans/](plans/)，包括[任务清单](plans/todo.md)、[v1 稳定性与发布规划](plans/20261014-v1-stability-release.md)和[v1.1.6 迭代与发版规划](plans/20261115-v1-1-6-release-plan.md)，不按进行中或已完成拆分目录。
 
 术语见 [CONTEXT.md](../CONTEXT.md)。Agent 从根 [AGENTS.md](../AGENTS.md) 进入，专用流程、按需加载条件和维护登记集中在 `.agents/`。

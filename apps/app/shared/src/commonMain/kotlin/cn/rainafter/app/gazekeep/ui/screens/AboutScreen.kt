@@ -151,7 +151,7 @@ internal fun AboutScreen(
           )
           ArrowPreference(
             title = stringResource(Res.string.about_feedback),
-            onClick = { actions.openUrl(ProjectLinks.ISSUES) },
+            onClick = { actions.openUrl(ProjectLinks.FEEDBACK) },
           )
           ArrowPreference(
             title = stringResource(Res.string.about_website),

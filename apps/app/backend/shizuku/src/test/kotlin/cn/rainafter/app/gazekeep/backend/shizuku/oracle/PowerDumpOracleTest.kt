@@ -1,6 +1,7 @@
 package cn.rainafter.app.gazekeep.backend.shizuku.oracle
 
 import cn.rainafter.app.gazekeep.backend.shizuku.protocol.PowerSnapshot
+import cn.rainafter.app.gazekeep.core.backend.ExtendToken
 import cn.rainafter.app.gazekeep.core.backend.MIN_CAPTURE_WINDOW_MS
 import cn.rainafter.app.gazekeep.core.backend.TimeoutDeadline
 import cn.rainafter.app.gazekeep.core.backend.captureWakeAtUptime
@@ -148,5 +149,48 @@ class PowerDumpOracleTest {
     assertEquals(11, reads)
     assertEquals(1, events.size)
     assertEquals(BackendId.Shizuku, events.single().backend)
+  }
+
+  @Test
+  fun noChangeLightsShiftsDeadlineWithoutMarkingExternalUserActivity() = runTest {
+    var snapshot = PowerSnapshot(
+      lastUserActivityUptime = 1_000L,
+      screenOffTimeoutMs = 30_000,
+      dimDurationMs = 5_000,
+      hasScreenWakeLock = true,
+      interactive = true,
+      lastUserActivityNoChangeLightsUptime = null,
+    )
+    // 假设 1_000L 是应用自身调用或退路延长前活动，不被视为外部活动。
+    val oracle = PowerDumpOracle(
+      readPower = { snapshot },
+      scope = backgroundScope,
+      clock = { testScheduler.currentTime },
+      leadMs = 8_000L,
+      isExternalActivity = { it != 1_000L },
+      retryMs = 100L,
+      pollDispatcher = StandardTestDispatcher(testScheduler),
+    )
+    val events = mutableListOf<TimeoutDeadline>()
+    backgroundScope.launch(StandardTestDispatcher(testScheduler)) { oracle.deadlines.collect { events += it } }
+
+    oracle.start()
+    runCurrent()
+    assertTrue(events.isEmpty())
+
+    // ON_AFTER_RELEASE 亮屏锁释放：系统推进 lastUserActivityTimeNoChangeLights，但真实触摸仍在 1_000L。
+    snapshot = snapshot.copy(
+      hasScreenWakeLock = false,
+      lastUserActivityNoChangeLightsUptime = 25_000L,
+    )
+    advanceTimeBy(5_000L)
+    runCurrent()
+    oracle.close()
+
+    val deadline = events.single()
+    assertEquals(55_000L, deadline.screenOffAtUptime)
+    assertEquals(50_000L, deadline.screenDimAtUptime)
+    assertEquals(ExtendToken.Seq(25_000L), deadline.token)
+    assertEquals(null, deadline.lastExternalActivityUptime)
   }
 }

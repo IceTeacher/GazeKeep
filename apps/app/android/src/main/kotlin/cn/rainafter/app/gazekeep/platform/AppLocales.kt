@@ -9,6 +9,7 @@ import android.content.res.Resources
 import android.os.Build
 import android.os.LocaleList
 import androidx.core.content.edit
+import cn.rainafter.app.gazekeep.service.GazeQuickTileService
 import cn.rainafter.app.gazekeep.ui.contract.AppLanguage
 
 /**
@@ -23,6 +24,8 @@ object AppLocales {
 
   fun set(activity: Activity, language: AppLanguage) {
     val tags = language.languageTag.orEmpty()
+    val locales = effectiveLocales(tags)
+    if (!locales.isEmpty) LocaleList.setDefault(locales)
     if (Build.VERSION.SDK_INT >= 33) {
       activity.getSystemService(LocaleManager::class.java).applicationLocales = LocaleList.forLanguageTags(tags)
     } else {
@@ -30,6 +33,7 @@ object AppLocales {
       activity.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putString(KEY_TAGS, tags) }
       activity.recreate()
     }
+    GazeQuickTileService.requestRefresh(activity)
   }
 
   /**
@@ -45,20 +49,35 @@ object AppLocales {
     return { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
   }
 
-  /** 低版本把保存的语言套到 Context；13+ 由系统完成，原样返回。 */
+  /** 同步进程默认 LocaleList，确保 Compose 资源环境始终按当前应用语言选择。 */
+  fun syncDefault(context: Context) {
+    val locales = effectiveLocales(storedTags(context))
+    if (!locales.isEmpty) LocaleList.setDefault(locales)
+  }
+
+  /** 把保存的语言同步到进程默认语言并在配置尚未匹配时包装 Context。 */
   fun wrap(context: Context): Context {
-    if (Build.VERSION.SDK_INT >= 33) return context
     val tags = storedTags(context)
-    // Compose 资源按进程默认语言选择；跟随系统时也要重置，覆盖同进程内从指定语言切回的情况。
-    val locales = if (tags.isEmpty()) Resources.getSystem().configuration.locales else LocaleList.forLanguageTags(tags)
-    LocaleList.setDefault(locales)
+    val locales = effectiveLocales(tags)
+    // Compose 资源读取进程默认 LocaleList；13+ 在 Activity 重建与 Service 上下文中同样需保持同步。
+    if (!locales.isEmpty) LocaleList.setDefault(locales)
     if (tags.isEmpty()) return context
+    val currentLanguage = if (!context.resources.configuration.locales.isEmpty) {
+      context.resources.configuration.locales[0]?.language
+    } else {
+      null
+    }
+    val targetLanguage = if (!locales.isEmpty) locales[0]?.language else null
+    if (Build.VERSION.SDK_INT >= 33 && currentLanguage == targetLanguage) return context
     return context.createConfigurationContext(
       Configuration(context.resources.configuration).apply {
         setLocales(locales)
       },
     )
   }
+
+  private fun effectiveLocales(tags: String): LocaleList =
+    if (tags.isEmpty()) Resources.getSystem().configuration.locales else LocaleList.forLanguageTags(tags)
 
   private fun storedTags(context: Context): String = if (Build.VERSION.SDK_INT >= 33) {
     context.getSystemService(LocaleManager::class.java).applicationLocales.toLanguageTags()

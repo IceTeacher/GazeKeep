@@ -315,6 +315,10 @@ internal fun SettingsNavHost(
         actions = actions,
         onBack = backStack::navigateBack,
         onComplete = backStack::navigateToHome,
+        onSelectApps = {
+          backStack.navigateToHome()
+          backStack.navigateTo(SettingsScreen.Apps)
+        },
       )
 
       SettingsScreen.About -> AboutScreen(

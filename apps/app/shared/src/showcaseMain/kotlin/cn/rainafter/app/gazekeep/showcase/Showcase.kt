@@ -157,6 +157,10 @@ private object DemoActions : PlatformActions {
   override fun hasRomBackgroundPolicy(): Boolean = false
   override fun openRomBackgroundPolicy() {}
 
+  override fun openAppDetailsSettings() {}
+
+  override fun copyToClipboard(text: String) {}
+
   @Composable override fun HandleBack(enabled: Boolean, onBack: () -> Unit) {}
 
   @Composable override fun SelfTestPreview(modifier: Modifier) {}

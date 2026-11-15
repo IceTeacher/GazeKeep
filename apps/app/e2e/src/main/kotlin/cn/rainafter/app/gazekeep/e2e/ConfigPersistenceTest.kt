@@ -70,7 +70,7 @@ class ConfigPersistenceTest {
 
   /** 从设置页进入应用列表，按被测应用自身的包名搜索，返回当前名单的已选数量。 */
   private fun openAppsAndSearchSelf(): Int {
-    session.tap(session.label("settings_apps"))
+    session.scrollToText(session.label("settings_apps")).click()
     session.require(session.label("settings_apps_blacklist_title"))
     checkNotNull(session.device.wait(Until.findObject(By.clazz("android.widget.EditText")), 10_000L)) {
       "未找到应用搜索框"
@@ -127,6 +127,7 @@ class ConfigPersistenceTest {
       if (openAppsAndSearchSelf() != before) toggleSelf()
       session.launch()
       session.openSettingsTab()
+      session.scrollToText(session.label("settings_app_scope"))
       chooseAppScope(original!!, summaries.getValue(original))
     }
     val after = toggleSelf()

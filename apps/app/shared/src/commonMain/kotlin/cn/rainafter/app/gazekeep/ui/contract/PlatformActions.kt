@@ -7,9 +7,11 @@ interface PlatformActions {
   fun requestCameraPermission()
   fun requestNotificationPermission()
   fun openAccessibilitySettings()
+  fun openAppDetailsSettings()
   fun requestShizukuPermission()
   fun openShizukuApp()
   fun openUrl(url: String)
+  fun copyToClipboard(text: String)
   fun shareLogs(text: String)
   fun exportLogs(text: String)
   fun formatLogTimestamp(epochMillis: Long): String

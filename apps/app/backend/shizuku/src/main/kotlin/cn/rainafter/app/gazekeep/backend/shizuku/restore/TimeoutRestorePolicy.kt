@@ -11,7 +11,7 @@ object TimeoutRestorePolicy {
    * 屏幕会在用户注视中熄灭。这种情况推迟到熄屏或停止时恢复。电源状态未知时不推迟。
    */
   fun wouldExpireImmediately(snapshot: PowerSnapshot?, nowUptime: Long, original: Int): Boolean {
-    val lastActivity = snapshot?.lastUserActivityUptime ?: return false
+    val lastActivity = snapshot?.effectiveLastActivityUptime ?: return false
     return snapshot.interactive && lastActivity + original - nowUptime < MIN_REMAINING_MS
   }
 }

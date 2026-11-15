@@ -37,6 +37,10 @@ class FakePlatformActions(
     calls += "openAccessibilitySettings"
   }
 
+  override fun openAppDetailsSettings() {
+    calls += "openAppDetailsSettings"
+  }
+
   override fun requestShizukuPermission() {
     calls += "requestShizukuPermission"
   }
@@ -49,12 +53,23 @@ class FakePlatformActions(
     calls += "openUrl:$url"
   }
 
+  var copiedText: String? = null
+
+  override fun copyToClipboard(text: String) {
+    calls += "copyToClipboard"
+    copiedText = text
+  }
+
   override fun shareLogs(text: String) {
     calls += "shareLogs"
   }
 
+  /** 最近一次导出的正文，用于核对导出取最新日志而不是页面定格的列表。 */
+  var exportedText: String? = null
+
   override fun exportLogs(text: String) {
     calls += "exportLogs"
+    exportedText = text
   }
 
   override fun appLanguage(): AppLanguage? = language

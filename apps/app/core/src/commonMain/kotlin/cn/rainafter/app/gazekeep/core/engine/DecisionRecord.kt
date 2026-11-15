@@ -19,6 +19,20 @@ enum class DecisionReason {
   MaxHold,
 }
 
+data class LastOutcome(
+  val reason: DecisionReason,
+  val skipReason: SkipReason? = null,
+  val abortReason: AbortReason? = null,
+  val frameReason: FrameVerdict.Reason? = null,
+)
+
+fun DecisionRecord.toLastOutcome(): LastOutcome = LastOutcome(
+  reason = reason,
+  skipReason = skipReason,
+  abortReason = abortReason,
+  frameReason = frameReason,
+)
+
 data class DecisionRecord(
   val uptime: Long,
   val foregroundPackage: String?,

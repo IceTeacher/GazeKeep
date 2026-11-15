@@ -8,6 +8,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import cn.rainafter.app.gazekeep.core.model.AppFilterMode
 import cn.rainafter.app.gazekeep.core.model.Attention
 import cn.rainafter.app.gazekeep.ui.contract.SelfTestState
 import cn.rainafter.app.gazekeep.ui.contract.SelfTestStep
@@ -28,9 +29,11 @@ import gazekeep.shared.generated.resources.self_test_complete
 import gazekeep.shared.generated.resources.self_test_enable
 import gazekeep.shared.generated.resources.self_test_last_result
 import gazekeep.shared.generated.resources.self_test_retry_looking_hint
+import gazekeep.shared.generated.resources.self_test_select_apps
 import gazekeep.shared.generated.resources.self_test_status_current
 import gazekeep.shared.generated.resources.self_test_status_done
 import gazekeep.shared.generated.resources.self_test_status_pending
+import gazekeep.shared.generated.resources.settings_apps_whitelist_title
 import gazekeep.shared.generated.resources.settings_self_test
 import org.junit.Rule
 import org.junit.runner.RunWith
@@ -104,5 +107,34 @@ class SelfTestUiTest {
     app.openSelfTest()
     app.assertShown(text(Res.string.m0_capturing))
     button(text(Res.string.m0_capturing)).assertIsNotEnabled()
+  }
+
+  @Test
+  fun completeStepOffersDirectAppSelectionWhenWhitelistEmpty() {
+    val base = readyState()
+    val app = rule.launchApp(
+      base.copy(
+        selfTestPassed = false,
+        config = base.config.copy(
+          enabled = false,
+          appFilterMode = AppFilterMode.Whitelist,
+          whitelistPackages = emptySet(),
+        ),
+      ),
+    )
+    app.controller.onCapture = { state ->
+      when (state.step) {
+        SelfTestStep.Looking -> state.copy(step = SelfTestStep.Away, attention = Attention.Looking)
+        else -> state.copy(step = SelfTestStep.Complete, attention = Attention.Away)
+      }
+    }
+    app.openSelfTest()
+    app.click(text(Res.string.self_test_capture_step_1))
+    app.click(text(Res.string.self_test_capture_step_2))
+    app.assertShown(text(Res.string.self_test_complete))
+    app.assertShown(text(Res.string.self_test_select_apps))
+    app.click(text(Res.string.self_test_select_apps))
+    assertTrue("setEnabled:true" in app.controller.calls)
+    app.assertShown(text(Res.string.settings_apps_whitelist_title))
   }
 }

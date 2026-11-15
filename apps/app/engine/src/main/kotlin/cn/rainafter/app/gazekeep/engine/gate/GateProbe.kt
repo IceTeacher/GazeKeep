@@ -2,7 +2,10 @@ package cn.rainafter.app.gazekeep.engine.gate
 
 import android.app.KeyguardManager
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.media.AudioManager
+import android.os.BatteryManager
 import android.os.PowerManager
 import cn.rainafter.app.gazekeep.core.policy.GateInput
 import kotlinx.coroutines.Dispatchers
@@ -30,6 +33,7 @@ class AndroidGateProbe(private val context: Context, private val foreground: For
   private val audio = context.getSystemService(AudioManager::class.java)
 
   override suspend fun collect(): GateInput = withContext(Dispatchers.Default) {
+    val battery = readBatteryState(context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED)))
     GateInput(
       interactive = power?.isInteractive == true,
       keyguardLocked = keyguard?.isKeyguardLocked == true,
@@ -39,7 +43,28 @@ class AndroidGateProbe(private val context: Context, private val foreground: For
       proximityNear = null,
       lux = null,
       faceDown = null,
+      powerSaveMode = power?.isPowerSaveMode == true,
+      batteryPercent = battery.percent,
+      isCharging = battery.charging,
     )
+  }
+
+  internal data class BatteryState(val percent: Int?, val charging: Boolean)
+
+  internal companion object {
+    fun readBatteryState(intent: Intent?): BatteryState {
+      if (intent == null) return BatteryState(percent = null, charging = false)
+      val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+      val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+      val percent = if (level >= 0 && scale > 0) ((level * 100) / scale).coerceIn(0, 100) else null
+      val plugged = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0)
+      val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+      val charging =
+        plugged != 0 ||
+          status == BatteryManager.BATTERY_STATUS_CHARGING ||
+          status == BatteryManager.BATTERY_STATUS_FULL
+      return BatteryState(percent = percent, charging = charging)
+    }
   }
 
   override suspend fun withEnvironment(input: GateInput): GateInput {

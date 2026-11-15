@@ -32,4 +32,10 @@ class TimeoutRestorePolicyTest {
     assertFalse(TimeoutRestorePolicy.wouldExpireImmediately(snapshot(null), 160_000, 15_000))
     assertFalse(TimeoutRestorePolicy.wouldExpireImmediately(null, 160_000, 15_000))
   }
+
+  @Test fun considersNoChangeLightsWhenCheckingRemainingTime() {
+    val withNoChangeLights = snapshot(100_000).copy(lastUserActivityNoChangeLightsUptime = 120_000)
+    // 从 120_000 算还有 12_000 ms，不立即熄屏；按旧字段 100_000 算早已过期。
+    assertFalse(TimeoutRestorePolicy.wouldExpireImmediately(withNoChangeLights, nowUptime = 123_000, original = 15_000))
+  }
 }
