@@ -6,7 +6,7 @@
 
 AppGraph 为装配根；AndroidGazeKeepController 委托配置、自检、应用列表、就绪探测和应用级启停。Activity 关闭 controller 取消页面订阅/自检/图标任务，不取消已保存的应用级启停任务。
 
-GazeService 适配生命周期，BackendSession 拥有 backend、oracle、engine、采集会话、屏幕广播和无障碍订阅。关闭会话取消定时/副作用/采集、注销订阅、释放相机/分类器并解绑后端。部分初始化失败也必须由已登记所有者清理。
+GazeService 适配生命周期，BackendSession 拥有 backend、oracle、engine、采集会话、屏幕广播和无障碍订阅。关闭会话取消定时/副作用/采集、注销订阅、释放相机/分类器并解绑后端。部分初始化失败也必须由已登记所有者清理。GazeQuickTileService 通过 TileService 同步开关与就绪状态，相机或自检缺失时引导回 MainActivity，不绕过权限或自检门控；Android 14+ 后台磁贴无法直接启动 camera 前台服务，开启时经由 `PendingIntent` 拉起 `MainActivity`（等待配置与后端就绪加载完毕后启用），关闭仍可在后台直接停止服务。
 
 无障碍服务初始化 backend 后发布可观察的实例状态；运行会话持续跟踪实例及 readiness，覆盖服务后连接、断开和重连。断开同步摘除窗口，再清除实例；同类型的新实例也必须释放旧后端并重新选择、配置 oracle。旧服务延迟销毁不能清除新服务的实例状态，取消会话后不再注册后端。
 
@@ -14,9 +14,9 @@ GazeService 适配生命周期，BackendSession 拥有 backend、oracle、engine
 
 ## 配置与迁移
 
-ConfigStore 通过 Context 的单例 DataStore 委托打开 `gazekeep_settings`，UI 与 Service 共享。持久化字段为 enabled、backend_lock、lead_millis、sensitivity、app_filter_mode、packages（应用白名单）、blacklist_packages（应用黑名单）、max_hold_minutes、debug_log_enabled、hide_camera_indicator、self_test_passed_at，另有迁移标记。
+ConfigStore 通过 Context 的单例 DataStore 委托打开 `gazekeep_settings`，UI 与 Service 共享。持久化字段为 enabled、backend_lock、lead_millis、sensitivity、app_filter_mode、packages（应用白名单）、blacklist_packages（应用黑名单）、max_hold_minutes、pause_on_power_save、low_battery_threshold、debug_log_enabled、hide_camera_indicator、self_test_passed_at，另有迁移标记。
 
-默认关闭、Auto、8000 ms、Standard、仅白名单应用且两份名单为空、30 分钟，隐私指示器实验开关默认关闭。lead 允许 0～60000 ms 且为整秒，上限允许 0（无限制）或 1～1440 分钟；非法读取回默认，非法写入拒绝。生效范围优先由旧版 whitelist_enabled 推导：true 为仅白名单，false 为全部应用，原 packages 原样作为应用白名单。本版写入时删除 whitelist_enabled，使降级回旧版时读到默认的白名单开启而不是扩大生效范围；旧键仍存在说明升级前或降级后由旧版写入，此时以旧键为准，否则读取 app_filter_mode，缺失或非法时为仅白名单。模型固定为 bundled ML Kit，相机占用时跳过检测，让系统正常熄屏；重复暗光退避也是固定策略，不提供隐藏配置；低电量暂停尚未交付。
+默认关闭、Auto、8000 ms、Standard、仅白名单应用且两份名单为空、30 分钟、开启省电模式暂停（pause_on_power_save=true）、低电量阈值 15%（可选 0/10/15/20，未充电时生效），隐私指示器实验开关默认关闭。lead 允许 0～60000 ms 且为整秒，上限允许 0（无限制）或 1～1440 分钟；非法读取回默认，非法写入拒绝。生效范围优先由旧版 whitelist_enabled 推导：true 为仅白名单，false 为全部应用，原 packages 原样作为应用白名单。本版写入时删除 whitelist_enabled，使降级回旧版时读到默认的白名单开启而不是扩大生效范围；旧键仍存在说明升级前或降级后由旧版写入，此时以旧键为准，否则读取 app_filter_mode，缺失或非法时为仅白名单。模型固定为 bundled ML Kit，相机占用时跳过检测，让系统正常熄屏；重复暗光退避也是固定策略，不提供隐藏配置。
 
 LegacyMigration 只迁移旧 `gazekeep_config` SharedPreferences 的后端选择，强制 enabled=false、生效范围为仅白名单应用，不迁移历史启用资格；保留旧文件，不读取 XML 文件猜测实时状态。
 
@@ -38,7 +38,7 @@ applicationId 为 cn.rainafter.app.gazekeep；相机、camera 前台服务、通
 
 当前未声明 WAKE_LOCK、GET_USAGE_STATS 和电池优化权限。TimeoutRestoreBootReceiver 只在存在 Shizuku 临时超时恢复记录时连接 shell 写回原值，不启动检测服务或相机；ROM 的自启动管控可能拦截开机广播，此时仍在下次连接时恢复。最终权限必须从 APK 检查。
 
-GazeNotifier 的异常通知按同类 10 分钟限频；不在可信 Looking 时提示。DecisionRecord 包含 uptime、包名、Attention、决策/门控/中止/分类原因、后端、extend 和耗时，运行状态另保存 lastDecision（服务重配时保留，仅在显式关闭总开关时清空）。
+GazeNotifier 的异常通知按同类 10 分钟限频；不在可信 Looking 时提示。DecisionRecord 包含 uptime、包名、Attention、决策/门控/中止/分类原因、后端、extend 和耗时，运行状态另保存 lastDecision 与最近轻量结果 LastOutcome（服务重配时保留，仅在显式关闭总开关时清空）。AndroidGazeKeepController 同时监听 AccessibilityManager 状态变更及页面恢复，避免系统设置页切换无障碍后状态滞后。
 
 ## 验证要求
 

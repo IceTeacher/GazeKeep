@@ -135,6 +135,28 @@
 
 `v1.1.2` 与 `v1.1.3` 发布说明已按「更新日志 / 启用步骤」格式维护。LSPosed 模块仓库元数据、同步工具和 `lsposed-repo` 流程已接入，`v1.1.3` 的本地模拟 tag 得到 `5-1.1.3`；真实 workflow 同步、索引 bot 构建和管理器安装更新仍未完成。
 
+## v1.1.6 快捷磁贴、电源门控与体验闭环（2026-11-15）
+
+分支 `feat/log-live-stream`（接续 `c3d50e8` + [v1.1.6 规划](20261115-v1-1-6-release-plan.md)），Debug 构建与 `Pixel_8_API_35` 模拟器（Android 15 / API 35，LSPosed + Shizuku 就绪）。
+
+- **主机验证**：完成 `core`（`GazeConfig` 省电/低电量校验、`PowerSaveMode`/`LowBattery` 门控与主流相机包名）、`engine`（`ConfigStore`、`AndroidGateProbe` 省电/电池只读探测）、`backend:shizuku`（`NoChangeLights` 解析与不清除 `MaxHold` 累计的 oracle 边界）、`android`（`GazeQuickTileService`、API 34+ 磁贴拉起 `MainActivity` 并等待配置/后端加载、`LastOutcome`、`UiNotice.NeedsBackend`、无障碍与语言监听）及 `shared`（首页可解释状态、Auto 无就绪引导、空白名单引导、省电/低电量设置项与大字体排版、日志页清焦点/二次确认清空/单条复制）；`settingsBottomLightEn` Roborazzi 截图基线已有意重录并人工核对；主机测试、构建、文档/架构/资源检查及 Debug APK `verify:apk` 静态门禁均通过。
+- **模拟器验收（`Pixel_8_API_35`）**：
+  - `test:device` 全部 5 项用例通过（0 跳过、0 失败：`BackendReadinessTest`、`CameraPermissionTest`、`ConfigPersistenceTest` ×2、`ScreenTimeoutRestoreTest`）；途中修复了新增省电卡片后设置页滑到底栏下方导致 `scrollToText` 提前命中的测试滑动逻辑。
+  - 快捷设置磁贴：从桌面下拉开启磁贴能拉起 `MainActivity` 并成功以 `camera` 前台服务类型（`0x40`）启动 `GazeService`；再次点击磁贴在后台直接停止服务并同步显示「已关闭」。
+  - 省电/低电量门控与 `LastOutcome`：开启省电模式（非充电）记录 `skip=PowerSaveMode`，首页显示「最近跳过：系统省电模式已开启」且未激活传感器窗口；模拟未充电 10% 低电量（`cmd battery unplug && set status 3 && set level 10`）记录 `skip=LowBattery`，首页显示「最近跳过：电量低于阈值且未充电」。
+  - 无障碍实时刷新与按应用语言：保持 `BackendScreen` 在前台外部开启无障碍后（以 `screencap` 验证，因 `uiautomator dump` 会临时抑制无障碍绑定），状态自动变为「无障碍 已就绪」；应用内切换 `English` 后设置页、主页与强停冷启动均保持英文，无中文回退。
+  - 日志页：搜索框有焦点时点击筛选可直接弹出筛选浮层不被输入法遮挡；单击日志卡片成功写入系统剪贴板并弹出「已复制日志」提示；清空日志弹出带条数的确认框，取消保留日志，确认后清空；测试后已全部恢复并关闭详细日志、总开关、省电模式、电池与 2147483647 系统超时。
+- **版本与发布产物（`v1.1.6` / `versionCode = 8`）**：
+  - 将 [build.gradle.kts](../../apps/app/android/build.gradle.kts#L48-L49) 升级至 `versionCode = 8`、`versionName = "1.1.6"`，完成 [v1.1.6.md](../releases/v1.1.6.md) 发布说明编写并在 [文档索引](../../.agents/docs-index.md) 登记。
+  - 在未配置签名环境变量下执行 `:android:assembleRelease`，产出四架构 `unsigned` Release APK（`arm64-v8a`、`armeabi-v7a`、`x86_64`、`universal`），并全部通过 `pnpm verify:apk` 静态产物门禁；按项目规则，正式签名交由 CI 于 `v1.1.6` tag 流水线执行。
+- **真机验收（`Xiaomi 2207122MC` / `daumier`，Android 14 / API 34，HyperOS `OS2.0.6.0.ULGCNXM`，`arm64-v8a` Debug 包）**：
+  - 安装与静检：`android-arm64-v8a-debug.apk` 通过 `verify:apk --abi arm64-v8a` 并以 `adb install -r` 保留用户配置覆盖安装；真机 `dumpsys power` 核对到小写 `lastUserActivityTime` 与 `lastUserActivityTimeNoChangeLights` 字段格式。
+  - 核心闭环：HyperOS 2 控制中心磁贴可后台停止 `GazeService` 并在关闭态拉起 `MainActivity` 恢复 `camera`（`0x40`）前台服务；真实前摄 + `Shizuku` 触发并更新首页「最近检测：注视了屏幕」；开启系统省电模式或模拟未充电 10% 低电量时门控日志为 `decision=Skip sensorMs=null`（`Yielded`），首页分别显示「最近跳过：系统省电模式已开启」与「最近跳过：电量低于阈值且未充电」。
+  - `ON_AFTER_RELEASE` 视频播完顺延实测：`screen_off_timeout = 20000`、`lead = 8s` 下通过 Chrome 播放 22 秒无干预 HTML5 视频（实测持有 `SCREEN_BRIGHT_WAKE_LOCK 'WindowManager/displayId:0' ON_AFTER_RELEASE`）；播完自然释放后 `lastUserActivityTimeNoChangeLights` 跃升至 `389184384`（晚于此前 `lastUserActivityTime = 389180537` 约 `3.85s`），`GazeKeepEngine` 接收 `deadline -> effect=ScheduleWake` 且未触发 `CancelHoldLimit`（保留 `MaxHold` 累计），并在新截止时间触发前约 `7.0s` 唤醒门控与前摄完成检测与 `extend result=Done`；随后人工模拟触控时正常触发 `CancelHoldLimit`。
+  - 设置与日志体验：`BackendScreen` 外部临时附加并移除无障碍服务时（以 `screencap` 核对，保留用户原有 3 个无障碍服务）自动切为「已就绪」并回落「未就绪」；语言切至 `English` 后 `cmd locale get-app-locales` 为 `[en]` 且强停冷启动保持英文，恢复「跟随系统」正常；日志页验证 `DEBUG` 过滤、新日志提示气泡、聚焦搜索框点筛选自动收起输入法（`mInputShown=false`）、单击日志提示「已复制该条日志」及清空确认框（显示当前条数并取消保留用户日志）。
+  - `e2e`（`ANDROID_SERIAL=192.168.12.46:5555 pnpm --filter @gazekeep/app test:device`）：5 项用例中 4 项通过（`BackendReadinessTest`、`CameraPermissionTest`、`ConfigPersistenceTest` ×2），1 项跳过（`ScreenTimeoutRestoreTest` 因真机已设安全锁屏按 `assumeFalse` 跳过），0 失败；全部测试完成后已恢复用户原有配置、相机权限、`60000` 超时、电量、无障碍列表与前台服务状态。
+- **未执行（需补测或 CI/发版阶段完成）**：CI `v1.1.6` tag 正式签名多 ABI Release APK 构建与证书指纹核对、正式签名 Release 包在真机的覆盖安装与续航实测、非小米 ROM（ColorOS / OriginOS 等）实机兼容与锁屏/横屏磁贴交互。
+
 ## 未完成事项
 
 - [ ] 在 Xiaomi 12 Pro 以外的 ROM 与 Android 版本上补齐相机、传感器、后台限制和权限异常矩阵。
@@ -145,10 +167,9 @@
 - [ ] 完成 `v1.1.3` 模块仓库真实同步，确认 Release 非草稿、索引 bot 成功，并在 LSPosed 管理器中验证安装和更新提示。
 - [ ] 维护者离线备份正式签名密钥库与密码；密钥丢失后无法覆盖升级已安装版本。
 - [ ] 在 HyperOS 以外的 ROM 上核对应用列表的系统应用判定（预装应用的标志因 ROM 而异）与无障碍后端的前台识别。
-- [ ] 排查按应用语言为英文时页面偶发显示中文的问题（触发条件未知，见上方真机验收）。
-- [ ] Shizuku 解析未读取 `lastUserActivityTimeNoChangeLights`（HyperOS dump 中存在该字段）：按 AOSP 规则，带 ON_AFTER_RELEASE 的亮屏锁（如视频窗口）释放后熄屏点顺延到释放时刻 + 超时，现有 deadline 偏早会提前 TooLate，之后不再检测；新旧版都受影响，需真机验证视频自然播完的场景后再修。
+- [ ] 在真机长时运行中补充 `ON_AFTER_RELEASE` 场景下的真实续航与功耗对比（`v1.1.6` Chrome `SCREEN_BRIGHT_WAKE_LOCK ON_AFTER_RELEASE` 自然结束顺延与不清除 `MaxHold` 已经在 Xiaomi 12 Pro / HyperOS 2 实测通过）。
 - [ ] issue #14 剩余项：用外接功率计或断开 ADB 做长时功耗对比；真机验收暗光门控；决定是否做自适应提前量与连续注视后单帧判定；对比 640×480 与 480×360 分析分辨率的分类计数场景。
 - [ ] 官网 EdgeOne 收尾：观察 CI 部署重试的实际效果并核对控制台回滚；在 Cloudflare 侧下线旧 Pages 项目与 Web Analytics 站点。
-- [ ] 排查外部开启无障碍后页面就绪状态不刷新的问题，以及 `ScreenTimeoutRestoreTest` 按前提跳过时残留已开启服务的问题。
+- [ ] 由 CI 对 `v1.1.6` tag 执行正式签名多 ABI Release APK 构建与指纹核对，并在物理真机补验正式签名 Release 包覆盖安装及非小米 ROM / 锁屏横屏磁贴体验。
 
 以上未执行项不计为当前版本通过；实际 APK、设备、ROM、框架和权限条件变化时必须重新标识产物并重跑受影响验收。
