@@ -36,8 +36,15 @@ actual fun watchVisitorPointer(onPointer: () -> Unit) {
   js("document.addEventListener('pointerdown', function (e) { if (e.pointerId !== 7) onPointer(); }, true)")
 }
 
-actual fun notifyDemo(focus: String, leadSeconds: Int, loose: Boolean, holdMinutes: Int, hideIndicator: Boolean) {
+actual fun notifyDemo(
+  focus: String,
+  leadSeconds: Int,
+  loose: Boolean,
+  holdMinutes: Int,
+  hideIndicator: Boolean,
+  appScope: String,
+) {
   js(
-    "window.parent.dispatchEvent(new CustomEvent('gazekeep:demo', { detail: { focus: focus, leadSeconds: leadSeconds, loose: loose, holdMinutes: holdMinutes, hideIndicator: hideIndicator, attempt: Number(new URLSearchParams(location.search).get('attempt')) } }))",
+    "window.parent.dispatchEvent(new CustomEvent('gazekeep:demo', { detail: { focus: focus, leadSeconds: leadSeconds, loose: loose, holdMinutes: holdMinutes, hideIndicator: hideIndicator, appScope: appScope, attempt: Number(new URLSearchParams(location.search).get('attempt')) } }))",
   )
 }

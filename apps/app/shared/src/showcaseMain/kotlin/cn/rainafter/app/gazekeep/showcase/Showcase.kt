@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.platform.Font
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeViewport
+import cn.rainafter.app.gazekeep.core.model.AppFilterMode
 import cn.rainafter.app.gazekeep.core.model.Attention
 import cn.rainafter.app.gazekeep.core.model.BackendId
 import cn.rainafter.app.gazekeep.core.model.BackendLock
@@ -72,6 +73,7 @@ private val demoScene = mutableStateOf("none")
 // 递增即重新开始当前场景；访客操作内屏时暂停，复位后继续。
 private val sceneRun = mutableStateOf(0)
 private val scenePaused = mutableStateOf(false)
+private val appScopeStartBlacklist = mutableStateOf(false)
 
 /**
  * 演示应用列表只使用开源应用与 AOSP 系统应用，按标签排序与真机列表一致；
@@ -105,6 +107,7 @@ private object DemoController : GazeKeepController {
       config = GazeConfig(
         enabled = true,
         whitelistPackages = setOf("cn.rainafter.app.gazekeep", "org.lsposed.manager"),
+        blacklistPackages = setOf("com.android.stk"),
       ),
       selfTestPassed = true, cameraGranted = true,
       backends = BackendId.entries.associateWith { Readiness.Ready },
@@ -199,8 +202,15 @@ expect fun dispatchDemoPointer(type: String, x: Double, y: Double)
 /** 访客经官网命中层转发的按压（非演示指针）到达画布时回调。 */
 expect fun watchVisitorPointer(onPointer: () -> Unit)
 
-/** 把正在演示的设置项与当前设置告知官网，供机外设置卡片同步。 */
-expect fun notifyDemo(focus: String, leadSeconds: Int, loose: Boolean, holdMinutes: Int, hideIndicator: Boolean)
+/** 把正在演示的设置项、当前设置与专注范围告知官网，供机外卡片同步。 */
+expect fun notifyDemo(
+  focus: String,
+  leadSeconds: Int,
+  loose: Boolean,
+  holdMinutes: Int,
+  hideIndicator: Boolean,
+  appScope: String,
+)
 
 private fun settingsOf(config: GazeConfig) = ShowcaseSettings(
   leadSeconds = (config.leadMillis / 1_000L).toInt(),
@@ -223,6 +233,14 @@ private val director = ShowcaseDirector(
       ),
     )
   },
+  applyScope = { blacklist ->
+    val state = DemoController.state.value
+    DemoController.state.value = state.copy(
+      config = state.config.copy(
+        appFilterMode = if (blacklist) AppFilterMode.Blacklist else AppFilterMode.Whitelist,
+      ),
+    )
+  },
 )
 
 /** 丢弃演示与访客对页面和设置的改动，回到当前段落指定的页面；[animate] 为 false 时由父页面遮罩换页。 */
@@ -232,17 +250,23 @@ private fun resetDemo(target: SettingsScreen, animate: Boolean) {
   director.reset()
 }
 
-/** 按演示状态覆盖后端、锁定与最近判定；[from] 为复位时的基线。 */
+/** 按演示状态覆盖后端、锁定、专注范围与最近判定；[from] 为复位时的基线。 */
 private fun applyStatus(status: String, from: ControllerState = DemoController.state.value) {
   val backend = when (status) {
     "backend_shizuku" -> BackendId.Shizuku
     "backend_accessibility" -> BackendId.Accessibility
     else -> BackendId.Lsposed
   }
+  val scopeMode = when (status) {
+    "scope_blacklist" -> AppFilterMode.Blacklist
+    "scope_whitelist" -> AppFilterMode.Whitelist
+    else -> from.config.appFilterMode
+  }
   DemoController.state.value = from.copy(
     activeBackend = backend,
     config = from.config.copy(
       backendLock = if (status.startsWith("backend_")) BackendLock.valueOf(backend.name) else BackendLock.Auto,
+      appFilterMode = scopeMode,
     ),
     lastDecision = when (status) {
       "gaze_detected" -> Attention.Looking
@@ -274,7 +298,15 @@ fun startShowcase() {
     },
     { status ->
       demoStatus.value = status
+      if (status == "scope_blacklist") {
+        appScopeStartBlacklist.value = true
+      } else if (status == "scope_whitelist") {
+        appScopeStartBlacklist.value = false
+      }
       applyStatus(status)
+      if (demoScene.value == "apps" && status.startsWith("scope_") && !scenePaused.value) {
+        sceneRun.value++
+      }
     },
     { scene ->
       if (scene == demoScene.value) return@installBridge
@@ -354,14 +386,23 @@ fun startShowcase() {
       // 只等同页复位的淡入（220ms）结束；滚入新区段时换页在黑屏下完成。没有脚本的场景只保持页面。
       delay(SCENE_SETTLE_MS)
       while (true) {
-        val steps = ShowcaseScripts.forScene(scene, DEMO_APPS, kotlin.random.Random) ?: break
+        val steps = ShowcaseScripts.forScene(
+          scene = scene,
+          apps = DEMO_APPS,
+          random = kotlin.random.Random,
+          startBlacklist = appScopeStartBlacklist.value,
+        ) ?: break
         steps.forEach { director.perform(it) }
       }
     }
     LaunchedEffect(Unit) {
       combine(director.focus, DemoController.state.map { it.config }.distinctUntilChanged()) { focus, config ->
-        focus to settingsOf(config)
-      }.collect { (focus, s) -> notifyDemo(focus.orEmpty(), s.leadSeconds, s.loose, s.holdMinutes, s.hideIndicator) }
+        focus to config
+      }.collect { (focus, config) ->
+        val s = settingsOf(config)
+        val appScope = if (config.appFilterMode == AppFilterMode.Blacklist) "blacklist" else "whitelist"
+        notifyDemo(focus.orEmpty(), s.leadSeconds, s.loose, s.holdMinutes, s.hideIndicator, appScope)
+      }
     }
     LaunchedEffect(route.value, requestRevision.value) {
       val screen = route.value

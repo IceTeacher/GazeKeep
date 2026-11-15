@@ -5,6 +5,7 @@ import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseStep.Expect
 import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseStep.Focus
 import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseStep.Glide
 import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseStep.Pick
+import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseStep.Scope
 import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseStep.Tap
 import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseStep.Type
 import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseStep.Wait
@@ -75,6 +76,8 @@ class ShowcaseScriptsTest {
         is Wait -> assertTrue(step.millis > 0)
 
         is Glide -> error("设置演示不滚动页面")
+
+        is Scope -> error("设置演示不切换应用范围")
       }
     }
 
@@ -137,22 +140,29 @@ class ShowcaseScriptsTest {
   )
 
   @Test
-  fun appsLoopTogglesFewDistinctAppsThenSearchesAndClears() {
+  fun appsLoopTogglesAppsAndSwitchesBetweenWhitelistAndBlacklist() {
     repeat(50) { seed ->
-      val steps = ShowcaseScripts.apps(apps, Random(seed))
-      val taps = steps.filterIsInstance<Tap>().map { it.key }
-      assertTrue(taps.size in 1..3, "seed=$seed 切换 ${taps.size} 个应用")
-      assertEquals(taps.distinct(), taps)
-      assertTrue(taps.all { key -> apps.any { ShowcaseKeys.app(it.packageName) == key } })
-      val typed = steps.filterIsInstance<Type>()
-      assertTrue(typed.all { it.key == ShowcaseKeys.APPS_SEARCH })
-      // 逐字输入某个应用名称，结束时清空，下一轮从完整列表开始。
-      val query = typed[typed.lastIndex - 1].text
-      assertTrue(apps.any { it.label == query }, "seed=$seed 搜索 $query")
-      assertEquals(query.indices.map { query.take(it + 1) }, typed.dropLast(1).map { it.text })
-      assertEquals("", typed.last().text)
-      val lastTap = steps.indexOfLast { it is Tap }
-      assertTrue(lastTap < steps.indexOfFirst { it is Type }, "先切换应用再搜索")
+      for (startBlacklist in listOf(false, true)) {
+        val steps = ShowcaseScripts.apps(apps, Random(seed), startBlacklist = startBlacklist)
+        val scopes = steps.filterIsInstance<Scope>()
+        assertEquals(listOf(!startBlacklist, startBlacklist), scopes.map { it.blacklist }, "seed=$seed 切换范围并回到起点")
+        val split = steps.indexOfFirst { it is Scope }
+        val phases = listOf(steps.subList(0, split), steps.subList(split + 1, steps.size))
+        for (phase in phases) {
+          val taps = phase.filterIsInstance<Tap>().map { it.key }
+          assertTrue(taps.size in 1..2, "seed=$seed 每阶段切换 ${taps.size} 个应用")
+          assertEquals(taps.distinct(), taps)
+          assertTrue(taps.all { key -> apps.any { ShowcaseKeys.app(it.packageName) == key } })
+          val typed = phase.filterIsInstance<Type>()
+          assertTrue(typed.all { it.key == ShowcaseKeys.APPS_SEARCH })
+          val query = typed[typed.lastIndex - 1].text
+          assertTrue(apps.any { it.label == query }, "seed=$seed 搜索 $query")
+          assertEquals(query.indices.map { query.take(it + 1) }, typed.dropLast(1).map { it.text })
+          assertEquals("", typed.last().text)
+          val lastTap = phase.indexOfLast { it is Tap }
+          assertTrue(lastTap < phase.indexOfFirst { it is Type }, "先切换应用再搜索")
+        }
+      }
     }
     val samples = (0 until 50).map { ShowcaseScripts.apps(apps, Random(it)) }
     assertTrue(samples.distinct().size > 1, "不同轮次随机选择")
@@ -183,7 +193,7 @@ class ShowcaseScriptsTest {
 
   /** 相邻可见操作之间的停顿；Focus、Expect 不占时间，首尾相接计入下一轮开头。 */
   private fun pauses(steps: List<ShowcaseStep>): List<Long> {
-    val visible = steps.withIndex().filter { (_, s) -> s is Tap || s is Pick || s is Glide || s is Type }
+    val visible = steps.withIndex().filter { (_, s) -> s is Tap || s is Pick || s is Glide || s is Type || s is Scope }
     val gaps = visible.zipWithNext { a, b -> waited(steps.subList(a.index + 1, b.index)) }
     val tail = waited(steps.subList(visible.last().index + 1, steps.size))
     val head = waited(steps.subList(0, visible.first().index))
@@ -197,7 +207,7 @@ class ShowcaseScriptsTest {
     for (scene in listOf("tour", "privacy", "apps", "settings")) {
       repeat(10) { seed ->
         val steps = ShowcaseScripts.forScene(scene, apps, Random(seed))!!
-        val lead = steps.takeWhile { it !is Tap && it !is Pick && it !is Glide && it !is Type }
+        val lead = steps.takeWhile { it !is Tap && it !is Pick && it !is Glide && it !is Type && it !is Scope }
         assertEquals(0, waited(lead), "$scene 进入区段后第一步就是操作")
         val longest = pauses(steps).max()
         assertTrue(longest <= 1800, "$scene seed=$seed 最长停顿 ${longest}ms")

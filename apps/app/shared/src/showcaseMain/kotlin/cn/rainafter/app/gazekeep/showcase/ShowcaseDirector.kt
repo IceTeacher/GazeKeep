@@ -39,6 +39,7 @@ internal class ShowcaseDirector(
   private val pointer: (type: String, x: Double, y: Double) -> Unit,
   private val settings: () -> ShowcaseSettings,
   private val applySettings: (ShowcaseSettings) -> Unit,
+  private val applyScope: (Boolean) -> Unit,
 ) : ShowcaseDriver {
   private val anchors = HashMap<String, Rect>()
   private val scrolls = HashMap<String, ShowcaseScroll>()
@@ -98,6 +99,11 @@ internal class ShowcaseDirector(
       }
 
       is ShowcaseStep.Focus -> focus.value = step.key
+
+      is ShowcaseStep.Scope -> {
+        dirty = true
+        applyScope(step.blacklist)
+      }
 
       // 点按未命中（字体或组件尺寸与预期不同）时直接写入目标设置，下一轮仍从预期状态开始。
       is ShowcaseStep.Expect -> if (settings() != step.settings) applySettings(step.settings)
