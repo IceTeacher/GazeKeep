@@ -92,19 +92,34 @@ function validDate(date: string) {
   const parsed = new Date(`${date}T00:00:00Z`);
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date;
 }
-// 发布说明作为 GitHub Release 正文：安装包一节由 release.yml 生成，验收记录维护在任务清单，不进入正文。
-const RELEASE_SECTIONS = ["更新日志", "启用步骤"];
-function releaseNotesErrors(name: string, text: string) {
+// 发布说明作为 GitHub Release 与官网双语更新日志真源：安装包一节由 release.yml 生成，验收记录维护在任务清单，不进入正文。
+const RELEASE_SECTIONS = {
+  zh: ["更新日志", "启用步骤"],
+  en: ["Changelog", "Setup"],
+} as const;
+const RELEASE_ZH = /^docs\/releases\/(v\d+\.\d+\.\d+)\.md$/;
+const RELEASE_EN = /^docs\/releases\/(v\d+\.\d+\.\d+)\.en\.md$/;
+function releaseNotesErrors(name: string, text: string, releaseFiles: Set<string>) {
   const errors: string[] = [];
-  if (!/^docs\/releases\/v\d+\.\d+\.\d+\.md$/.test(name)) errors.push(`${name}: 发布说明文件名必须为 v<版本>.md`);
+  const zh = RELEASE_ZH.exec(name);
+  const en = RELEASE_EN.exec(name);
+  if (!zh && !en) {
+    errors.push(`${name}: 发布说明文件名必须为 v<版本>.md 或 v<版本>.en.md`);
+    return errors;
+  }
+  const locale = zh ? "zh" : "en";
+  const version = (zh ?? en)![1];
+  const partner = `docs/releases/${version}.${locale === "zh" ? "en.md" : "md"}`;
+  if (!releaseFiles.has(partner)) errors.push(`${name}: 缺少配对双语发布说明 ${partner}`);
   let fenced = false;
   const headings: string[] = [];
   for (const line of text.split("\n")) {
     if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
     else if (!fenced && /^#{1,2} /.test(line)) headings.push(line);
   }
-  if (headings.join("\n") !== RELEASE_SECTIONS.map((s) => `## ${s}`).join("\n"))
-    errors.push(`${name}: 发布说明只能依次包含「## 更新日志」「## 启用步骤」两节，不含一级标题`);
+  const expected = RELEASE_SECTIONS[locale];
+  if (headings.join("\n") !== expected.map((s) => `## ${s}`).join("\n"))
+    errors.push(`${name}: 发布说明只能依次包含「## ${expected[0]}」「## ${expected[1]}」两节，不含一级标题`);
   return errors;
 }
 const INDEX = ".agents/docs-index.md";
@@ -135,10 +150,14 @@ export function violations(root: string) {
     if (!validDate(cells[4])) errors.push(`复核日期非法：${cells[0]}`);
   }
   const active = markdownFiles(root);
+  const releaseFiles = new Set(
+    active.map((page) => relative(root, page).split(sep).join("/")).filter((name) => name.startsWith("docs/releases/")),
+  );
   for (const page of active) {
     const name = relative(root, page).split(sep).join("/");
     if (isManagedDocument(name) && !registrations.has(page)) errors.push(`活动文档未登记：${name}`);
-    if (name.startsWith("docs/releases/")) errors.push(...releaseNotesErrors(name, readFileSync(page, "utf8")));
+    if (name.startsWith("docs/releases/"))
+      errors.push(...releaseNotesErrors(name, readFileSync(page, "utf8"), releaseFiles));
     if (!name.startsWith("docs/plans/") || name === "docs/plans/todo.md") continue;
     const match = /^(\d{8})-[a-z0-9-]+\.md$/.exec(name.split("/").at(-1)!);
     const dates = [...readFileSync(page, "utf8").matchAll(/^最后维护：(\d{4}-\d{2}-\d{2})\s*$/gm)].map((m) => m[1]);

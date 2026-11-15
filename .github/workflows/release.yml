@@ -37,8 +37,9 @@ jobs:
             exit 1
           fi
           git merge-base --is-ancestor "$GITHUB_SHA" origin/main
-          # 发布说明须在打 tag 前随代码评审合入，缺失时不发版；格式由 verify:docs 在 pipeline 中检查。
+          # 双语发布说明须在打 tag 前随代码评审合入，缺失时不发版；格式与配对由 verify:docs 在 pipeline 中检查。
           test -s "docs/releases/$GITHUB_REF_NAME.md"
+          test -s "docs/releases/$GITHUB_REF_NAME.en.md"
       # WHY：通常合并后立即打 tag，main 的运行可能仍在进行；等待其结束，失败或缺失时不发版。
       - name: Wait for pipeline success on main
         env:

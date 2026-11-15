@@ -266,8 +266,13 @@ test("发布说明只含更新日志与启用步骤两节，文件名为 tag", (
       readFileSync(index, "utf8") + `| \`../${name}\` | 发布说明 | 发布时 | 已发布后冻结 | 2026-10-08 |\n`,
     );
   const valid = "## 更新日志\n\n### 修复\n\n- 修复问题。\n\n## 启用步骤\n\n- 打开总开关。\n";
+  const validEn = "## Changelog\n\n### Fixed\n\n- Fix an issue.\n\n## Setup\n\n- Turn on the main toggle.\n";
   f.write("docs/releases/v1.2.0.md", valid);
   register("docs/releases/v1.2.0.md");
+  // 缺少配对英文发布说明时报错。
+  assert.match(f.check("check-docs.ts").stderr, /v1\.2\.0\.en\.md/);
+  f.write("docs/releases/v1.2.0.en.md", validEn);
+  register("docs/releases/v1.2.0.en.md");
   assert.equal(f.check("check-docs.ts").status, 0, f.check("check-docs.ts").stderr);
   for (const notes of [
     `# GazeKeep 1.2.0 预发布说明\n\n${valid}`,
@@ -280,6 +285,15 @@ test("发布说明只含更新日志与启用步骤两节，文件名为 tag", (
     assert.match(f.check("check-docs.ts").stderr, /v1\.2\.0\.md.*更新日志.*启用步骤/, notes);
   }
   f.write("docs/releases/v1.2.0.md", valid);
+  for (const notesEn of [
+    `# GazeKeep 1.2.0\n\n${validEn}`,
+    "## Setup\n\n- Turn on.\n\n## Changelog\n\n- Fixed.\n",
+    "## Changelog\n\n- Fixed.\n",
+  ]) {
+    f.write("docs/releases/v1.2.0.en.md", notesEn);
+    assert.match(f.check("check-docs.ts").stderr, /v1\.2\.0\.en\.md.*Changelog.*Setup/, notesEn);
+  }
+  f.write("docs/releases/v1.2.0.en.md", validEn);
   f.write("docs/releases/GazeKeep-1.2.1.md", valid);
   register("docs/releases/GazeKeep-1.2.1.md");
   assert.match(f.check("check-docs.ts").stderr, /GazeKeep-1\.2\.1\.md.*v<版本>/);
