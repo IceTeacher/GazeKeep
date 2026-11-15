@@ -1,22 +1,71 @@
 ---
 import type { SiteContent } from "../../data/schema";
 import { site } from "../../data/site.config";
+import { sections } from "../../data/sections";
 interface Props {
   content: SiteContent;
+  current?: "home" | "changelog";
 }
-const { content: c } = Astro.props;
+const { content: c, current = "home" } = Astro.props;
 const other = c.locale === "zh" ? "en" : "zh";
+const sectionHref = (id: string) => (current === "home" ? `#${id}` : `/${c.locale}/#${id}`);
+const changelogHref = `/${c.locale}/changelog/`;
+const langHref = current === "changelog" ? `/${other}/changelog/` : `/${other}/`;
 ---
 
-<footer class="footer shell">
-  <a class="brand" href={`/${c.locale}/`}>
-    GazeKeep
-  </a>
-  <span>{c.ui.tagline}</span>
-  <div>
-    <a href={site.repository}>GitHub</a>
-    <a href={site.docs}>{c.footer.docs}</a>
-    <a href={site.license}>{c.footer.license}</a>
-    <a href={`/${other}/`}>{c.ui.languageName}</a>
+<footer class="footer shell" data-page={current}>
+  <div class="footer-brand">
+    <a class="brand" href={`/${c.locale}/`} data-home-link>
+      <img src="/app-icon-192.webp" width="28" height="28" alt="" loading="lazy" decoding="async" />
+      <span>GazeKeep</span>
+    </a>
+    <p class="footer-tagline" data-footer-tagline>
+      {c.ui.tagline}
+    </p>
+    <p class="footer-meta" data-footer-meta>
+      {c.footer.openSource}
+    </p>
+  </div>
+  <div class="footer-groups">
+    <div class="footer-group">
+      <h3 data-footer-nav-title>{c.footer.navTitle}</h3>
+      <ul>
+        {c.nav.map((name, i) => (
+          <li>
+            <a href={sectionHref(sections[i])} data-nav-section={sections[i]}>
+              {name}
+            </a>
+          </li>
+        ))}
+        <li>
+          <a href={changelogHref} data-nav-changelog aria-current={current === "changelog" ? "page" : undefined}>
+            {c.changelog.nav}
+          </a>
+        </li>
+      </ul>
+    </div>
+    <div class="footer-group">
+      <h3 data-footer-links-title>{c.footer.linksTitle}</h3>
+      <ul>
+        <li>
+          <a href={site.repository}>GitHub</a>
+        </li>
+        <li>
+          <a href={site.docs} data-footer-docs>
+            {c.footer.docs}
+          </a>
+        </li>
+        <li>
+          <a href={site.license} data-footer-license>
+            {c.footer.license}
+          </a>
+        </li>
+        <li>
+          <a href={langHref} lang={other} data-locale-switch="full">
+            {c.ui.languageName}
+          </a>
+        </li>
+      </ul>
+    </div>
   </div>
 </footer>

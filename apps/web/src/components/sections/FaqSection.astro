@@ -14,7 +14,7 @@ const { content: c } = Astro.props;
       <div class="faq-item" data-reveal style={`--reveal-order: ${i}`}>
         <h3>
           <button aria-expanded="false" aria-controls={`answer-${i}`} class="faq-trigger">
-            {item.question}
+            <span class="faq-question">{item.question}</span>
             <Plus class="faq-mark" size={20} stroke-width={1.5} />
           </button>
         </h3>

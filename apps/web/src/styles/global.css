@@ -15,6 +15,7 @@
 @import "./sections/start.css";
 @import "./sections/faq.css";
 @import "./sections/closing.css";
+@import "./sections/changelog.css";
 @import "./sections/footer.css";
 @import "./scroll-snap.css";
 @import "./motion.css";

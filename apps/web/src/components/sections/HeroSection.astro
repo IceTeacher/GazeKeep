@@ -16,7 +16,7 @@ const { content: c } = Astro.props;
   <div class="hero-copy shell">
     <div class="product-note">
       <span class="tiny-dot"></span>
-      {c.ui.productNote}
+      <span data-hero-note>{c.ui.productNote}</span>
     </div>
     <h1>
       {c.hero.title.map((line) => (
@@ -25,12 +25,12 @@ const { content: c } = Astro.props;
     </h1>
     <p class="hero-description">{c.hero.subtitle}</p>
     <div class="hero-actions">
-      <a class="button" href={site.download}>
-        {c.download}
+      <a class="button" href={site.download} data-dl-link>
+        <span>{c.download}</span>
         <Download size={18} stroke-width={1.6} />
       </a>
-      <a class="text-link" href={site.repository}>
-        {c.source}
+      <a class="text-link" href={site.repository} data-source-link>
+        <span>{c.source}</span>
         <ArrowUpRight size={16} stroke-width={1.6} />
       </a>
     </div>
@@ -38,13 +38,13 @@ const { content: c } = Astro.props;
       {c.hero.pills.map((p) => (
         <span>
           <Check size={14} stroke-width={2} />
-          {p}
+          <span class="pill-label">{p}</span>
         </span>
       ))}
     </div>
     <a class="explore" href="#workflow">
       <span class="scroll-mark"></span>
-      {c.hero.explore}
+      <span class="explore-label">{c.hero.explore}</span>
     </a>
   </div>
   <div class="hero-device-slot" aria-hidden="true"></div>

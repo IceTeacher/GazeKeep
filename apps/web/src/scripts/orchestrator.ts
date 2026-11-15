@@ -18,6 +18,7 @@ import { initHeroBackdrop } from "./hero-backdrop.ts";
 import { initScrollReveal } from "./scroll-reveal.ts";
 import { initSiteChrome } from "./site-chrome.ts";
 import { initThemeSwitch } from "./theme-switch.ts";
+import { initLocaleSwitch } from "./locale-switch.ts";
 import type { DemoState, KmpRoute, SiteContent } from "../data/schema";
 type DemoWindow = Window & { GazeKeepWebShowcaseBridge?: Bridge };
 let initialized = false;
@@ -82,12 +83,14 @@ export function initWebsite() {
     state.update({ locale: content.locale, dark: document.documentElement.dataset.theme === "dark" });
     if (frame.contentDocument?.documentElement) frame.contentDocument.documentElement.lang = content.locale;
   };
-  disposers.push(initThemeSwitch({ onChange: setAppearance, frame }));
+  const themeSwitch = initThemeSwitch({ onChange: setAppearance, frame });
+  disposers.push(themeSwitch.dispose);
   /** 访客操作内屏后，以转场回到当前段落指定的页面并恢复演示状态。 */
   function restore() {
     drift.clear();
     detect.release();
     backendCycle.release();
+    clearScopeHold(true);
     if (rawBridge && requestedRoute) rawBridge.setScreen(requestedRoute, requestedRevision, true);
   }
   function show(route: KmpRoute, status: DemoState, effect: string, scene = shown.scene) {
@@ -97,6 +100,21 @@ export function initWebsite() {
     renderStatus();
   }
   const backendCards = [...document.querySelectorAll<HTMLButtonElement>("[data-backend]")];
+  const scopeCards = [...document.querySelectorAll<HTMLButtonElement>("[data-scope]")];
+  const setScopeActive = (scope: "whitelist" | "blacklist") => {
+    scopeCards.forEach((c) => c.setAttribute("aria-pressed", String(c.dataset.scope === scope)));
+  };
+  let demoVisible = true;
+  let scopeHeld = false;
+  let scopeReleaseTimer: ReturnType<typeof setTimeout> | undefined;
+  const clearScopeHold = (resume = true) => {
+    clearTimeout(scopeReleaseTimer);
+    scopeReleaseTimer = undefined;
+    if (!scopeHeld) return;
+    scopeHeld = false;
+    if (resume) state.update({ active: demoVisible });
+  };
+  disposers.push(() => clearTimeout(scopeReleaseTimer));
   const pressed = () =>
     Math.max(
       0,
@@ -119,7 +137,8 @@ export function initWebsite() {
   // 手机离开视口或标签页隐藏时暂停机外轮换与内屏演示，回来后从原处继续。
   disposers.push(
     watchDemoVisibility(document.querySelector("#phone-visual")!, (active) => {
-      state.update({ active });
+      demoVisible = active;
+      state.update({ active: active && !scopeHeld });
       for (const cycle of [detect, backendCycle]) {
         if (active) cycle.resume();
         else cycle.pause();
@@ -131,8 +150,13 @@ export function initWebsite() {
       // 只停止离开的场景：进入前访客已悬停的卡片保持暂停。
       if (shown.scene === "detect") detect.stop();
       if (shown.scene === "backends") backendCycle.stop();
+      if (shown.scene === "apps") clearScopeHold(true);
       if (scene === "detect") detect.start(0);
       if (scene === "backends") backendCycle.start(pressed());
+      if (scene === "apps") {
+        const currentScope = scopeCards.find((c) => c.getAttribute("aria-pressed") === "true")?.dataset.scope;
+        status = currentScope === "blacklist" ? "scope_blacklist" : "scope_whitelist";
+      }
     } else if (scene === "detect" && detect.index() === 1) {
       // 往复期间滚动微调不把检测成功拉回检测中。
       status = "gaze_detected";
@@ -164,8 +188,47 @@ export function initWebsite() {
       if (hovering.matches) backendCycle.release();
     });
   });
+  scopeCards.forEach((card) => {
+    const scope = card.dataset.scope === "blacklist" ? "blacklist" : "whitelist";
+    const activate = () => {
+      clearTimeout(scopeReleaseTimer);
+      scopeReleaseTimer = undefined;
+      scopeHeld = true;
+      setScopeActive(scope);
+      const nextStatus: DemoState = scope === "blacklist" ? "scope_blacklist" : "scope_whitelist";
+      state.update({ route: "whitelist", status: nextStatus, active: false });
+      phone.dataset.effect = "none";
+      shown = { ...shown, route: "whitelist", status: nextStatus };
+      renderStatus();
+      if (drift.active()) restore();
+    };
+    const release = () => {
+      clearTimeout(scopeReleaseTimer);
+      scopeReleaseTimer = setTimeout(() => clearScopeHold(true), 2500);
+    };
+    listen(card, "click", () => {
+      activate();
+      if (!hovering.matches) release();
+    });
+    listen(card, "focus", () => {
+      if (card.matches(":focus-visible")) activate();
+    });
+    listen(card, "blur", release);
+    listen(card, "mouseenter", () => {
+      if (hovering.matches) activate();
+    });
+    listen(card, "mouseleave", () => {
+      if (hovering.matches) release();
+    });
+  });
   const settingCards = [...document.querySelectorAll<HTMLElement>("[data-setting]")];
-  const resetSettingCards = () => renderSettingCards(settingCards, DEFAULT_SETTINGS, "", content.settingValues);
+  let lastDemoSettings: DemoSettings = DEFAULT_SETTINGS;
+  let lastDemoFocus = "";
+  const resetSettingCards = () => {
+    lastDemoSettings = DEFAULT_SETTINGS;
+    lastDemoFocus = "";
+    renderSettingCards(settingCards, DEFAULT_SETTINGS, "", content.settingValues);
+  };
   let timeout: ReturnType<typeof setTimeout> | undefined;
   const attempts = createShowcaseAttempts();
   let runtime: "wasm" | "js";
@@ -246,11 +309,25 @@ export function initWebsite() {
     clearTimeout(renderTimeout);
     window.dispatchEvent(new Event("gazekeep:scene-ready"));
   }) as EventListener);
-  // 设置区卡片随内屏演示同步取值，并标出正在演示的一项。
-  listen(window, "gazekeep:demo", ((event: CustomEvent<DemoSettings & { attempt: number; focus: string }>) => {
+  // 设置区卡片与专注范围按钮随内屏演示同步，并标出当前状态。
+  listen(window, "gazekeep:demo", ((
+    event: CustomEvent<DemoSettings & { attempt: number; focus: string; appScope?: "whitelist" | "blacklist" }>,
+  ) => {
     const d = event.detail;
     if (!attempts.ready(d?.attempt)) return;
+    lastDemoSettings = d;
+    lastDemoFocus = d.focus;
     renderSettingCards(settingCards, d, d.focus, content.settingValues);
+    if (d.appScope === "whitelist" || d.appScope === "blacklist") {
+      setScopeActive(d.appScope);
+      if (shown.scene === "apps") {
+        const nextStatus: DemoState = d.appScope === "blacklist" ? "scope_blacklist" : "scope_whitelist";
+        if (shown.status !== nextStatus) {
+          shown = { ...shown, status: nextStatus };
+          renderStatus();
+        }
+      }
+    }
   }) as EventListener);
   listen(window, "gazekeep:error", ((event: CustomEvent<{ attempt: number }>) => {
     failed(event.detail?.attempt);
@@ -281,6 +358,29 @@ export function initWebsite() {
     { passive: true },
   );
   disposers.push(initSiteChrome(listen, load));
+  disposers.push(
+    initLocaleSwitch({
+      page: "home",
+      frame,
+      onApplied(next) {
+        content.locale = next.locale;
+        content.status = next.status;
+        content.hint = next.hint;
+        content.tour = next.tour;
+        content.settingValues = next.settings.values;
+        content.loading = next.loading;
+        themeSwitch.updateLabels(next.theme);
+        renderStatus();
+        renderSettingCards(settingCards, lastDemoSettings, lastDemoFocus, content.settingValues);
+        if (!recovery.hidden) {
+          message.textContent = next.locale === "zh" ? "界面暂时不可用" : "Interface unavailable";
+        } else if (screen.dataset.ready !== "true") {
+          message.textContent = next.loading;
+        }
+        setAppearance();
+      },
+    }),
+  );
   disposers.push(initScrollReveal());
 
   const fallbackTimeout = window.setTimeout.bind(window);

@@ -1,0 +1,11 @@
+---
+import ChangelogPage from "../../components/ChangelogPage.astro";
+import { en } from "../../data/en";
+import { zh } from "../../data/zh";
+export function getStaticPaths() {
+  return [{ params: { lang: "zh" } }, { params: { lang: "en" } }];
+}
+const { lang } = Astro.params;
+---
+
+<ChangelogPage content={lang === "en" ? en : zh} />

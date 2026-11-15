@@ -155,6 +155,42 @@ test("滚过设置区、手机离开视口时暂停内屏演示，滚回后继�
   expect(sceneCalls().at(-1)).toBe("settings");
 });
 
+test("专注范围按钮与手机内屏双向同步，点击切换黑白名单", async () => {
+  await desktopReady();
+  await dock("#whitelist .feature-copy");
+  await expect.poll(() => sceneCalls().at(-1)).toBe("apps");
+  const whitelistBtn = document.querySelector<HTMLButtonElement>('[data-scope="whitelist"]')!;
+  const blacklistBtn = document.querySelector<HTMLButtonElement>('[data-scope="blacklist"]')!;
+  expect(whitelistBtn.getAttribute("aria-pressed")).toBe("true");
+  expect(blacklistBtn.getAttribute("aria-pressed")).toBe("false");
+
+  blacklistBtn.click();
+  expect(blacklistBtn.getAttribute("aria-pressed")).toBe("true");
+  expect(whitelistBtn.getAttribute("aria-pressed")).toBe("false");
+  expect(liveStatus()).toBe("排除黑名单应用 · 演示中");
+  expect(site!.showcase.calls).toContainEqual(["setDemoStatus", "scope_blacklist"]);
+
+  const attempt = Number(
+    new URL(document.querySelector<HTMLIFrameElement>("#kmp-frame")!.src).searchParams.get("attempt"),
+  );
+  dispatchEvent(
+    new CustomEvent("gazekeep:demo", {
+      detail: {
+        attempt,
+        focus: "",
+        leadSeconds: 8,
+        loose: false,
+        holdMinutes: 30,
+        hideIndicator: false,
+        appScope: "whitelist",
+      },
+    }),
+  );
+  expect(whitelistBtn.getAttribute("aria-pressed")).toBe("true");
+  expect(blacklistBtn.getAttribute("aria-pressed")).toBe("false");
+  expect(liveStatus()).toBe("仅白名单应用 · 演示中");
+});
+
 test("标签页隐藏时暂停后端轮换与内屏演示，回到前台后继续", async () => {
   await desktopReady();
   await dock("#backends .feature-copy");

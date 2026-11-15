@@ -108,3 +108,48 @@ test("切换实际明暗时以视图过渡揭示，减少动态或明暗不变�
     document.startViewTransition = original;
   }
 });
+
+test("切换中英文保留滚动位置与展示内屏，并以圆形视图过渡刷新文案", async () => {
+  await page.viewport(1440, 900);
+  site = await mountWebsite("zh", { theme: "dark" });
+  const frameBefore = document.querySelector("#kmp-frame");
+  await expect
+    .poll(() => site!.showcase.calls.some(([name]) => name === "setLocaleAndTheme"), {
+      timeout: SHOWCASE_TIMEOUT,
+    })
+    .toBe(true);
+
+  const backends = document.querySelector<HTMLElement>("#backends")!;
+  backends.scrollIntoView({ behavior: "instant", block: "start" });
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  const scrollBefore = scrollY;
+  expect(scrollBefore).toBeGreaterThan(200);
+
+  const original = document.startViewTransition.bind(document);
+  let transitions = 0;
+  document.startViewTransition = ((update: ViewTransitionUpdateCallback) => {
+    transitions++;
+    return original(update);
+  }) as typeof document.startViewTransition;
+  try {
+    await page.getByRole("link", { name: "Switch to English" }).click();
+    await expect.poll(() => document.documentElement.lang, { timeout: 5_000 }).toBe("en");
+    expect(transitions).toBe(1);
+    expect(document.querySelector("#kmp-frame")).toBe(frameBefore);
+    expect(location.pathname).toBe("/en/");
+    expect(scrollY).toBeGreaterThan(200);
+    expect(Math.abs(scrollY - scrollBefore)).toBeLessThan(120);
+    expect(document.querySelector(".scope-card[data-scope='blacklist'] strong")!.textContent).toBe("Blacklist");
+    await expect.poll(lastAppearance, { timeout: SHOWCASE_TIMEOUT }).toEqual(["setLocaleAndTheme", "en", true]);
+    await expect.poll(() => document.documentElement.dataset.localeTransition, { timeout: 5_000 }).toBeUndefined();
+
+    // 减少动态时直接切换，不调用视图过渡。
+    await commands.emulateMedia({ reducedMotion: "reduce" });
+    await page.getByRole("link", { name: "切换至中文" }).click();
+    await expect.poll(() => document.documentElement.lang, { timeout: 5_000 }).toBe("zh");
+    expect(transitions).toBe(1);
+    expect(location.pathname).toBe("/zh/");
+  } finally {
+    document.startViewTransition = original;
+  }
+});

@@ -1,0 +1,264 @@
+.changelog-page {
+  padding-top: calc(var(--header-h) + env(safe-area-inset-top) + 48px);
+  padding-bottom: 96px;
+}
+.changelog-hero {
+  display: grid;
+  gap: 20px;
+}
+.changelog-back {
+  width: fit-content;
+  min-height: 44px;
+  gap: 10px;
+  color: var(--muted);
+}
+.changelog-hero .section-kicker {
+  margin-bottom: 12px;
+}
+.changelog-hero h1 {
+  font-size: clamp(36px, 5vw, 56px);
+  line-height: 1.15;
+}
+.changelog-hero-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+}
+.changelog-hero-row .text-link {
+  min-height: 44px;
+  color: var(--muted);
+}
+.changelog-intro {
+  max-width: 580px;
+  margin-top: 18px;
+  font-size: 15px;
+  line-height: 1.8;
+}
+.changelog-timeline {
+  display: grid;
+  gap: 72px;
+  margin-top: 72px;
+}
+.changelog-card {
+  display: grid;
+  grid-template-columns: 168px minmax(0, 1fr);
+  gap: 40px;
+  align-items: start;
+}
+.changelog-aside {
+  position: sticky;
+  top: calc(var(--header-h) + 28px);
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  padding-left: 16px;
+}
+.changelog-card[data-latest="true"] .changelog-aside::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  background: var(--accent);
+}
+.changelog-version-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+}
+.changelog-version,
+html[lang="en"] .changelog-version {
+  font-size: clamp(24px, 2.5vw, 30px);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.changelog-latest {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+}
+.changelog-tag-link {
+  gap: 6px;
+  min-height: 36px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.changelog-body {
+  display: grid;
+  gap: 28px;
+  width: 100%;
+}
+.changelog-group {
+  display: grid;
+  gap: 12px;
+}
+.changelog-badge {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: normal;
+  color: var(--text);
+}
+.changelog-prose {
+  display: grid;
+  gap: 12px;
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--muted);
+}
+.changelog-prose p,
+.changelog-prose li {
+  color: var(--muted);
+  line-height: 1.8;
+}
+.changelog-prose strong {
+  color: var(--text);
+  font-weight: 600;
+}
+.changelog-prose ul,
+.changelog-prose ol {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 8px;
+}
+.changelog-prose ul {
+  list-style: disc;
+}
+.changelog-prose ul ul {
+  list-style: circle;
+  margin-top: 8px;
+  gap: 6px;
+}
+.changelog-prose ol {
+  list-style: decimal;
+}
+.changelog-prose ol ol {
+  margin-top: 8px;
+  gap: 6px;
+}
+.changelog-prose h4,
+.changelog-prose h5 {
+  margin: 8px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.changelog-prose code {
+  padding: 2px 6px;
+  font-size: 12.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--text);
+  background: var(--line);
+  overflow-wrap: anywhere;
+}
+.changelog-prose pre {
+  margin: 0;
+  padding: 12px 16px;
+  border-left: 2px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 65%, transparent);
+  overflow-x: auto;
+}
+.changelog-prose pre code {
+  padding: 0;
+  background: none;
+}
+.changelog-prose a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.changelog-prose .table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+.changelog-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 440px;
+}
+.changelog-prose th,
+.changelog-prose td {
+  padding: 10px 16px 10px 0;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--line);
+}
+.changelog-prose th {
+  font-weight: 600;
+  color: var(--text);
+}
+.changelog-prose tr:last-child td {
+  border-bottom: 0;
+}
+.changelog-setup {
+  margin-top: 4px;
+}
+.changelog-setup summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 44px;
+  padding: 8px 0;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 550;
+  color: var(--text);
+}
+.changelog-setup summary::-webkit-details-marker {
+  display: none;
+}
+.changelog-setup-mark {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.changelog-setup[open] .changelog-setup-mark {
+  transform: rotate(45deg);
+}
+.changelog-setup-content {
+  margin-top: 8px;
+  padding: 4px 0 8px 16px;
+  border-left: 2px solid var(--line);
+}
+@media (max-width: 900px) {
+  .changelog-card {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .changelog-aside {
+    position: relative;
+    top: auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+@media (max-width: 760px) {
+  .changelog-page {
+    padding-top: calc(var(--header-h) + env(safe-area-inset-top) + 28px);
+    padding-bottom: 72px;
+  }
+  .changelog-intro {
+    font-size: 14px;
+  }
+  .changelog-timeline {
+    gap: 56px;
+    margin-top: 48px;
+  }
+  .changelog-tag-link {
+    min-height: 44px;
+  }
+}

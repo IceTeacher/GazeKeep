@@ -1,5 +1,7 @@
 ---
 import type { SiteContent } from "../../data/schema";
+import ShieldCheck from "@lucide/astro/icons/shield-check";
+import Ban from "@lucide/astro/icons/ban";
 interface Props {
   content: SiteContent;
 }
@@ -13,6 +15,23 @@ const { content: c } = Astro.props;
       <span class="section-kicker">{c.ui.kickers.whitelist}</span>
       <h2>{c.whitelist.title}</h2>
       <p>{c.whitelist.text}</p>
+    </div>
+    <div class="whitelist-modes" role="group" aria-label={c.whitelist.scopeLabel}>
+      {c.whitelist.modes.map((mode, i) => (
+        <button type="button" class="scope-card" data-scope={mode.id} aria-pressed={i === 0 ? "true" : "false"}>
+          <span class="scope-icon" aria-hidden="true">
+            {mode.id === "whitelist" ? (
+              <ShieldCheck size={18} stroke-width={1.8} />
+            ) : (
+              <Ban size={18} stroke-width={1.8} />
+            )}
+          </span>
+          <span class="scope-copy">
+            <strong>{mode.label}</strong>
+            <span>{mode.summary}</span>
+          </span>
+        </button>
+      ))}
     </div>
   </div>
   <div class="device-slot" aria-hidden="true"></div>

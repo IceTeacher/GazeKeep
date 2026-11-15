@@ -39,8 +39,9 @@
 .footer a,
 .nav-links a,
 .faq-trigger,
+.changelog-setup summary,
 .manifest-card summary,
-.mobile-menu a {
+.mobile-menu-links a {
   transition:
     color 0.2s,
     background-color 0.2s;
@@ -65,7 +66,8 @@
   transform-origin: right center;
   transition: transform 0.3s;
 }
-.faq-mark {
+.faq-mark,
+.changelog-setup-mark {
   transition:
     transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1),
     color 0.2s;
@@ -97,9 +99,13 @@
   .mobile-menu a:hover .lucide-arrow-up-right {
     transform: translate(3px, -3px);
   }
+  .changelog-back:hover svg {
+    transform: translateX(-3px);
+  }
   .text-link:hover,
   .footer a:hover,
   .nav-links a:hover,
+  .changelog-tag-link:hover,
   .manifest-card summary:hover {
     color: var(--accent);
   }
@@ -115,19 +121,20 @@
   .theme-toggle:hover .theme-icon {
     transform: rotate(-15deg);
   }
-  .mobile-menu a:hover {
-    color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 8%, transparent);
-    border-radius: 12px;
-  }
-  /* 常见问题：问题变为主题绿，加号放大。 */
-  .faq-trigger:hover {
+  .mobile-menu-links a:hover {
     color: var(--accent);
   }
-  .faq-trigger:hover .faq-mark {
+  /* 常见问题与启用步骤：文字变为主题绿，加号放大。 */
+  .faq-trigger:hover,
+  .changelog-setup summary:hover {
+    color: var(--accent);
+  }
+  .faq-trigger:hover .faq-mark,
+  .changelog-setup summary:hover .changelog-setup-mark {
     transform: scale(1.15);
   }
-  .faq-trigger[aria-expanded="true"]:hover .faq-mark {
+  .faq-trigger[aria-expanded="true"]:hover .faq-mark,
+  .changelog-setup[open] summary:hover .changelog-setup-mark {
     transform: rotate(45deg) scale(1.15);
   }
   /* 运行方式：悬停项的图标恢复原色。 */

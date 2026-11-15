@@ -9,20 +9,44 @@ export type ShowcaseControl = {
 type FixtureWindow = Window & { __showcaseFixture?: ShowcaseControl };
 
 /** 挂载 Astro 渲染的真实页面并初始化脚本；返回的 unmount 走页面自身的 pagehide 清理路径。 */
-export async function mountWebsite(
-  lang: "zh" | "en",
-  { theme = "dark" as "dark" | "light" | "system", showcase = { mode: "ready", calls: [] } as ShowcaseControl } = {},
-) {
-  const page = inject("pages")[lang];
-  const root = document.documentElement;
-  root.lang = page.lang;
-  // 与页面头部脚本一致：显式明暗写入偏好存储，system 时由系统配色决定。
+function applyTestTheme(theme: "dark" | "light" | "system") {
   try {
     if (theme === "system") localStorage.removeItem("gazekeep-theme");
     else localStorage.setItem("gazekeep-theme", theme);
   } catch {
     /* 无存储权限的环境按跟随系统处理。 */
   }
+}
+
+function createUnmount(initialUrl: string) {
+  const root = document.documentElement;
+  return () => {
+    dispatchEvent(new PageTransitionEvent("pagehide", { persisted: false }));
+    document.body.innerHTML = "";
+    delete (window as FixtureWindow).__showcaseFixture;
+    for (const key of ["phone", "theme", "themePreference", "scroll", "page", "themeTransition", "localeTransition"]) {
+      delete root.dataset[key];
+    }
+    history.replaceState(null, "", initialUrl);
+    try {
+      localStorage.clear();
+    } catch {
+      /* 无存储权限的环境无需清理。 */
+    }
+  };
+}
+
+/** 挂载 Astro 渲染的真实页面并初始化脚本；返回的 unmount 走页面自身的 pagehide 清理路径。 */
+export async function mountWebsite(
+  lang: "zh" | "en",
+  { theme = "dark" as "dark" | "light" | "system", showcase = { mode: "ready", calls: [] } as ShowcaseControl } = {},
+) {
+  const initialUrl = `${location.pathname}${location.search}${location.hash}`;
+  const page = inject("pages")[lang];
+  const root = document.documentElement;
+  root.lang = page.lang;
+  root.dataset.page = "home";
+  applyTestTheme(theme);
   root.dataset.phone = "pending";
   (window as FixtureWindow).__showcaseFixture = showcase;
   document.body.innerHTML = page.body;
@@ -31,17 +55,24 @@ export async function mountWebsite(
   initWebsite();
   return {
     showcase,
-    unmount() {
-      dispatchEvent(new PageTransitionEvent("pagehide", { persisted: false }));
-      document.body.innerHTML = "";
-      delete (window as FixtureWindow).__showcaseFixture;
-      for (const key of ["phone", "theme", "themePreference", "scroll"]) delete root.dataset[key];
-      try {
-        localStorage.clear();
-      } catch {
-        /* 无存储权限的环境无需清理。 */
-      }
-    },
+    unmount: createUnmount(initialUrl),
+  };
+}
+
+/** 挂载 Astro 渲染的更新日志子页并初始化脚本。 */
+export async function mountChangelog(lang: "zh" | "en", { theme = "dark" as "dark" | "light" | "system" } = {}) {
+  const initialUrl = `${location.pathname}${location.search}${location.hash}`;
+  const page = inject("changelogPages")[lang];
+  const root = document.documentElement;
+  root.lang = page.lang;
+  root.dataset.page = "changelog";
+  applyTestTheme(theme);
+  document.body.innerHTML = page.body;
+  scrollTo(0, 0);
+  const { initSubpage } = await import("../../src/scripts/subpage.ts");
+  initSubpage("changelog");
+  return {
+    unmount: createUnmount(initialUrl),
   };
 }
 
