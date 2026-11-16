@@ -23,7 +23,7 @@
 
 Web 字体使用带 OFL 许可的 Noto CJK 字符子集，位于 showcaseMain，仅用于网页展示。官网构建过滤 source map；KMP 生成目录排除在 Astro 类型检查之外。shared 的 `webpack.config.d/public-path.js` 把 webpack `publicPath` 固定为 `./`：展示入口以 module 脚本加载，取不到 `currentScript`，自动推断会改用页面最后一个 http(s) 脚本的地址，托管方在页尾注入的脚本（如 Cloudflare Web Analytics 的 beacon）会把 `.wasm` 请求引到外站；`scripts/build.ts` 发现入口仍含自动推断运行时即中止构建。
 
-首屏加载：`shaders/js` 的 `createShader` 会注册整个组件库，构建插件（`scripts/build-performance.ts`）在打包时把注册表裁到首屏实际使用的组件，保留列表与页面创建的图层同源于 `src/scripts/hero-shader.ts`；shaders 版本固定，升级后注册表结构变化会让构建直接失败，而不是退回全量打包。构建完成后为 Three.js 分块注入 `modulepreload`，与入口脚本并行下载，以缩短机身首帧等待；样式内联，不再单独发出阻塞渲染的请求。页面内图标使用 192px WebP，favicon 使用 32px PNG。分享元数据由 `layouts/BaseLayout.astro` 输出：生产域名在 `site.config.ts`（同时作为 Astro `site`），`canonical` 与 `og:url` 指向各语言页，`og:site_name`、`og:locale` 与 `og:locale:alternate` 齐全，Twitter 使用 `summary_large_image`；分享图为 `public/og/og-<语言>.png`（1200×630，深色主题首屏截图，约 440 KB），替代文本在双语数据的 `ogImageAlt`。首屏改版后需重新截取分享图。KMP 内屏的 Wasm 体积取决于托管端压缩：上线托管需对 `.wasm`/`.js` 启用 Brotli 或 gzip，带哈希的资源设为长期不可变缓存，无哈希的 KMP 入口用协商缓存。
+首屏加载：`shaders/js` 的 `createShader` 会注册整个组件库，构建插件（`scripts/build-performance.ts`）在打包时把注册表裁到首屏实际使用的组件，保留列表与页面创建的图层同源于 `src/scripts/hero-shader.ts`；shaders 版本固定，升级后注册表结构变化会让构建直接失败，而不是退回全量打包。页面初始化先校验 `navigator.gpu.requestAdapter()` 并延后一帧创建首屏 WebGPU 背景，避免无适配器环境白耗 1.3 MB JS 拉取或抢占首帧机身与 KMP 启动带宽。构建完成后为站点入口与 Three.js 分块注入 `modulepreload`；样式内联，不再单独发出阻塞渲染的请求；KMP 展示包在构建时为入口脚本生成内容指纹（`shared.<hash>.js`），并在展示 `index.html` 中并行预加载入口、被引用 `.wasm`、Web 字体与对应语言 `.cvr` 词条表，`Showcase.kt` 并行预取字体与词条表并映射完整字重。页面内图标使用 192px WebP，favicon 使用 32px PNG。分享元数据由 `layouts/BaseLayout.astro` 输出：生产域名在 `site.config.ts`（同时作为 Astro `site`），`canonical` 与 `og:url` 指向各语言页，`og:site_name`、`og:locale` 与 `og:locale:alternate` 齐全，Twitter 使用 `summary_large_image`；分享图为 `public/og/og-<语言>.png`（1200×630，深色主题首屏截图，约 440 KB），替代文本在双语数据的 `ogImageAlt`。首屏改版后需重新截取分享图。KMP 内屏的 Wasm 体积取决于托管端压缩：上线托管需对 `.wasm`/`.js` 启用 Brotli 或 gzip，带哈希的资源设为长期不可变缓存，无哈希的 KMP 入口用协商缓存。
 
 ### 1.1 核心定位
 
@@ -35,7 +35,7 @@ Web 字体使用带 OFL 许可的 Noto CJK 字符子集，位于 showcaseMain，
 2. **次要目的（前端炫技）**：
    - 首屏采用 `https://github.com/shader-effects-inc/shaders` 构建 WebGPU 动态交互背景；
    - 滚动视差动画融入手机设备三维翻转、跟随展示与光学边框反馈；
-   - **纯前端绘制手机边框 + KMP Web 实时渲染内屏**：手机外壳由 Three.js 绘制带厚度、倒角与实体侧键的机身，屏幕内部拒绝静态截图，直接挂载 GazeKeep `shared` 模块编译出的 KMP Web (`wasmJs`) 画布，实时渲染真实的 `miuix` UI（含与 App 一致的主页/设置底栏）。访客可轻点内屏操作，PC 按住鼠标、手机长按后上下拖动可滚动内屏页面；页面滚动和外部卡片仍驱动内部路由与状态，访客操作后一旦滚动，内屏以转场回到当前段落指定的页面。
+   - **纯前端绘制手机边框 + KMP Web 实时渲染内屏**：手机外壳由 Three.js 绘制带厚度、倒角与实体侧键的机身，屏幕内部拒绝静态位图截图；在 KMP Web 画布就绪前先展示与当前语言、深浅主题及真源词条/版本号同步的轻量同构 DOM 主页预览，待 GazeKeep `shared` 模块编译出的 KMP Web (`wasmJs`) 画布渲染首帧后平滑淡出接管，实时渲染真实的 `miuix` UI（含与 App 一致的主页/设置底栏）。访客可轻点内屏操作，PC 按住鼠标、手机长按后上下拖动可滚动内屏页面；页面滚动和外部卡片仍驱动内部路由与状态，访客操作后一旦滚动，内屏以转场回到当前段落指定的页面。
 3. **无 CMS 与纯 SSG 构建**：不使用任何内容管理系统（CMS），不开启服务端渲染（SSR），100% 通过本地 TypeScript 强类型数据源文件（`src/data/{zh,en}.ts`）在构建期生成纯静态 HTML。
 4. **国际化支持（i18n）**：支持中文（`/zh/`）与英文（`/en/`）双语静态路由构建，且与 `../../../apps/app/shared` 中的 `strings.xml` 保持单一真源对齐。
 
@@ -65,9 +65,9 @@ Web 字体使用带 OFL 许可的 Noto CJK 字符子集，位于 showcaseMain，
 1. **首屏与内屏的 GPU 算力接力 (`IntersectionObserver`)**：
    - 当用户位于首屏时，`shaders/js` 满帧运行；
    - 当用户向下滚动离开首屏时，`IntersectionObserver` 立即调用 `shaderInstance.pause()` 挂起首屏 WebGPU 渲染循环，减少首屏渲染与 KMP 手机内屏、视差动画的竞争。
-2. **KMP WASM 错峰懒加载 (`requestIdleCallback`)**：
-   - 首屏加载瞬间，手机屏幕内先展示与 `miuix` 浅色/深色背景一致的极简 SVG 骨架屏；
-   - 通过 `requestIdleCallback` 在首屏渲染完成后的空闲窗口异步拉起 Skiko/KMP WASM 脚本，降低对首屏加载的影响。
+2. **KMP WASM 首帧后即刻装入与同构 DOM 主页占位**：
+   - 手机模型首帧显现瞬间，屏幕内立即展示直接读取 `strings.xml` 与 `android/build.gradle.kts` 生成的同构 HomeScreen DOM 预览（随深浅主题与中英文即时切换，在主页 `<head>` 预加载并复用展示包 `showcase_cjk.otf` 子集字体、Miuix 色板、92dp 圆环进度与几何尺寸；正常加载时隐藏机内 `.placeholder-status` 胶囊，仅由机外 `#demo-status` 提示状态，待首帧 `gazekeep:rendered` 绘出后再以 150ms 淡出接管，异常时切换居中重试视图）；
+   - 通过 `requestAnimationFrame` 让出首帧 3D 机身绘制后立即挂载 KMP 展示 iframe，取消 1.5 秒 `requestIdleCallback` 空闲延迟，并配合展示包内部并行预加载与 `edgeone.json` 缓存头缩短交互就绪等待。
 3. **全站单实例 KMP Canvas 复用**：
    - 全站仅维护 **1 个** KMP 展示 iframe，iframe 保持 `inert` 与 `pointer-events: none`，不接收焦点、滚轮或触摸；内屏上方的页面层透明命中层承接指针，滚轮与快速竖向滑动交给页面原生滚动，轻点、鼠标拖动与长按后的滑动转发进画布。所有模块的界面变化均通过 JS 桥接函数在同一实例内切换路由与状态。
 4. **不启用 `COOP/COEP` 跨源隔离头**：
@@ -151,7 +151,7 @@ Web 字体使用带 OFL 许可的 Noto CJK 字符子集，位于 showcaseMain，
 
 官网部署到 EdgeOne Makers（原 EdgeOne Pages）的直接上传项目，项目名由发布环境变量 `EDGEONE_PROJECT` 提供；加速区域、自定义域名与 DNS 在 EdgeOne 控制台与 DNS 侧维护，流水线不改动。CLI 在项目不存在时会按默认加速区域自动创建，所以首次发布前先在控制台建好直接上传项目。完整构建依赖 JDK、Android SDK 与 Gradle，因此由 GitHub Actions 托管 runner 完成完整构建与门禁后，发布 job 下载同一份 `dist/`，由 `package:edgeone`（`scripts/package-edgeone.ts`）调用锁定版本的 `edgeone` CLI，把 `dist/`、`edge-functions/` 与 `edgeone.json` 打包为 `.edgeone/`（静态资源、边缘函数包与 `routes.json`），再用 `edgeone makers deploy .edgeone` 直传；不使用 Makers 的 Git 集成与云端构建。`edgeone.json` 把 `installCommand`、`buildCommand` 设为 `true`，CLI 只收集已构建的 `dist/`，不重复安装依赖，也不调用 `package.json` 的完整构建。`edgeone makers build` 未收到 `ENV_STR` 时会把整个进程环境写入边缘函数包（1.6.47 实测），因此脚本固定传入空 `ENV_STR`，子进程只保留 `PATH`、`HOME`、`TMPDIR` 与 `CI`；上传前核对 `routes.json` 含根路径 302 与 `/stats/` 边缘路由，且函数包不含父进程任一环境变量的值，不满足即删除 `.edgeone/` 并中止。`dev` 推送与同仓库 PR 发布到预览环境，PR 原地更新一条评论（PR 头提交已由成功的 push 运行验证时整次跳过，如 `dev`→`main`，以 `dev` 预览为准），`main` 推送发布生产；fork PR 只跑门禁。直接上传项目没有分支别名，每次预览得到独立地址；未绑定自定义域名时，默认域名直接访问返回 401，CLI 返回的地址带 `eo_token`、`eo_time` 临时访问参数；网关对带参数的请求先 302 写入同值、有效 3 小时的 Cookie 再跳回原路径，所以冒烟脚本只放行这两个参数，并改为以 Cookie 携带后探测。EdgeOne 要求项目已有生产部署才能发布预览，新项目须先经 `main` 或本地 `deploy` 完成一次生产发布。CLI 以 `edgeone login` 的登录凭据部署时，上传凭据接口对控制台创建的项目返回 `Project is not exist`，改用 API Token（`-t`）正常，本地发布同样传入令牌。CLI 部署前用 `DescribePagesProjects` 选择接口，中国站请求偶发失败就退到国际站，表现为令牌无效或按名称找不到项目后新建失败，部署后查询地址也可能返回 522；重新部署只多一条同内容的部署记录，所以 CI 对部署命令整体最多尝试 3 次。发布后冒烟检查根路径 302 到 `/zh/`、`/zh/` 与 `/en/` 以及两个 KMP Showcase 目录返回 200，失败只标红不自动回滚，回滚在 EdgeOne 控制台的部署记录中处理。本地 `deploy` 脚本仅作应急。根路径由 `edgeone.json` 的 `redirects` 在服务端 302 跳转到 `/zh/`，不渲染中间页；用 302 而非 301，便于以后按浏览器语言分流；`src/pages/index.astro` 只作为 `astro preview` 等不读取该配置的环境的兜底跳转页。后续验证集中于 WebGPU 实际渲染、120Hz 硬件表现、跨浏览器矩阵和 KMP 资源体积。
 
-站点统计只针对官网，App 不联网、不接统计 SDK 的承诺不受影响，因此不另写隐私说明。`layouts/BaseLayout.astro` 在 `/zh/`、`/en/` 头部以 `defer` 加载自建 Umami 的 `/stats/script.js`（`data-domains` 为生产域名，预览与本地不计入）与会话录制 `/stats/recorder.js`（不支持域名过滤，预览部署也会录制）；站点 ID 在 `site.config.ts`，KMP 展示 iframe 不加载。`/stats/*` 由 EdgeOne 边缘函数 `edge-functions/stats/[[path]].ts` 转发到 `https://umami.rainafter.cn`：保留方法、请求体与查询参数，只转发 Umami 所需请求头（不带官网 Cookie），把平台识别的访客 IP（`request.eo.clientIp`）写入 `X-Forwarded-For`，不透传客户端自带的同名请求头；脚本默认把上报发往脚本所在目录，无需 `data-host-url`。打包时由 CLI 编译 `edge-functions/`，每次统计请求计入边缘函数调用额度。EdgeOne 不向页面注入统计脚本，迁移后不再使用 Cloudflare Web Analytics，官网统计只有自建 Umami。不启用 Partytown。
+站点统计只针对官网，App 不联网、不接统计 SDK 的承诺不受影响，因此不另写隐私说明。`layouts/BaseLayout.astro` 在 `/zh/`、`/en/` 头部以 `async` + `fetchpriority="low"` 非阻塞加载自建 Umami 的 `/stats/script.js`（`data-domains` 为生产域名，预览与本地不计入）与会话录制 `/stats/recorder.js`（不支持域名过滤，预览部署也会录制），避免阻塞 `DOMContentLoaded` 与首帧脚本；站点 ID 在 `site.config.ts`，KMP 展示 iframe 不加载。`/stats/*` 由 EdgeOne 边缘函数 `edge-functions/stats/[[path]].ts` 转发到 `https://umami.rainafter.cn`：保留方法、请求体与查询参数，只转发 Umami 所需请求头（含条件缓存头，不带官网 Cookie），把平台识别的访客 IP（`request.eo.clientIp`）写入 `X-Forwarded-For`，不透传客户端自带的同名请求头；脚本默认把上报发往脚本所在目录，无需 `data-host-url`。打包时由 CLI 编译 `edge-functions/`，每次统计请求计入边缘函数调用额度。EdgeOne 不向页面注入统计脚本，迁移后不再使用 Cloudflare Web Analytics，官网统计只有自建 Umami。不启用 Partytown。
 
 ### 第三轮设备与动效修订
 
