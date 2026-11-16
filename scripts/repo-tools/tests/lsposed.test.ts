@@ -34,8 +34,8 @@ function fixture(t: TestContext) {
   );
   write("apps/app/android/src/main/resources/META-INF/xposed/scope.list", "system\n");
   write(
-    "docs/product/privacy-security.md",
-    `# 隐私与安全\n\n## 隐私文案真源\n\n${PRIVACY.slice(0, 3)
+    "docs/product.md",
+    `# 产品与隐私\n\n## 隐私文案真源\n\n${PRIVACY.slice(0, 3)
       .map((line, i) => `${i + 1}. ${line}`)
       .join("\n")}\n\n英文文案：\n\n${PRIVACY.slice(3)
       .map((line, i) => `${i + 1}. ${line}`)
@@ -138,7 +138,7 @@ test("根 README 必须逐字包含隐私文案真源的中文三句", (t) => {
   const { root, write } = fixture(t);
   write("README.md", `# GazeKeep\n\n${PRIVACY.slice(0, 3).join("\n").replace("不保存、不上传", "不保存")}\n`);
   assert.match(validateMetadata(root).join("\n"), /README.*不保存、不上传/);
-  write("docs/product/privacy-security.md", "# 隐私与安全\n");
+  write("docs/product.md", "# 产品与隐私\n");
   assert.match(validateMetadata(root).join("\n"), /隐私文案/);
 });
 

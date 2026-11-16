@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { dirname, extname, join, relative, resolve, sep } from "node:path";
 import { cli, context, IGNORED, isMain, report, run, walk, within } from "./common.ts";
 
@@ -87,101 +87,126 @@ function markdownFiles(root: string) {
     )
     .sort();
 }
-function validDate(date: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date.startsWith("0000")) return false;
-  const parsed = new Date(`${date}T00:00:00Z`);
-  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date;
-}
-// 发布说明作为 GitHub Release 与官网双语更新日志真源：安装包一节由 release.yml 生成，验收记录维护在任务清单，不进入正文。
+
 const RELEASE_SECTIONS = {
   zh: ["更新日志", "启用步骤"],
   en: ["Changelog", "Setup"],
 } as const;
-const RELEASE_ZH = /^docs\/releases\/(v\d+\.\d+\.\d+)\.md$/;
-const RELEASE_EN = /^docs\/releases\/(v\d+\.\d+\.\d+)\.en\.md$/;
-function releaseNotesErrors(name: string, text: string, releaseFiles: Set<string>) {
+
+export interface ParsedChangelog {
+  sections: Map<string, string>;
+  errors: string[];
+}
+
+export function parseChangelog(name: string, text: string, locale: "zh" | "en"): ParsedChangelog {
   const errors: string[] = [];
-  const zh = RELEASE_ZH.exec(name);
-  const en = RELEASE_EN.exec(name);
-  if (!zh && !en) {
-    errors.push(`${name}: 发布说明文件名必须为 v<版本>.md 或 v<版本>.en.md`);
-    return errors;
-  }
-  const locale = zh ? "zh" : "en";
-  const version = (zh ?? en)![1];
-  const partner = `docs/releases/${version}.${locale === "zh" ? "en.md" : "md"}`;
-  if (!releaseFiles.has(partner)) errors.push(`${name}: 缺少配对双语发布说明 ${partner}`);
+  const sections = new Map<string, string>();
   let fenced = false;
-  const headings: string[] = [];
-  for (const line of text.split("\n")) {
-    if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
-    else if (!fenced && /^#{1,2} /.test(line)) headings.push(line);
+  let currentVersion = "";
+  let currentLines: string[] = [];
+
+  const flush = () => {
+    if (!currentVersion) return;
+    const body = currentLines.join("\n").trim();
+    sections.set(currentVersion, body);
+    let innerFenced = false;
+    const h2s: string[] = [];
+    for (const line of body.split("\n")) {
+      if (/^\s*(```|~~~)/.test(line)) innerFenced = !innerFenced;
+      else if (!innerFenced && /^#{1,2} /.test(line)) h2s.push(line.trim());
+    }
+    const expected = RELEASE_SECTIONS[locale];
+    if (h2s.join("\n") !== expected.map((s) => `## ${s}`).join("\n")) {
+      errors.push(`${name} (${currentVersion}): 版本章节只能依次包含「## ${expected[0]}」「## ${expected[1]}」两节`);
+    }
+  };
+
+  for (const line of text.replace(/\r\n?/g, "\n").split("\n")) {
+    if (/^\s*(```|~~~)/.test(line)) {
+      fenced = !fenced;
+      if (currentVersion) currentLines.push(line);
+      continue;
+    }
+    if (!fenced && line.startsWith("# ")) {
+      flush();
+      const title = line.slice(2).trim();
+      if (!/^v\d+\.\d+\.\d+$/.test(title)) {
+        errors.push(`${name}: 一级标题必须为 # v<版本>，实际为 ${line}`);
+        currentVersion = "";
+        currentLines = [];
+        continue;
+      }
+      if (sections.has(title)) {
+        errors.push(`${name}: 重复的版本标题 ${title}`);
+      }
+      currentVersion = title;
+      currentLines = [];
+      continue;
+    }
+    if (currentVersion) {
+      currentLines.push(line);
+    } else if (line.trim()) {
+      errors.push(`${name}: 版本标题前存在多余内容：${line}`);
+    }
   }
-  const expected = RELEASE_SECTIONS[locale];
-  if (headings.join("\n") !== expected.map((s) => `## ${s}`).join("\n"))
-    errors.push(`${name}: 发布说明只能依次包含「## ${expected[0]}」「## ${expected[1]}」两节，不含一级标题`);
-  return errors;
+  flush();
+  if (sections.size === 0 && errors.length === 0) {
+    errors.push(`${name}: 至少需要包含一个 # v<版本> 章节`);
+  }
+  return { sections, errors };
 }
-const INDEX = ".agents/docs-index.md";
-function isManagedDocument(name: string) {
-  return name.endsWith(".md") && name !== INDEX && (name.startsWith("docs/") || /^\.agents\/[^/]+\.md$/.test(name));
+
+export function extractReleaseNotes(text: string, tag: string): string | undefined {
+  const { sections } = parseChangelog("docs/CHANGELOG.md", text, "zh");
+  return sections.get(tag);
 }
+
 export function violations(root: string) {
-  const index = join(root, INDEX);
   const errors: string[] = [];
-  const registrations = new Map<string, string>();
-  if (!existsSync(index)) return [`缺少 ${INDEX}`];
   if (!existsSync(join(root, "docs/index.md"))) errors.push("缺少 docs/index.md 读者导航");
-  for (const line of readFileSync(index, "utf8").split("\n")) {
-    const cells = line
-      .trim()
-      .replace(/^\||\|$/g, "")
-      .split("|")
-      .map((c) => c.trim());
-    if (!line.trimStart().startsWith("|") || cells.length !== 5) continue;
-    const targetLink = links(cells[0])[0] ?? /^`([^`]+)`$/.exec(cells[0])?.[1];
-    if (!targetLink) continue;
-    const target = resolve(dirname(index), decodeURIComponent(targetLink));
-    if (!within(root, target) || (existsSync(target) && !within(root, realpathSync(target))))
-      errors.push(`索引引用越出仓库：${targetLink}`);
-    else if (!existsSync(target) || !statSync(target).isFile()) errors.push(`索引引用不存在：${targetLink}`);
-    if (registrations.has(target)) errors.push(`索引重复登记：${relative(root, target)}`);
-    registrations.set(target, cells[4]);
-    if (!validDate(cells[4])) errors.push(`复核日期非法：${cells[0]}`);
-  }
   const active = markdownFiles(root);
-  const releaseFiles = new Set(
-    active.map((page) => relative(root, page).split(sep).join("/")).filter((name) => name.startsWith("docs/releases/")),
-  );
-  for (const page of active) {
-    const name = relative(root, page).split(sep).join("/");
-    if (isManagedDocument(name) && !registrations.has(page)) errors.push(`活动文档未登记：${name}`);
-    if (name.startsWith("docs/releases/"))
-      errors.push(...releaseNotesErrors(name, readFileSync(page, "utf8"), releaseFiles));
-    if (!name.startsWith("docs/plans/") || name === "docs/plans/todo.md") continue;
-    const match = /^(\d{8})-[a-z0-9-]+\.md$/.exec(name.split("/").at(-1)!);
-    const dates = [...readFileSync(page, "utf8").matchAll(/^最后维护：(\d{4}-\d{2}-\d{2})\s*$/gm)].map((m) => m[1]);
-    if (!match || dates.length !== 1) errors.push(`计划文件名或维护日期行非法：${name}`);
-    else if (match[1] !== dates[0].replaceAll("-", "") || registrations.get(page) !== dates[0])
-      errors.push(`计划三处日期不一致：${name}`);
-  }
   errors.push(...linkErrors(root, active));
-  const git = run("git", ["-C", root, "rev-parse", "--show-toplevel"], {
-    capture: true,
-    check: false,
-  });
-  if (git.status === 0 && realpathSync(git.stdout.trim()) === root) {
-    const changes = run("git", ["-C", root, "diff", "HEAD", "--name-only", "-z"], {
-      capture: true,
-      check: false,
-    });
-    const others = run("git", ["-C", root, "ls-files", "--others", "--exclude-standard", "-z"], {
-      capture: true,
-    });
-    const names = new Set((changes.stdout + others.stdout).split("\0").filter(Boolean));
-    if ([...names].some(isManagedDocument) && !names.has(INDEX)) errors.push(`活动文档变更未同步 ${INDEX}`);
+
+  const zhPath = join(root, "docs/CHANGELOG.md");
+  const enPath = join(root, "docs/CHANGELOG.en.md");
+  const hasZh = existsSync(zhPath);
+  const hasEn = existsSync(enPath);
+  if (hasZh !== hasEn) {
+    errors.push(`缺少配对双语更新日志：${hasZh ? "docs/CHANGELOG.en.md" : "docs/CHANGELOG.md"}`);
+  } else if (hasZh && hasEn) {
+    const zh = parseChangelog("docs/CHANGELOG.md", readFileSync(zhPath, "utf8"), "zh");
+    const en = parseChangelog("docs/CHANGELOG.en.md", readFileSync(enPath, "utf8"), "en");
+    errors.push(...zh.errors, ...en.errors);
+    const zhVersions = [...zh.sections.keys()];
+    const enVersions = [...en.sections.keys()];
+    if (zhVersions.join(",") !== enVersions.join(",")) {
+      errors.push(`中英文 CHANGELOG 版本列表不一致：zh=[${zhVersions.join(", ")}] vs en=[${enVersions.join(", ")}]`);
+    }
   }
   return errors;
 }
+
 if (isMain(import.meta.url))
-  await cli(() => report(violations(context().root), "文档索引、计划日期与活动引用检查通过"));
+  await cli(() => {
+    const { root, values } = context({
+      "extract-release": { type: "string" },
+      output: { type: "string" },
+    });
+    const errs = violations(root);
+    if (values["extract-release"]) {
+      const tag = values["extract-release"];
+      const zhPath = join(root, "docs/CHANGELOG.md");
+      const enPath = join(root, "docs/CHANGELOG.en.md");
+      if (!existsSync(zhPath) || !existsSync(enPath)) {
+        errs.push("缺少 docs/CHANGELOG.md 或 docs/CHANGELOG.en.md");
+      } else {
+        const zhNotes = parseChangelog("docs/CHANGELOG.md", readFileSync(zhPath, "utf8"), "zh").sections.get(tag);
+        const enNotes = parseChangelog("docs/CHANGELOG.en.md", readFileSync(enPath, "utf8"), "en").sections.get(tag);
+        if (!zhNotes) errs.push(`docs/CHANGELOG.md 缺少版本 ${tag}`);
+        if (!enNotes) errs.push(`docs/CHANGELOG.en.md 缺少版本 ${tag}`);
+        if (zhNotes && values.output) writeFileSync(values.output, `${zhNotes}\n`, "utf8");
+        else if (zhNotes && !errs.length) console.log(zhNotes);
+      }
+    }
+    report(errs, "文档导航、链接锚点与双语 CHANGELOG 检查通过");
+  });

@@ -7,6 +7,7 @@ import {
   loadChangelog,
   parseReleaseMarkdown,
   renderMarkdownToHtml,
+  splitChangelogVersions,
 } from "../../../src/data/changelog.ts";
 
 describe("changelog", () => {
@@ -47,12 +48,23 @@ describe("changelog", () => {
     expect(html).toContain('style="text-align:right"');
   });
 
-  test("解析单篇中英文发布说明结构", () => {
-    const entry = parseReleaseMarkdown(
-      "v1.1.6",
-      "en",
-      ["## Changelog", "", "### Added", "", "- Quick Settings tile", "", "## Setup", "", "- Enable backend"].join("\n"),
+  test("解析单篇与聚合中英文发布说明结构", () => {
+    const sections = splitChangelogVersions(
+      [
+        "# v1.1.6",
+        "## Changelog",
+        "",
+        "### Added",
+        "",
+        "- Quick Settings tile",
+        "",
+        "## Setup",
+        "",
+        "- Enable backend",
+      ].join("\n"),
     );
+    expect(sections.has("v1.1.6")).toBe(true);
+    const entry = parseReleaseMarkdown("v1.1.6", "en", sections.get("v1.1.6")!);
     expect(entry.groups).toHaveLength(1);
     expect(entry.groups[0].kind).toBe("added");
     expect(entry.groups[0].html).toContain("Quick Settings tile");

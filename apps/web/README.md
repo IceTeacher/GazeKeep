@@ -14,7 +14,7 @@ pnpm --filter web dev --host 127.0.0.1
 
 完整构建先运行 KMP Wasm/JS 分发任务，同步资源至 `public/kmp-showcase/`，然后校验隐私资源并生成静态页面。首次构建需要 JDK、Android SDK 与 Gradle/Node 依赖下载条件；Kotlin 内部 Yarn 与根 pnpm workspace 的检查冲突由构建脚本局部处理。
 
-开发服务沿用本地 `dev` 配置；`dev`、`check` 和 `build:site` 会先校验并同步隐私资源。纯官网修改已有 KMP 产物时可运行 `pnpm --filter web run build:site`；生产部署使用完整 `build`。静态产物位于本目录 `dist/`。日常发布由 GitHub Actions 完成（预览、生产与冒烟规则见[官网架构](../../docs/architecture/web/website.md#六当前构建与后续验收)）；`pnpm --filter web run deploy -- -t "$(cat ~/.config/edgeone-token)"` 仅用于本地应急，完整构建、打包并直传到 `gazekeep` 项目的生产环境；令牌文件放在仓库外并设为 600 权限。
+开发服务沿用本地 `dev` 配置；`dev`、`check` 和 `build:site` 会先校验并同步隐私资源。纯官网修改已有 KMP 产物时可运行 `pnpm --filter web run build:site`；生产部署使用完整 `build`。静态产物位于本目录 `dist/`。日常发布由 GitHub Actions 完成（预览、生产与冒烟规则见[官网架构](../../docs/architecture/web.md#构建优化edgeone-部署与自建统计)）；`pnpm --filter web run deploy -- -t "$(cat ~/.config/edgeone-token)"` 仅用于本地应急，完整构建、打包并直传到 `gazekeep` 项目的生产环境；令牌文件放在仓库外并设为 600 权限。
 
 根路径 `/` 由 `edgeone.json` 的 `redirects` 在 EdgeOne 服务端 302 跳转到 `/zh/`；`astro preview` 不读取该配置，会改用 `index.astro` 的兜底页跳转。统计代理位于 `edge-functions/stats/`。
 
@@ -49,4 +49,4 @@ pnpm verify:agent-assets
 - KMP Wasm/JS 展示资源由完整 `pnpm --filter web build` 生成，`public/kmp-showcase/` 和隐私同步产物不提交；纯官网修改已有产物时可运行 `pnpm --filter web run build:site`。
 - 展示字体使用 Noto Sans CJK SC 字符子集；更新字符时运行 `pnpm --filter web font:showcase /path/to/NotoSansCJK-Regular.ttc`，再重新完整构建。
 - 运行方式区只保留 `public/media/apps/` 中实际使用的 LSPosed、Shizuku 图标。KMP 演示仍发布 GazeKeep、LSPosed、Magisk、Shizuku、SIM Toolkit 与 Vector 图标，页面继续内联 Lucide；来源和许可证见随站点发布的 `public/media/credits.txt`。持机手部由 `src/scripts/grip-reference.ts` 与 `grip-geometry.ts` 维护，不再提交独立人物或手部图片。
-- 页面架构、视觉约束、部署和验收边界见[官网架构](../../docs/architecture/web/website.md)；测试命令见上方“验证”。
+- 页面架构、视觉约束、部署和验收边界见[官网架构](../../docs/architecture/web.md)；测试命令见上方“验证”。

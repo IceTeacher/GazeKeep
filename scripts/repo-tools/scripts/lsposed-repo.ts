@@ -57,7 +57,9 @@ export function renderModuleReadme(source: string, sha: string) {
 }
 
 function privacyLines(root: string) {
-  const page = readFileSync(join(root, "docs/product/privacy-security.md"), "utf8");
+  const path = join(root, "docs/product.md");
+  if (!existsSync(path)) return [];
+  const page = readFileSync(path, "utf8");
   const section = page.split(/^## /m).find((part) => part.startsWith("隐私文案真源")) ?? "";
   return [...section.matchAll(/^\d+\.\s+(.+)$/gm)].map((match) => match[1].trim());
 }
@@ -103,7 +105,7 @@ export function validateMetadata(root: string) {
   }
 
   const lines = privacyLines(root);
-  if (lines.length !== 6) errors.push("无法从 docs/product/privacy-security.md 读取中英文各三句隐私文案");
+  if (lines.length !== 6) errors.push("无法从 docs/product.md 读取中英文各三句隐私文案");
   const readme = readFileSync(join(root, "README.md"), "utf8");
   for (const line of lines.slice(0, 3).filter((l) => !readme.includes(l)))
     errors.push(`README.md 缺少隐私文案：${line}`);

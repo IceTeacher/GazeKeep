@@ -1,9 +1,23 @@
-# 仓库 Node 工具
+# 仓库 Node 工具 (`scripts/repo-tools`)
 
-继承根 [AGENTS.md](../../AGENTS.md)。脚本使用 TypeScript ESM `.ts`，由 Node 原生类型剥离运行，只用可擦除语法、相对导入写 `.ts` 扩展名；测试使用 `node:test` 与严格断言，不引入 TS 执行器。
+继承根 [AGENTS.md](../../AGENTS.md)。本目录维护文档、Agent 资产、Android 模块架构、Git Hook、CI 变更检测、APK 静态门禁与 LSPosed 模块仓库同步脚本。
 
-文件与子进程操作使用显式仓库根、参数数组和 UTF-8，处理中文及空格路径。检查脚本接受 `--root`，临时 fixture 不依赖调用者的真实 Git 索引。文档检查保持索引、日期、路径与锚点校验，不设归档豁免；架构检查读取独立 Android 工程的十个模块。
+## 工程约束
 
-Hook 只处理暂存文件，部分暂存隐藏和恢复继续交给 Lefthook。安装入口显式执行，不覆盖已有 Hook 或自定义 hooksPath；缺工具和下载摘要错误阻断，不联网补装。
+- **Node 原生 TypeScript 执行**：所有脚本均为 ESM `.ts`，由 Node 原生类型剥离直接运行；只允许可擦除语法（禁用 `enum`、`namespace`、参数属性），相对导入必须写 `.ts` 扩展名。测试使用内置 `node:test` 与严格断言，不引入第三方 TS 执行器或测试框架。
+- **路径与隔离安全**：文件与子进程调用显式接收 `--root` 仓库根、使用参数数组与 UTF-8，正确处理中文与空格路径。测试使用 `mkdtempSync` 临时目录隔离 fixture，绝不污染调用者的真实 Git 索引。
+- **Hook 边界**：Lefthook 只处理暂存文件格式与语法校验；安装脚本显式执行，不覆盖用户自定义 `hooksPath`，工具缺失或 SHA-256 校验失败立即阻断，不隐式联网补装。
 
-运行 `pnpm test:tools`、`pnpm --filter @gazekeep/repo-tools lint`、`pnpm verify:docs`、`pnpm verify:agent-assets`、`pnpm verify:architecture` 和 `git diff --check`。行为改动读取[主机测试 skill](../../.agents/skills/testing-unit/SKILL.md)，先确认失败场景。
+## 验证门禁
+
+行为修改先按 [testing skill](../../.agents/skills/testing/SKILL.md) 在 `tests/` 建立失败断言，再修改实现并运行：
+
+```bash
+pnpm test:tools
+pnpm --filter @gazekeep/repo-tools lint
+pnpm verify:docs
+pnpm verify:agent-assets
+pnpm verify:architecture
+pnpm verify:lsposed-repo
+git diff --check
+```

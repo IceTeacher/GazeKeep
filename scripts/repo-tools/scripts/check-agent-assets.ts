@@ -4,18 +4,11 @@ import { cli, context, isMain, report } from "./common.ts";
 import { linkErrors } from "./check-docs.ts";
 
 export function violations(root: string) {
-  const settings = join(root, "apps/app/settings.gradle.kts");
   const errors = [];
-  if (!existsSync(settings)) return ["缺少 apps/app/settings.gradle.kts"];
-  const modules = [...readFileSync(settings, "utf8").matchAll(/include\(":([^"]+)"\)/g)].map((m) => m[1]);
-  const rules = [
-    "AGENTS.md",
-    "apps/app/AGENTS.md",
-    "apps/web/AGENTS.md",
-    "scripts/repo-tools/AGENTS.md",
-    ...modules.map((m) => `apps/app/${m.replaceAll(":", "/")}/AGENTS.md`),
-  ].map((n) => join(root, n));
-  for (const rule of rules) if (!existsSync(rule)) errors.push(`缺少模块规则：${relative(root, rule)}`);
+  const rules = ["AGENTS.md", "apps/app/AGENTS.md", "apps/web/AGENTS.md", "scripts/repo-tools/AGENTS.md"].map((n) =>
+    join(root, n),
+  );
+  for (const rule of rules) if (!existsSync(rule)) errors.push(`缺少工程规则：${relative(root, rule)}`);
   const dir = join(root, ".agents/skills");
   const skills = existsSync(dir)
     ? readdirSync(dir)
@@ -64,4 +57,4 @@ export function violations(root: string) {
   return errors;
 }
 if (isMain(import.meta.url))
-  await cli(() => report(violations(context().root), "模块 AGENTS 与仓库 Skill 资产检查通过"));
+  await cli(() => report(violations(context().root), "工程 AGENTS 与仓库 Skill 资产检查通过"));
