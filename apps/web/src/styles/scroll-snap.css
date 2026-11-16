@@ -5,7 +5,7 @@
  * 因此正常连续滚动，也不会被强制吸附拉回展示区。
  */
 @media (min-width: 761px) {
-  :root:not([data-compact="true"]) {
+  :root:not([data-compact="true"]):not([data-page="changelog"]) {
     --snap-pad: 100px;
     scroll-padding-top: var(--snap-pad);
     scroll-snap-type: y mandatory;
@@ -37,7 +37,7 @@
  * 运行方式区域向下覆盖到页尾，区域内任意位置均合法，仍为连续滚动；紧凑与减少动态不启用。
  */
 @media (max-width: 760px) {
-  :root:not([data-compact="true"]) {
+  :root:not([data-compact="true"]):not([data-page="changelog"]) {
     scroll-padding-top: var(--header-h);
     scroll-snap-type: y mandatory;
   }

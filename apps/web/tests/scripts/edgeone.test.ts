@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { expect, test } from "vitest";
 import { assertEdgeoneRoutes, edgeoneChildEnv, findLeakedEnv } from "../../scripts/edgeone.ts";
 
@@ -35,4 +36,18 @@ test("上传目录的路由必须保留根路径 302 与统计代理边缘函数
   expect(() => assertEdgeoneRoutes(permanent)).toThrow(/302/);
   expect(() => assertEdgeoneRoutes({ ...generated, routes: [{ handle: "filesystem" }] })).toThrow(/\/stats/);
   expect(() => assertEdgeoneRoutes(null)).toThrow(/routes\.json/);
+});
+
+test("edgeone.json 为哈希 .wasm、入口脚本与 /_astro 静态分块配置 immutable 强缓存并保留 devCommand", () => {
+  const cfg = JSON.parse(readFileSync(new URL("../../edgeone.json", import.meta.url), "utf8")) as {
+    devCommand?: string;
+    headers?: { source: string; headers: { key: string; value: string }[] }[];
+  };
+  expect(cfg.devCommand).toBe("astro dev --host");
+  const cacheFor = (source: string) =>
+    cfg.headers?.find((item) => item.source === source)?.headers.find((h) => h.key === "Cache-Control")?.value;
+  expect(cacheFor("/_astro/*")).toBe("public, max-age=31536000, immutable");
+  expect(cacheFor("/kmp-showcase/wasm/*.wasm")).toBe("public, max-age=31536000, immutable");
+  expect(cacheFor("/kmp-showcase/js/*.wasm")).toBe("public, max-age=31536000, immutable");
+  expect(cacheFor("/kmp-showcase/wasm/shared.*.js")).toBe("public, max-age=31536000, immutable");
 });

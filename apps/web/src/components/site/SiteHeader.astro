@@ -5,50 +5,75 @@ import { sections } from "../../data/sections";
 import ThemeToggle from "./ThemeToggle.astro";
 import ArrowUpRight from "@lucide/astro/icons/arrow-up-right";
 import Menu from "@lucide/astro/icons/menu";
+import X from "@lucide/astro/icons/x";
 interface Props {
   content: SiteContent;
+  current?: "home" | "changelog";
 }
-const { content: c } = Astro.props;
+const { content: c, current = "home" } = Astro.props;
 const other = c.locale === "zh" ? "en" : "zh";
+const sectionHref = (id: string) => (current === "home" ? `#${id}` : `/${c.locale}/#${id}`);
+const changelogHref = `/${c.locale}/changelog/`;
+const langHref = current === "changelog" ? `/${other}/changelog/` : `/${other}/`;
 ---
 
-<header class="nav-wrap">
-  <nav class="nav shell" aria-label={c.menu}>
-    <a class="brand" href={`/${c.locale}/`}>
+<header class="nav-wrap" data-page={current}>
+  <nav class="nav shell" aria-label={c.menu} data-i18n-aria="menu">
+    <a class="brand" href={`/${c.locale}/`} data-home-link>
       <img src="/app-icon-192.webp" width="32" height="32" alt="" />
       <span>GazeKeep</span>
     </a>
     <div class="nav-links">
       {c.nav.map((name, i) => (
-        <a href={`#${sections[i]}`}>{name}</a>
+        <a href={sectionHref(sections[i])} data-nav-section={sections[i]}>
+          {name}
+        </a>
       ))}
+      <a href={changelogHref} data-nav-changelog aria-current={current === "changelog" ? "page" : undefined}>
+        {c.changelog.nav}
+      </a>
     </div>
     <div class="nav-actions">
-      <a class="language" href={`/${other}/`} lang={other} aria-label={c.ui.switchLanguage}>
+      <a class="language" href={langHref} lang={other} aria-label={c.ui.switchLanguage} data-locale-switch="short">
         {c.ui.languageShort}
       </a>
       <ThemeToggle content={c} />
-      <a class="button small" href={site.download}>
-        {c.download}
+      <a class="button small" href={site.download} data-nav-download>
+        <span>{c.download}</span>
         <ArrowUpRight size={14} stroke-width={2} />
       </a>
       <button
         id="menu-toggle"
+        type="button"
         class="icon-button"
         aria-controls="mobile-menu"
         aria-expanded="false"
         aria-label={c.menu}
+        data-i18n-aria="menu"
       >
-        <Menu size={20} stroke-width={1.5} />
+        <Menu class="menu-icon-open" size={20} stroke-width={1.5} aria-hidden="true" />
+        <X class="menu-icon-close" size={20} stroke-width={1.5} aria-hidden="true" />
       </button>
     </div>
   </nav>
-  <div id="mobile-menu" class="mobile-menu shell">
-    {c.nav.map((name, i) => (
-      <a href={`#${sections[i]}`}>{name}</a>
-    ))}
-    <a href={site.download}>
-      {c.download} <ArrowUpRight size={14} stroke-width={2} />
-    </a>
+  <div id="mobile-menu" class="mobile-menu" inert>
+    <div class="mobile-menu-inner shell">
+      <div class="mobile-menu-links">
+        {c.nav.map((name, i) => (
+          <a href={sectionHref(sections[i])} data-nav-section={sections[i]}>
+            <span>{name}</span>
+          </a>
+        ))}
+        <a href={changelogHref} data-nav-changelog aria-current={current === "changelog" ? "page" : undefined}>
+          <span>{c.changelog.nav}</span>
+        </a>
+      </div>
+      <div class="mobile-menu-foot">
+        <a class="button small mobile-menu-cta" href={site.download} data-nav-download>
+          <span>{c.download}</span>
+          <ArrowUpRight size={14} stroke-width={2} />
+        </a>
+      </div>
+    </div>
   </div>
 </header>

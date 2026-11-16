@@ -17,6 +17,29 @@ export interface ShowcaseSnapshot {
   dark: boolean;
   phase: "loading" | "ready" | "error";
 }
+export interface NetworkInformationLike {
+  saveData?: boolean;
+  effectiveType?: string;
+}
+
+export type ShowcaseLoadMode = "idle" | "demand";
+
+const SLOW_NETWORK_TYPES = new Set(["slow-2g", "2g", "3g"]);
+const SHOWCASE_HASHES = new Set(["#workflow", "#backends", "#whitelist", "#settings"]);
+
+/** Save-Data 或 2G/3G 等慢速网络下按需挂载 KMP 内屏，高速或未知网络在首屏空闲后预载。 */
+export function resolveShowcaseLoadMode(connection?: NetworkInformationLike | null): ShowcaseLoadMode {
+  if (!connection) return "idle";
+  if (connection.saveData) return "demand";
+  if (connection.effectiveType && SLOW_NETWORK_TYPES.has(connection.effectiveType)) return "demand";
+  return "idle";
+}
+
+/** 已滚离首屏顶部或通过锚点直达展示区段时，不等待空闲或交互，立即触发 KMP 挂载。 */
+export function shouldAutoLoadShowcase({ scrollY, hash }: { scrollY: number; hash: string }): boolean {
+  return scrollY > 24 || SHOWCASE_HASHES.has(hash);
+}
+
 export const chooseRuntime = (supportsWasm: boolean) => (supportsWasm ? "wasm" : "js");
 export function createShowcaseAttempts() {
   let current = 0;

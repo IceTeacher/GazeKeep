@@ -109,14 +109,19 @@
 - 未执行：外接功率计或断开 ADB 的长时功耗、其他机型的传感器首报延迟与欧拉角行为、LSPosed 后端下的同类交替对比。
 - 真机测试后恢复：装回新版 Debug 包，后端自动选择、宽松灵敏度，设置与测试前逐项一致；自动亮度已恢复；设备上的采样脚本、电流记录、测试视频与临时 dump 已删除。Shell 的 KernelSU 超级用户授权需用户在管理器中关闭。
 
-## 官网当前验证（2026-10-30）
+## 官网当前验证（2026-11-16）
 
 官网已完成双语数据、七模块页面、Three.js 设备、Shader/连续滚动、miuix Wasm/JS 展示壳、语言/主题桥接、隐私资源校验、加载失败恢复、内屏底栏与访客触摸/拖动交互。当前构建和部署架构见[官网架构](../architecture/web/website.md)，命令见[官网 README](../../apps/web/README.md)。
 
 - 容器内 Chromium、web unit、Astro 检查和完整构建已多轮通过；桌面与移动模拟器已核对中英、明暗、设置演示、内屏滚动、底栏点击、触摸取消和访客操作后的演示复位。
+- `2026-11-16` 同构 DOM 主页预览与 KMP Wasm 首帧对齐（`Node v24.15.0`、`pnpm 12.14.0`、`Vitest 5.0.5`、`@astrojs/check 0.9.10`、`Playwright 1.64.1` Chromium，本机 Linux 与 Docker Chromium 容器）：`test:browser:docker`（11 文件 / 57 用例，含 6 项截图基线与新增 `gazekeep:rendered` 切换时机、无悬浮加载胶囊、几何/色板/字体/SVG 校验）、`test:unit`（23 文件 / 112 用例，含主页子集字体同源 `preload` 校验）、`lint`、`check` 与完整 `build` 通过；`392×784` 内屏视口同构 DOM 对比真实 KMP Wasm `HomeScreen` 像素差大幅收敛（`zh-dark` MAE `18.03 → 3.30` / `pct_gt12` `26.9% → 4.24%`、`zh-light` `13.32 → 3.72` / `24.4% → 4.87%`、`en-dark` `17.80 → 3.46` / `26.9% → 4.27%`）。
+- `2026-11-16` 官网体积、缓存与自适应懒加载优化（维护者选定保留 Three.js 机身，启用自适应懒加载与 Showcase 导航树裁减）：
+  - 体积变化（本地 `pnpm --filter web build` 实测）：`apps/web/dist` 总原始体积由 `41,477.0 KB` 降至 `30,733.2 KB`（Brotli-6 由 `13,799.0 KB` 降至 `9,843.0 KB`）；App WASM 由 `4,103.9 KB` 降至 `3,911.5 KB`（Brotli `1,047.7 KB → 998.5 KB`）；`kmp-showcase/js` 由 `24,570.9 KB` 降至 `14,532.8 KB`（过滤未引用重复 `skiko.wasm` / 已内联 `skiko.mjs` / `skikod8.mjs` / `js-reexport-symbols.mjs` 及展示无用图标）；移除未引用的 `public/app-icon.png`（`256.8 KB`）。
+  - 自适应与缓存：`orchestrator.ts` 对 `Save-Data` 与 `2G/3G` 延迟到点击或滚动后挂载 KMP（高速网络空闲期挂载），`edgeone.json` 为 `/_astro/*`、`*.wasm` 与 `shared.*.js` 补全 `immutable` 头。
+  - 验证：`test:unit`（23 文件 / 116 用例）、`test:browser:docker`（11 文件 / 58 用例，含 `Save-Data`/`3g` 按需挂载与 6 项截图基线）、`web check`、`web lint`、`package:edgeone`、Docker Chromium 实跑真实 `kmp-showcase/wasm` 与 `kmp-showcase/js` 回退（5 个展示路由零报错切换）、`verify:architecture` 与 `:shared:testAndroidHostTest`（含新增 `SettingsBackStackTest` 与全部 Roborazzi 基线）均通过。
 - Xiaomi 12 Pro 的 Chrome 145 与 Firefox Fenix 已实测底栏点击、长按滑动、快速滑动和设备像素比坐标修复；Firefox 超过约 500 ms 才开始滑动仍受浏览器触摸流限制。
-- 未执行：Safari、iOS 触摸与缩放、真实 GPU/WebGPU、实体手机完整视觉矩阵、KMP JS 回退演示、移动端逐帧观感和真实慢网首帧。深色主题小号绿色文字对比度约 3.6:1，是否单独加深待产品决定。
-- 仍需观察：完整 browser 运行中的偶发计时失败、首次打开内屏偶发下滚，以及不同字号/英文页的演示布局。
+- 未执行：Safari、iOS 触摸与缩放、真实 GPU/WebGPU、实体手机完整视觉矩阵（含本次同构 DOM 对齐微调后的真机实测）、真实慢网弱网实体手机首帧及生产 CDN 上 `.wasm` 响应头的线上 `Content-Encoding`（Brotli/gzip）与 `Cache-Control` 实测。深色主题小号绿色文字对比度约 3.6:1，是否单独加深待产品决定。
+- 仍需观察：完整 browser 运行中在宿主机并发重负载下的偶发计时竞争、首次打开内屏偶发下滚，以及不同字号/英文页的演示布局。
 
 ## 官网改用 EdgeOne Makers 部署（2026-11-07）
 

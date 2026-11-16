@@ -8,7 +8,9 @@ export type DemoState =
   | "dim_fallback"
   | "backend_lsposed"
   | "backend_shizuku"
-  | "backend_accessibility";
+  | "backend_accessibility"
+  | "scope_whitelist"
+  | "scope_blacklist";
 export interface StoryStep {
   title: string;
   text: string;
@@ -41,7 +43,12 @@ export interface SiteContent {
       requirement: string;
     }[];
   };
-  whitelist: { title: string; text: string };
+  whitelist: {
+    title: string;
+    text: string;
+    scopeLabel: string;
+    modes: { id: "whitelist" | "blacklist"; label: string; summary: string }[];
+  };
   /** 设置区：机外卡片与内屏演示同步显示当前取值。 */
   settings: {
     title: string;
@@ -53,7 +60,29 @@ export interface SiteContent {
   privacy: { title: string; text: string; labels: string[]; permission: string };
   start: { title: string; steps: { title: string; text: string }[] };
   faq: { title: string; items: { question: string; answer: string }[] };
-  footer: { title: string; text: string; docs: string; license: string };
+  footer: {
+    title: string;
+    text: string;
+    docs: string;
+    license: string;
+    openSource: string;
+    navTitle: string;
+    linksTitle: string;
+  };
+  changelog: {
+    nav: string;
+    title: string;
+    description: string;
+    kicker: string;
+    heading: string;
+    intro: string;
+    backHome: string;
+    githubReleases: string;
+    releaseTagLabel: string;
+    latestBadge: string;
+    setupTitle: string;
+    emptyNotice: string;
+  };
   demo: string;
   loading: string;
   error: string;

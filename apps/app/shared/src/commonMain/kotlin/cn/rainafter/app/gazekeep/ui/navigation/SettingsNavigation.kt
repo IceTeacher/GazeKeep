@@ -174,17 +174,17 @@ internal fun SettingsNavigation(
   SettingsNavHost(backStack, controller, actions, state, test)
 }
 
-/** 页面、底部栏与转场；Android 应用与官网演示共用。 */
+/** 页面容器：复用返回手势、底栏与转场动画；展示入口可传入裁剪后的页面树。 */
 @Composable
-internal fun SettingsNavHost(
+internal fun SettingsNavContainer(
   backStack: SettingsBackStack,
   controller: GazeKeepController,
   actions: PlatformActions,
-  state: ControllerState,
-  test: SelfTestState,
-  homeStatusOverride: String? = null,
+  content: @Composable (
+    screen: SettingsScreen,
+    bottomBar: @Composable (SettingsScreen) -> Unit,
+  ) -> Unit,
 ) {
-  val scope = rememberCoroutineScope()
   val currentScreen = backStack.current
 
   actions.HandleBack(backStack.size > 1) { backStack.navigateBack() }
@@ -259,14 +259,30 @@ internal fun SettingsNavHost(
     label = "SettingsScreenTransition",
     modifier = Modifier.fillMaxSize().background(MiuixTheme.colorScheme.surface),
   ) { entry ->
-    when (entry.screen) {
+    content(entry.screen, ::BottomNavBar)
+  }
+}
+
+/** 完整导航宿主；供 Android 应用与桌面主机测试使用。 */
+@Composable
+internal fun SettingsNavHost(
+  backStack: SettingsBackStack,
+  controller: GazeKeepController,
+  actions: PlatformActions,
+  state: ControllerState,
+  test: SelfTestState,
+  homeStatusOverride: String? = null,
+) {
+  val scope = rememberCoroutineScope()
+  SettingsNavContainer(backStack, controller, actions) { screen, bottomBar ->
+    when (screen) {
       SettingsScreen.Home -> HomeScreen(
         state = state,
         scope = scope,
         controller = controller,
         actions = actions,
         onNavigate = backStack::navigateTo,
-        bottomBar = { BottomNavBar(selectedTab = SettingsScreen.Home) },
+        bottomBar = { bottomBar(SettingsScreen.Home) },
         statusSubtitleOverride = homeStatusOverride,
       )
 
@@ -276,7 +292,7 @@ internal fun SettingsNavHost(
         controller = controller,
         actions = actions,
         onNavigate = backStack::navigateTo,
-        bottomBar = { BottomNavBar(selectedTab = SettingsScreen.Settings) },
+        bottomBar = { bottomBar(SettingsScreen.Settings) },
       )
 
       SettingsScreen.Backend -> BackendScreen(

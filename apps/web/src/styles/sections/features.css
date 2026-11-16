@@ -6,6 +6,7 @@
 }
 .feature-panel .section-heading,
 .feature-panel .backend-list,
+.feature-panel .whitelist-modes,
 .feature-panel .setting-grid {
   width: 44%;
 }
@@ -19,6 +20,7 @@
   }
   .feature-panel .section-heading,
   .feature-panel .backend-list,
+  .feature-panel .whitelist-modes,
   .feature-panel .setting-grid {
     width: 100%;
   }
@@ -34,6 +36,7 @@
 }
 :root[data-compact="true"] .feature-panel .section-heading,
 :root[data-compact="true"] .backend-list,
+:root[data-compact="true"] .whitelist-modes,
 :root[data-compact="true"] .setting-grid {
   width: 100%;
 }

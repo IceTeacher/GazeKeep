@@ -46,8 +46,21 @@ private external fun visitor(callback: () -> Unit)
 actual fun watchVisitorPointer(onPointer: () -> Unit) = visitor(onPointer)
 
 @JsFun(
-  "(focus, leadSeconds, loose, holdMinutes, hideIndicator) => window.parent.dispatchEvent(new CustomEvent('gazekeep:demo', { detail: { focus, leadSeconds, loose, holdMinutes, hideIndicator, attempt: Number(new URLSearchParams(location.search).get('attempt')) } }))",
+  "(focus, leadSeconds, loose, holdMinutes, hideIndicator, appScope) => window.parent.dispatchEvent(new CustomEvent('gazekeep:demo', { detail: { focus, leadSeconds, loose, holdMinutes, hideIndicator, appScope, attempt: Number(new URLSearchParams(location.search).get('attempt')) } }))",
 )
-private external fun demo(focus: String, leadSeconds: Int, loose: Boolean, holdMinutes: Int, hideIndicator: Boolean)
-actual fun notifyDemo(focus: String, leadSeconds: Int, loose: Boolean, holdMinutes: Int, hideIndicator: Boolean) =
-  demo(focus, leadSeconds, loose, holdMinutes, hideIndicator)
+private external fun demo(
+  focus: String,
+  leadSeconds: Int,
+  loose: Boolean,
+  holdMinutes: Int,
+  hideIndicator: Boolean,
+  appScope: String,
+)
+actual fun notifyDemo(
+  focus: String,
+  leadSeconds: Int,
+  loose: Boolean,
+  holdMinutes: Int,
+  hideIndicator: Boolean,
+  appScope: String,
+) = demo(focus, leadSeconds, loose, holdMinutes, hideIndicator, appScope)

@@ -5,6 +5,7 @@ import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseStep.Expect
 import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseStep.Focus
 import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseStep.Glide
 import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseStep.Pick
+import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseStep.Scope
 import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseStep.Tap
 import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseStep.Type
 import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseStep.Wait
@@ -49,6 +50,9 @@ internal sealed interface ShowcaseStep {
   /** 告知官网正在演示的设置项，null 表示一轮结束。 */
   data class Focus(val key: String?) : ShowcaseStep
 
+  /** 切换应用名单模式（白名单 / 黑名单）。 */
+  data class Scope(val blacklist: Boolean) : ShowcaseStep
+
   /** 一轮操作后的期望设置；点按未命中时直接写入，循环不走样。 */
   data class Expect(val settings: ShowcaseSettings) : ShowcaseStep
 }
@@ -70,10 +74,15 @@ internal object ShowcaseScripts {
   private const val POPUP_SHOW = 450L
   private const val KEY_GAP = 180L
 
-  fun forScene(scene: String, apps: List<AppEntry>, random: Random): List<ShowcaseStep>? = when (scene) {
+  fun forScene(
+    scene: String,
+    apps: List<AppEntry>,
+    random: Random,
+    startBlacklist: Boolean = false,
+  ): List<ShowcaseStep>? = when (scene) {
     "tour" -> tour()
     "privacy" -> privacy()
-    "apps" -> apps(apps, random)
+    "apps" -> apps(apps, random, startBlacklist = startBlacklist)
     "settings" -> settings()
     else -> null
   }
@@ -104,25 +113,34 @@ internal object ShowcaseScripts {
     Wait(500),
   )
 
-  /** 专注范围：随机切换一至三个应用，再逐字搜索一个应用名称，停留后清空。 */
-  fun apps(apps: List<AppEntry>, random: Random): List<ShowcaseStep> {
+  /** 专注范围：先在当前模式切换应用与搜索，再切换至黑/白名单重复演示后回到起点。 */
+  fun apps(apps: List<AppEntry>, random: Random, startBlacklist: Boolean = false): List<ShowcaseStep> {
     if (apps.isEmpty()) return listOf(Wait(1000))
-    val toggled = apps.shuffled(random).take(random.nextInt(1, minOf(3, apps.size) + 1))
-    val query = apps.random(random).label
     return buildList {
-      toggled.forEach {
-        add(Tap(ShowcaseKeys.app(it.packageName)))
-        add(Wait(500))
-      }
-      add(Wait(200))
-      query.indices.forEach {
-        add(Type(ShowcaseKeys.APPS_SEARCH, query.take(it + 1)))
-        add(Wait(120))
-      }
-      add(Wait(1000))
-      add(Type(ShowcaseKeys.APPS_SEARCH, ""))
-      add(Wait(600))
+      appendAppsRound(apps, random)
+      add(Scope(!startBlacklist))
+      add(Wait(700))
+      appendAppsRound(apps, random)
+      add(Scope(startBlacklist))
+      add(Wait(700))
     }
+  }
+
+  private fun MutableList<ShowcaseStep>.appendAppsRound(apps: List<AppEntry>, random: Random) {
+    val toggled = apps.shuffled(random).take(random.nextInt(1, minOf(2, apps.size) + 1))
+    val query = apps.random(random).label
+    toggled.forEach {
+      add(Tap(ShowcaseKeys.app(it.packageName)))
+      add(Wait(500))
+    }
+    add(Wait(200))
+    query.indices.forEach {
+      add(Type(ShowcaseKeys.APPS_SEARCH, query.take(it + 1)))
+      add(Wait(120))
+    }
+    add(Wait(900))
+    add(Type(ShowcaseKeys.APPS_SEARCH, ""))
+    add(Wait(500))
   }
 
   /** 设置区：先改为 5 秒、宽松、60 分钟并隐藏指示器，再改回 8 秒、标准、30 分钟并恢复指示器。 */

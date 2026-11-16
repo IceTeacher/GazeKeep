@@ -1,0 +1,100 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import SiteHeader from "./site/SiteHeader.astro";
+import SiteFooter from "./site/SiteFooter.astro";
+import { loadChangelog } from "../data/changelog";
+import type { SiteContent } from "../data/schema";
+import { site } from "../data/site.config";
+import ArrowLeft from "@lucide/astro/icons/arrow-left";
+import ArrowUpRight from "@lucide/astro/icons/arrow-up-right";
+import Plus from "@lucide/astro/icons/plus";
+
+interface Props {
+  content: SiteContent;
+}
+const { content: c } = Astro.props;
+const releases = loadChangelog(c.locale);
+---
+
+<BaseLayout content={c} page="changelog">
+  <a class="skip-link" href="#main">
+    {c.ui.skip}
+  </a>
+  <SiteHeader content={c} current="changelog" />
+  <main id="main" class="changelog-page shell">
+    <header class="changelog-hero">
+      <a class="changelog-back text-link" href={`/${c.locale}/`} data-home-link>
+        <ArrowLeft size={16} stroke-width={1.6} aria-hidden="true" />
+        <span>{c.changelog.backHome}</span>
+      </a>
+      <div class="changelog-hero-row">
+        <div>
+          <span class="section-kicker">{c.changelog.kicker}</span>
+          <h1>{c.changelog.heading}</h1>
+          <p class="changelog-intro">{c.changelog.intro}</p>
+        </div>
+        <a class="text-link" href={site.releases} target="_blank" rel="noopener noreferrer">
+          <span>{c.changelog.githubReleases}</span>
+          <ArrowUpRight size={14} stroke-width={2} aria-hidden="true" />
+        </a>
+      </div>
+    </header>
+
+    {releases.length === 0 ? (
+      <p class="changelog-intro">{c.changelog.emptyNotice}</p>
+    ) : (
+      <div class="changelog-timeline">
+        {releases.map((release, index) => (
+          <article
+            id={release.version}
+            class="changelog-card"
+            data-latest={index === 0 ? "true" : "false"}
+            data-version={release.version}
+          >
+            <div class="changelog-aside">
+              <div class="changelog-version-row">
+                <h2 class="changelog-version">{release.version}</h2>
+                {index === 0 && <span class="changelog-latest">{c.changelog.latestBadge}</span>}
+              </div>
+              <a
+                class="changelog-tag-link text-link"
+                href={`${site.releases}/tag/${release.version}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <span>{c.changelog.releaseTagLabel}</span>
+                <ArrowUpRight size={14} stroke-width={2} aria-hidden="true" />
+              </a>
+            </div>
+
+            <div class="changelog-body">
+              {release.introHtml && <div class="changelog-prose" set:html={release.introHtml} />}
+              {release.groups.map((group) => (
+                <section class="changelog-group">
+                  <h3 class="changelog-badge" data-kind={group.kind}>
+                    {group.title}
+                  </h3>
+                  <div class="changelog-prose" set:html={group.html} />
+                </section>
+              ))}
+              {release.setupHtml && (
+                <details class="changelog-setup">
+                  <summary>
+                    <span>{c.changelog.setupTitle}</span>
+                    <Plus class="changelog-setup-mark" size={18} stroke-width={1.5} aria-hidden="true" />
+                  </summary>
+                  <div class="changelog-setup-content changelog-prose" set:html={release.setupHtml} />
+                </details>
+              )}
+            </div>
+          </article>
+        ))}
+      </div>
+    )}
+  </main>
+  <SiteFooter content={c} current="changelog" />
+  <script>
+    import { initSubpage } from "../scripts/subpage";
+    initSubpage("changelog");
+  </script>
+</BaseLayout>

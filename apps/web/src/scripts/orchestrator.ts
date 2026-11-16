@@ -1,11 +1,14 @@
 import {
   type Bridge,
+  type NetworkInformationLike,
   createShowcaseState,
   createShowcaseAttempts,
   createRenderGate,
   createDriftTracker,
   chooseRuntime,
   liveStatusText,
+  resolveShowcaseLoadMode,
+  shouldAutoLoadShowcase,
 } from "./showcase-state.ts";
 import { initScreenTouch } from "./screen-touch.ts";
 import { createAutoCycle } from "./demo-cycle.ts";
@@ -18,6 +21,7 @@ import { initHeroBackdrop } from "./hero-backdrop.ts";
 import { initScrollReveal } from "./scroll-reveal.ts";
 import { initSiteChrome } from "./site-chrome.ts";
 import { initThemeSwitch } from "./theme-switch.ts";
+import { initLocaleSwitch } from "./locale-switch.ts";
 import type { DemoState, KmpRoute, SiteContent } from "../data/schema";
 type DemoWindow = Window & { GazeKeepWebShowcaseBridge?: Bridge };
 let initialized = false;
@@ -43,6 +47,7 @@ export function initWebsite() {
     renderTimeout: ReturnType<typeof setTimeout> | undefined;
   const frame = document.querySelector<HTMLIFrameElement>("#kmp-frame")!;
   const screen = document.querySelector<HTMLElement>(".phone-screen")!;
+  screen.dataset.ready = "false";
   const phone = document.querySelector<HTMLElement>("#phone-chassis")!;
   const placeholder = document.querySelector<HTMLElement>("#phone-placeholder")!;
   const recovery = document.querySelector<HTMLButtonElement>("#retry-showcase")!;
@@ -82,12 +87,14 @@ export function initWebsite() {
     state.update({ locale: content.locale, dark: document.documentElement.dataset.theme === "dark" });
     if (frame.contentDocument?.documentElement) frame.contentDocument.documentElement.lang = content.locale;
   };
-  disposers.push(initThemeSwitch({ onChange: setAppearance, frame }));
+  const themeSwitch = initThemeSwitch({ onChange: setAppearance, frame });
+  disposers.push(themeSwitch.dispose);
   /** 访客操作内屏后，以转场回到当前段落指定的页面并恢复演示状态。 */
   function restore() {
     drift.clear();
     detect.release();
     backendCycle.release();
+    clearScopeHold(true);
     if (rawBridge && requestedRoute) rawBridge.setScreen(requestedRoute, requestedRevision, true);
   }
   function show(route: KmpRoute, status: DemoState, effect: string, scene = shown.scene) {
@@ -97,6 +104,21 @@ export function initWebsite() {
     renderStatus();
   }
   const backendCards = [...document.querySelectorAll<HTMLButtonElement>("[data-backend]")];
+  const scopeCards = [...document.querySelectorAll<HTMLButtonElement>("[data-scope]")];
+  const setScopeActive = (scope: "whitelist" | "blacklist") => {
+    scopeCards.forEach((c) => c.setAttribute("aria-pressed", String(c.dataset.scope === scope)));
+  };
+  let demoVisible = true;
+  let scopeHeld = false;
+  let scopeReleaseTimer: ReturnType<typeof setTimeout> | undefined;
+  const clearScopeHold = (resume = true) => {
+    clearTimeout(scopeReleaseTimer);
+    scopeReleaseTimer = undefined;
+    if (!scopeHeld) return;
+    scopeHeld = false;
+    if (resume) state.update({ active: demoVisible });
+  };
+  disposers.push(() => clearTimeout(scopeReleaseTimer));
   const pressed = () =>
     Math.max(
       0,
@@ -119,7 +141,8 @@ export function initWebsite() {
   // 手机离开视口或标签页隐藏时暂停机外轮换与内屏演示，回来后从原处继续。
   disposers.push(
     watchDemoVisibility(document.querySelector("#phone-visual")!, (active) => {
-      state.update({ active });
+      demoVisible = active;
+      state.update({ active: active && !scopeHeld });
       for (const cycle of [detect, backendCycle]) {
         if (active) cycle.resume();
         else cycle.pause();
@@ -127,12 +150,18 @@ export function initWebsite() {
     }),
   );
   function sync(route: KmpRoute, status: DemoState, effect = "none", scene = "none") {
+    if (route !== "home" || scene !== "none") ensureLoaded();
     if (scene !== shown.scene) {
       // 只停止离开的场景：进入前访客已悬停的卡片保持暂停。
       if (shown.scene === "detect") detect.stop();
       if (shown.scene === "backends") backendCycle.stop();
+      if (shown.scene === "apps") clearScopeHold(true);
       if (scene === "detect") detect.start(0);
       if (scene === "backends") backendCycle.start(pressed());
+      if (scene === "apps") {
+        const currentScope = scopeCards.find((c) => c.getAttribute("aria-pressed") === "true")?.dataset.scope;
+        status = currentScope === "blacklist" ? "scope_blacklist" : "scope_whitelist";
+      }
     } else if (scene === "detect" && detect.index() === 1) {
       // 往复期间滚动微调不把检测成功拉回检测中。
       status = "gaze_detected";
@@ -145,6 +174,7 @@ export function initWebsite() {
   backendCards.forEach((card, i) => {
     // 访客选中后暂停轮换：悬停与键盘聚焦期间保持，离开后等待片刻从该项继续；触屏点按同样等待后继续。
     const activate = () => {
+      ensureLoaded();
       backendCycle.hold(i);
       selectBackend(i);
       if (drift.active()) restore();
@@ -164,8 +194,48 @@ export function initWebsite() {
       if (hovering.matches) backendCycle.release();
     });
   });
+  scopeCards.forEach((card) => {
+    const scope = card.dataset.scope === "blacklist" ? "blacklist" : "whitelist";
+    const activate = () => {
+      ensureLoaded();
+      clearTimeout(scopeReleaseTimer);
+      scopeReleaseTimer = undefined;
+      scopeHeld = true;
+      setScopeActive(scope);
+      const nextStatus: DemoState = scope === "blacklist" ? "scope_blacklist" : "scope_whitelist";
+      state.update({ route: "whitelist", status: nextStatus, active: false });
+      phone.dataset.effect = "none";
+      shown = { ...shown, route: "whitelist", status: nextStatus };
+      renderStatus();
+      if (drift.active()) restore();
+    };
+    const release = () => {
+      clearTimeout(scopeReleaseTimer);
+      scopeReleaseTimer = setTimeout(() => clearScopeHold(true), 2500);
+    };
+    listen(card, "click", () => {
+      activate();
+      if (!hovering.matches) release();
+    });
+    listen(card, "focus", () => {
+      if (card.matches(":focus-visible")) activate();
+    });
+    listen(card, "blur", release);
+    listen(card, "mouseenter", () => {
+      if (hovering.matches) activate();
+    });
+    listen(card, "mouseleave", () => {
+      if (hovering.matches) release();
+    });
+  });
   const settingCards = [...document.querySelectorAll<HTMLElement>("[data-setting]")];
-  const resetSettingCards = () => renderSettingCards(settingCards, DEFAULT_SETTINGS, "", content.settingValues);
+  let lastDemoSettings: DemoSettings = DEFAULT_SETTINGS;
+  let lastDemoFocus = "";
+  const resetSettingCards = () => {
+    lastDemoSettings = DEFAULT_SETTINGS;
+    lastDemoFocus = "";
+    renderSettingCards(settingCards, DEFAULT_SETTINGS, "", content.settingValues);
+  };
   let timeout: ReturnType<typeof setTimeout> | undefined;
   const attempts = createShowcaseAttempts();
   let runtime: "wasm" | "js";
@@ -192,13 +262,29 @@ export function initWebsite() {
       return;
     }
     state.fail();
+    placeholder.dataset.state = "error";
     recovery.hidden = false;
     message.textContent = content.locale === "zh" ? "界面暂时不可用" : "Interface unavailable";
-    placeholder.querySelector(".loader")?.setAttribute("hidden", "");
     window.dispatchEvent(new Event("gazekeep:scene-ready"));
   }
+  let loadStarted = false,
+    frameLoad = 0,
+    idleHandle = 0,
+    idleTimer: ReturnType<typeof setTimeout> | undefined;
+  const demandCleanups: (() => void)[] = [];
+  const cancelPendingLoad = () => {
+    cancelAnimationFrame(frameLoad);
+    frameLoad = 0;
+    if (idleHandle && typeof cancelIdleCallback === "function") cancelIdleCallback(idleHandle);
+    idleHandle = 0;
+    clearTimeout(idleTimer);
+    idleTimer = undefined;
+    demandCleanups.splice(0).forEach((fn) => fn());
+  };
   function load() {
     if (disposed) return;
+    loadStarted = true;
+    cancelPendingLoad();
     clearTimeout(timeout);
     state.loading();
     renderGate.reset();
@@ -207,15 +293,18 @@ export function initWebsite() {
     drift.clear();
     clearTimeout(renderTimeout);
     resetSettingCards();
+    delete placeholder.dataset.state;
     recovery.hidden = true;
     screen.dataset.ready = "false";
     renderStatus();
     message.textContent = content.loading;
-    placeholder.querySelector(".loader")?.removeAttribute("hidden");
     const attempt = attempts.begin();
-    frame.src = `/kmp-showcase/${runtime}/index.html?attempt=${attempt}`;
+    frame.src = `/kmp-showcase/${runtime}/index.html?attempt=${attempt}&lang=${content.locale}`;
     timeout = setTimeout(() => failed(attempt), 60000);
   }
+  const ensureLoaded = () => {
+    if (!disposed && !loadStarted) load();
+  };
   listen(window, "gazekeep:ready", ((event: CustomEvent<{ attempt: number }>) => {
     if (!attempts.ready(event.detail?.attempt)) return;
     const bridge = (frame.contentWindow as DemoWindow | null)?.GazeKeepWebShowcaseBridge;
@@ -236,21 +325,38 @@ export function initWebsite() {
       },
     });
     setAppearance();
-    screen.dataset.ready = "true";
-    renderStatus();
     recovery.hidden = true;
   }) as EventListener);
   listen(window, "gazekeep:rendered", ((event: CustomEvent<{ attempt: number; route: string; revision: number }>) => {
     const d = event.detail;
     if (!attempts.ready(d?.attempt) || !renderGate.accept(d.route, d.revision)) return;
     clearTimeout(renderTimeout);
+    if (screen.dataset.ready !== "true") {
+      screen.dataset.ready = "true";
+      renderStatus();
+      recovery.hidden = true;
+    }
     window.dispatchEvent(new Event("gazekeep:scene-ready"));
   }) as EventListener);
-  // 设置区卡片随内屏演示同步取值，并标出正在演示的一项。
-  listen(window, "gazekeep:demo", ((event: CustomEvent<DemoSettings & { attempt: number; focus: string }>) => {
+  // 设置区卡片与专注范围按钮随内屏演示同步，并标出当前状态。
+  listen(window, "gazekeep:demo", ((
+    event: CustomEvent<DemoSettings & { attempt: number; focus: string; appScope?: "whitelist" | "blacklist" }>,
+  ) => {
     const d = event.detail;
     if (!attempts.ready(d?.attempt)) return;
+    lastDemoSettings = d;
+    lastDemoFocus = d.focus;
     renderSettingCards(settingCards, d, d.focus, content.settingValues);
+    if (d.appScope === "whitelist" || d.appScope === "blacklist") {
+      setScopeActive(d.appScope);
+      if (shown.scene === "apps") {
+        const nextStatus: DemoState = d.appScope === "blacklist" ? "scope_blacklist" : "scope_whitelist";
+        if (shown.status !== nextStatus) {
+          shown = { ...shown, status: nextStatus };
+          renderStatus();
+        }
+      }
+    }
   }) as EventListener);
   listen(window, "gazekeep:error", ((event: CustomEvent<{ attempt: number }>) => {
     failed(event.detail?.attempt);
@@ -281,16 +387,65 @@ export function initWebsite() {
     { passive: true },
   );
   disposers.push(initSiteChrome(listen, load));
+  disposers.push(
+    initLocaleSwitch({
+      page: "home",
+      frame,
+      onApplied(next) {
+        content.locale = next.locale;
+        content.status = next.status;
+        content.hint = next.hint;
+        content.tour = next.tour;
+        content.settingValues = next.settings.values;
+        content.loading = next.loading;
+        themeSwitch.updateLabels(next.theme);
+        renderStatus();
+        renderSettingCards(settingCards, lastDemoSettings, lastDemoFocus, content.settingValues);
+        if (!recovery.hidden) {
+          message.textContent = next.locale === "zh" ? "界面暂时不可用" : "Interface unavailable";
+        } else if (screen.dataset.ready !== "true") {
+          message.textContent = next.loading;
+        }
+        setAppearance();
+      },
+    }),
+  );
   disposers.push(initScrollReveal());
 
-  const fallbackTimeout = window.setTimeout.bind(window);
-  const idle =
-    "requestIdleCallback" in window ? window.requestIdleCallback(load, { timeout: 1500 }) : fallbackTimeout(load, 600);
+  // 高速/未知网络让出首帧机身绘制后于浏览器空闲期（上限 700ms）挂载 KMP；Save-Data 或 2G/3G 等慢网仅在滚动或交互时按需加载。
+  const navConnection = (navigator as Navigator & { connection?: NetworkInformationLike }).connection;
+  const loadMode = resolveShowcaseLoadMode(navConnection);
+  const onDemand = (target: EventTarget, type: string, fn: EventListener, options?: AddEventListenerOptions) => {
+    target.addEventListener(type, fn, options);
+    demandCleanups.push(() => target.removeEventListener(type, fn, options));
+  };
+  const triggerByPosition = () => {
+    if (shouldAutoLoadShowcase({ scrollY, hash: location.hash })) ensureLoaded();
+  };
+  onDemand(window, "scroll", triggerByPosition, { passive: true });
+  onDemand(window, "hashchange", triggerByPosition);
+  onDemand(screen, "pointerdown", () => ensureLoaded(), { passive: true });
+  if (loadMode === "idle" || shouldAutoLoadShowcase({ scrollY, hash: location.hash })) {
+    onDemand(screen, "pointerenter", () => {
+      if (finePointer.matches) ensureLoaded();
+    });
+    frameLoad = requestAnimationFrame(() => {
+      if (disposed || loadStarted) return;
+      if (shouldAutoLoadShowcase({ scrollY, hash: location.hash })) {
+        ensureLoaded();
+        return;
+      }
+      if (typeof requestIdleCallback === "function") {
+        idleHandle = requestIdleCallback(() => ensureLoaded(), { timeout: 700 });
+      } else {
+        idleTimer = setTimeout(() => ensureLoaded(), 250);
+      }
+    });
+  }
   disposers.push(() => {
     clearTimeout(timeout);
     clearTimeout(renderTimeout);
-    if ("cancelIdleCallback" in window) window.cancelIdleCallback(idle);
-    else clearTimeout(idle);
+    cancelPendingLoad();
   });
   disposers.push(initStoryScroll(sync, phoneDisplay.update, (route) => renderGate.ready(route)));
   listen(window, "pagehide", ((event: PageTransitionEvent) => {

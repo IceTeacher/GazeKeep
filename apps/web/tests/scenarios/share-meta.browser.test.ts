@@ -4,6 +4,7 @@ const origin = "https://gazekeep.rainafter.cn";
 
 test.each(["zh", "en"] as const)("%s 页面提供完整的 Open Graph 与 Twitter 分享信息", async (lang) => {
   const { meta } = inject("pages")[lang];
+  const changelog = inject("changelogPages")[lang];
   const url = `${origin}/${lang}/`;
   const image = `${origin}/og/og-${lang}.png`;
   expect(meta["og:url"]).toBe(url);
@@ -21,6 +22,8 @@ test.each(["zh", "en"] as const)("%s 页面提供完整的 Open Graph 与 Twitte
   expect(meta["twitter:card"]).toBe("summary_large_image");
   expect(meta["og:locale"]).toBe(lang === "zh" ? "zh_CN" : "en_US");
   expect(meta["og:locale:alternate"]).toBe(lang === "zh" ? "en_US" : "zh_CN");
+  expect(changelog.meta["og:url"]).toBe(`${origin}/${lang}/changelog/`);
+  expect(changelog.meta["og:locale"]).toBe(lang === "zh" ? "zh_CN" : "en_US");
   // 图片需随站点发布，尺寸与声明一致。
   const response = await fetch(`/og/og-${lang}.png`);
   expect(response.ok).toBe(true);

@@ -6,7 +6,13 @@ test.each(["zh", "en"] as const)("%s 页面经同站 /stats 代理加载 Umami �
   const { scripts } = inject("pages")[lang];
   const umami = scripts.filter((script) => script.src?.startsWith("/stats/"));
   expect(umami).toEqual([
-    { src: "/stats/script.js", defer: "", "data-website-id": websiteId, "data-domains": "gazekeep.rainafter.cn" },
-    { src: "/stats/recorder.js", defer: "", "data-website-id": websiteId },
+    {
+      src: "/stats/script.js",
+      async: "",
+      fetchpriority: "low",
+      "data-website-id": websiteId,
+      "data-domains": "gazekeep.rainafter.cn",
+    },
+    { src: "/stats/recorder.js", async: "", fetchpriority: "low", "data-website-id": websiteId },
   ]);
 });

@@ -14,6 +14,7 @@ export type RenderedPage = {
 declare module "vitest" {
   export interface ProvidedContext {
     pages: Record<"zh" | "en", RenderedPage>;
+    changelogPages: Record<"zh" | "en", RenderedPage>;
   }
 }
 
@@ -49,11 +50,11 @@ export default async function setup(project: TestProject) {
   );
   let stderr = "";
   astro.stderr.on("data", (chunk) => (stderr += chunk));
-  const fetchPage = async (lang: string) => {
+  const fetchPage = async (urlPath: string) => {
     for (let i = 0; i < 300; i++) {
       if (astro.exitCode !== null) throw new Error(`Astro 开发服务退出：${stderr}`);
       try {
-        const response = await fetch(`http://127.0.0.1:${port}/${lang}/`);
+        const response = await fetch(`http://127.0.0.1:${port}${urlPath}`);
         if (response.ok) return await response.text();
       } catch {
         /* 服务尚未就绪。 */
@@ -63,10 +64,11 @@ export default async function setup(project: TestProject) {
     throw new Error(`Astro 开发服务 30 秒内未就绪：${stderr}`);
   };
   try {
-    const render = async (lang: "zh" | "en"): Promise<RenderedPage> => {
-      const html = await fetchPage(lang);
+    const render = async (lang: "zh" | "en", subPath = ""): Promise<RenderedPage> => {
+      const urlPath = `/${lang}/${subPath}`;
+      const html = await fetchPage(urlPath);
       const body = /<body[^>]*>([\s\S]*)<\/body>/.exec(html)?.[1];
-      if (!body) throw new Error(`/${lang}/ 渲染结果缺少 body`);
+      if (!body) throw new Error(`${urlPath} 渲染结果缺少 body`);
       const head = /<head[^>]*>([\s\S]*)<\/head>/.exec(html)?.[1] ?? "";
       const meta: Record<string, string> = {};
       for (const [tag] of head.matchAll(/<meta\b[^>]*>/g)) {
@@ -90,6 +92,10 @@ export default async function setup(project: TestProject) {
       };
     };
     project.provide("pages", { zh: await render("zh"), en: await render("en") });
+    project.provide("changelogPages", {
+      zh: await render("zh", "changelog/"),
+      en: await render("en", "changelog/"),
+    });
   } finally {
     // 结束整个进程组，避免开发服务的子进程残留。
     if (astro.pid) process.kill(-astro.pid, "SIGTERM");

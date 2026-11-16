@@ -24,11 +24,11 @@ Release 启用 R8 与资源压缩，原生库压缩存放（`useLegacyPackaging`
 - 记录代码/APK 标识、设备与 ROM、后端/框架版本、系统超时、实际命中候选和未执行项，不从主机测试推断硬件通过。
 - 实测范围、未测声明与已知限制记录在[任务清单](../plans/todo.md)，不进入 Release 正文。
 
-未授权发布时交付本地可审查结果，不创建下载链接或上传安装包。`v*.*.*` tag 须指向 `main` 上的提交，并先合入发布说明 `docs/releases/<tag>.md`；流水线以正式签名构建 Release，确认 `main` 上同一提交的流水线已通过，各 ABI 包通过 APK 静态门禁与证书指纹核对后创建标题为 tag（如 `v1.1.3`）的 GitHub 预发布，附各 APK 与 SHA-256 文件。设备验收未完成前不转为正式版。规则见[持续集成](contributing.md#持续集成)。
+未授权发布时交付本地可审查结果，不创建下载链接或上传安装包。`v*.*.*` tag 须指向 `main` 上的提交，并先合入双语发布说明 `docs/releases/<tag>.md` 与 `docs/releases/<tag>.en.md`；流水线以正式签名构建 Release，确认 `main` 上同一提交的流水线已通过，各 ABI 包通过 APK 静态门禁与证书指纹核对后创建标题为 tag（如 `v1.1.3`）的 GitHub 预发布，附各 APK 与 SHA-256 文件。设备验收未完成前不转为正式版。规则见[持续集成](contributing.md#持续集成)。
 
 ## 发布说明
 
-发布说明 `docs/releases/v<版本>.md` 就是 GitHub Release 正文的前两节，只依次包含「## 更新日志」与「## 启用步骤」，不写一级标题；`verify:docs` 检查文件名与章节。更新日志按「新增 / 优化 / 修复」分组，面向用户描述可感知的变化，涉及签名或权限变化时在更新日志中单列说明，不把未验证能力写成已验证；启用步骤写 Root 与非 Root 环境的启用、自检与必要的 ROM 设置。「## 安装包」（架构选择说明与 APK、ABI、大小、SHA-256 表）由 `release.yml` 生成追加；签名证书与提交只写入 CI 的 Step summary。发布后如在 GitHub 上修改正文，同步修改该文件。
+发布说明采用双语配对文件，同时作为 GitHub Release 正文与官网双语更新日志的数据源：`docs/releases/v<版本>.md` 只依次包含「## 更新日志」与「## 启用步骤」两节，`docs/releases/v<版本>.en.md` 只依次包含「## Changelog」与「## Setup」两节，均不写一级标题；`verify:docs` 检查文件名、双语配对与章节，发布流水线 `release.yml` 强制要求两份文件均非空。更新日志按「新增 / 优化 / 修复」（英文对应 Added / Improved / Fixed）分组，面向用户描述可感知的变化，涉及签名或权限变化时在更新日志中单列说明，不把未验证能力写成已验证；启用步骤写 Root 与非 Root 环境的启用、自检与必要的 ROM 设置。「## 安装包」（架构选择说明与 APK、ABI、大小、SHA-256 表）由 `release.yml` 生成追加；签名证书与提交只写入 CI 的 Step summary。发布后如在 GitHub 上修改正文，同步修改对应文件。
 
 ## LSPosed 模块仓库
 

@@ -138,6 +138,10 @@
 #screen-touch[data-dragging="true"] {
   cursor: grabbing;
 }
+.phone-screen:not([data-ready="true"]) {
+  pointer-events: auto;
+  touch-action: pan-y pinch-zoom;
+}
 .phone-screen:not([data-ready="true"]) #screen-touch {
   pointer-events: none;
 }
@@ -235,23 +239,9 @@
   gap: 20px;
   color: var(--placeholder-ink);
   font-size: 12px;
-  transition: opacity 0.3s;
 }
 #phone-placeholder img {
   border-radius: 16px;
-}
-.loader {
-  width: 18px;
-  height: 18px;
-  border: 1px solid var(--loader-track);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 #retry-showcase {
   font-size: 16px;

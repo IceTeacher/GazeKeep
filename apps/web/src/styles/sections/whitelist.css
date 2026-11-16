@@ -1,4 +1,85 @@
-/* 专注范围：手机由右侧移到左侧，内容靠右；勾选与搜索由手机内的真实应用列表演示。 */
-.whitelist .section-heading {
+/* 专注范围：手机由右侧移到左侧，内容靠右；勾选、搜索与黑白名单切换由手机内的真实应用列表演示，并与右侧模式按钮双向同步。 */
+.whitelist .section-heading,
+.whitelist .whitelist-modes {
   margin-left: auto;
+}
+.whitelist-modes {
+  display: grid;
+  gap: 10px;
+  margin-top: 36px;
+  position: relative;
+  z-index: 6;
+}
+.scope-card {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  column-gap: 14px;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  padding: 16px 18px 16px 20px;
+  border: 0;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface) 58%, transparent);
+  text-align: left;
+  position: relative;
+  opacity: 0.62;
+  transition:
+    opacity 0.25s,
+    background-color 0.25s,
+    transform 0.25s;
+}
+.scope-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 16px;
+  bottom: 16px;
+  width: 2.5px;
+  border-radius: 2px;
+  background: var(--accent);
+  transform: scaleY(0);
+  transition: transform 0.3s;
+}
+.scope-card:hover,
+.scope-card:focus-visible {
+  opacity: 0.9;
+}
+.scope-card[aria-pressed="true"] {
+  opacity: 1;
+  background: var(--surface);
+}
+.scope-card[aria-pressed="true"]::before {
+  transform: none;
+}
+.scope-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--surface-alt);
+  color: var(--muted);
+  transition:
+    background-color 0.25s,
+    color 0.25s;
+}
+.scope-card[aria-pressed="true"] .scope-icon {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+}
+.scope-copy {
+  display: grid;
+  gap: 3px;
+}
+.scope-copy strong {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+.scope-copy span {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--muted);
 }

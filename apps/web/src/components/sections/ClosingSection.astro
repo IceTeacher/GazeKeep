@@ -18,7 +18,7 @@ const { content: c } = Astro.props;
     {c.footer.text}
   </p>
   <a class="button" href={site.download} data-reveal style="--reveal-order: 3">
-    {c.download}
+    <span>{c.download}</span>
     <ArrowUpRight size={16} stroke-width={1.8} />
   </a>
 </section>

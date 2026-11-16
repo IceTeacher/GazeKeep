@@ -65,6 +65,16 @@ export function initHeroBackdrop() {
   async function create() {
     if (!("gpu" in navigator)) return;
     try {
+      // 先探测 WebGPU 适配器并在首帧机身与内屏发起加载之后再延迟拉取 1.3 MB 的 shaders 运行时，避免无适配器环境白耗流量及抢占首帧资源。
+      await new Promise<void>((resolve) => {
+        const start = () => setTimeout(resolve, 120);
+        if ("requestAnimationFrame" in window) requestAnimationFrame(start);
+        else setTimeout(resolve, 120);
+      });
+      if (disposed || reduce.matches) return;
+      const gpu = (navigator as Navigator & { gpu?: { requestAdapter?: () => Promise<unknown> } }).gpu;
+      const adapter = await gpu?.requestAdapter?.();
+      if (!adapter || disposed || reduce.matches) return;
       const { createShader } = await import("shaders/js");
       if (disposed) return;
       instance = await createShader(
