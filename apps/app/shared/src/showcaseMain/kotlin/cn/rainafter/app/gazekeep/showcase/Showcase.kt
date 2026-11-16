@@ -17,6 +17,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,8 +45,13 @@ import cn.rainafter.app.gazekeep.ui.contract.PlatformActions
 import cn.rainafter.app.gazekeep.ui.contract.SelfTestState
 import cn.rainafter.app.gazekeep.ui.contract.SystemInfo
 import cn.rainafter.app.gazekeep.ui.navigation.SettingsBackStack
-import cn.rainafter.app.gazekeep.ui.navigation.SettingsNavHost
+import cn.rainafter.app.gazekeep.ui.navigation.SettingsNavContainer
 import cn.rainafter.app.gazekeep.ui.navigation.SettingsScreen
+import cn.rainafter.app.gazekeep.ui.screens.AppsScreen
+import cn.rainafter.app.gazekeep.ui.screens.BackendScreen
+import cn.rainafter.app.gazekeep.ui.screens.HomeScreen
+import cn.rainafter.app.gazekeep.ui.screens.PrivacyScreen
+import cn.rainafter.app.gazekeep.ui.screens.SettingsTabScreen
 import cn.rainafter.app.gazekeep.ui.showcase.LocalShowcaseDriver
 import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseScripts
 import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseSettings
@@ -101,7 +107,15 @@ private val ROUTES = mapOf(
   "privacy" to SettingsScreen.Privacy,
 )
 private const val SCENE_SETTLE_MS = 250L
-private val backStack = SettingsBackStack(mutableStateListOf(SettingsScreen.Home), setOf(SettingsScreen.SelfTest))
+
+// 展示入口只保留与官网叙事及交互相关的五个页面，裁剪自检、日志、关于与许可页以消除 Regex 与大图标体积。
+private val SHOWCASE_UNAVAILABLE_SCREENS = setOf(
+  SettingsScreen.SelfTest,
+  SettingsScreen.Logs,
+  SettingsScreen.About,
+  SettingsScreen.Notices,
+)
+private val backStack = SettingsBackStack(mutableStateListOf(SettingsScreen.Home), SHOWCASE_UNAVAILABLE_SCREENS)
 
 // 仅供官网演示，平台操作不连接 Android 或申请硬件权限；访客的操作只改内存中的演示状态。
 private object DemoController : GazeKeepController {
@@ -373,18 +387,14 @@ fun startShowcase() {
         },
       ) {
         val state by DemoController.state.collectAsState()
-        val test by DemoController.selfTest.collectAsState()
         Box(Modifier.fillMaxSize()) {
           CompositionLocalProvider(LocalShowcaseDriver provides director) {
-            SettingsNavHost(
+            ShowcaseNavHost(
               backStack = backStack,
               controller = DemoController,
               actions = DemoActions,
               state = state,
-              test = test,
-              homeStatusOverride = if (demoStatus.value ==
-                "sampling"
-              ) {
+              homeStatusOverride = if (demoStatus.value == "sampling") {
                 stringResource(Res.string.m0_capturing)
               } else {
                 null
@@ -429,6 +439,62 @@ fun startShowcase() {
     LaunchedEffect(Unit) {
       withFrameNanos {}
       notifyReady()
+    }
+  }
+}
+
+/** 官网展示专用导航宿主，仅链接实际演示页以便 Kotlin/Wasm 死代码消除裁剪未用界面与资源。 */
+@Composable
+private fun ShowcaseNavHost(
+  backStack: SettingsBackStack,
+  controller: GazeKeepController,
+  actions: PlatformActions,
+  state: ControllerState,
+  homeStatusOverride: String?,
+) {
+  val scope = rememberCoroutineScope()
+  SettingsNavContainer(backStack, controller, actions) { screen, bottomBar ->
+    when (screen) {
+      SettingsScreen.Home -> HomeScreen(
+        state = state,
+        scope = scope,
+        controller = controller,
+        actions = actions,
+        onNavigate = backStack::navigateTo,
+        bottomBar = { bottomBar(SettingsScreen.Home) },
+        statusSubtitleOverride = homeStatusOverride,
+      )
+
+      SettingsScreen.Settings -> SettingsTabScreen(
+        state = state,
+        scope = scope,
+        controller = controller,
+        actions = actions,
+        onNavigate = backStack::navigateTo,
+        bottomBar = { bottomBar(SettingsScreen.Settings) },
+      )
+
+      SettingsScreen.Backend -> BackendScreen(
+        state = state,
+        scope = scope,
+        controller = controller,
+        actions = actions,
+        onBack = backStack::navigateBack,
+      )
+
+      SettingsScreen.Apps -> AppsScreen(
+        state = state,
+        scope = scope,
+        controller = controller,
+        actions = actions,
+        onBack = backStack::navigateBack,
+      )
+
+      SettingsScreen.Privacy -> PrivacyScreen(
+        onBack = backStack::navigateBack,
+      )
+
+      else -> Unit
     }
   }
 }

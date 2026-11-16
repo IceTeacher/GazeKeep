@@ -9,6 +9,11 @@ plugins {
   alias(libs.plugins.composeCompiler)
 }
 
+composeCompiler {
+  includeSourceInformation = false
+  includeTraceMarkers = false
+}
+
 kotlin {
   wasmJs {
     browser()
