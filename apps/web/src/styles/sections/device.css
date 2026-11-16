@@ -138,6 +138,10 @@
 #screen-touch[data-dragging="true"] {
   cursor: grabbing;
 }
+.phone-screen:not([data-ready="true"]) {
+  pointer-events: auto;
+  touch-action: pan-y pinch-zoom;
+}
 .phone-screen:not([data-ready="true"]) #screen-touch {
   pointer-events: none;
 }

@@ -5,6 +5,7 @@ import {
   findReferencedWasm,
   hashedAssetName,
   renderShowcaseIndex,
+  shouldCopyShowcaseAsset,
 } from "../../scripts/kmp-preload.ts";
 
 test("KMP 入口使用自动 publicPath 时构建失败，避免托管方注入的页尾脚本改写 wasm 地址", () => {
@@ -48,4 +49,41 @@ test("展示包构建对入口脚本生成稳定指纹、仅预加载被引用 w
   );
   expect(rendered).toContain(`<script type="module" src="./${hashed}"></script>`);
   expect(() => renderShowcaseIndex("<html><!--SHOWCASE_ENTRY--></html>", preloads, hashed)).toThrow(/SHOWCASE_PRELOAD/);
+});
+
+test("展示资源复制只保留运行时实际引用的 wasm/mjs，剔除 source map、重复 skiko.wasm 与未用图标", () => {
+  const entry = `const s="file:///.../kotlin/skiko.mjs";e.exports=n.p+"bfa5198.wasm";`;
+  const referencedWasm = ["bfa5198.wasm"];
+
+  expect(shouldCopyShowcaseAsset("shared.js.map", entry, referencedWasm)).toBe(false);
+  expect(shouldCopyShowcaseAsset("skiko.wasm", entry, referencedWasm)).toBe(false);
+  expect(shouldCopyShowcaseAsset("bfa5198.wasm", entry, referencedWasm)).toBe(true);
+  expect(shouldCopyShowcaseAsset("skikod8.mjs", entry, referencedWasm)).toBe(false);
+  expect(shouldCopyShowcaseAsset("skiko.mjs", entry, referencedWasm)).toBe(false);
+  expect(shouldCopyShowcaseAsset("js-reexport-symbols.mjs", entry, referencedWasm)).toBe(false);
+  expect(
+    shouldCopyShowcaseAsset(
+      "composeResources/gazekeep.shared.generated.resources/drawable/app_icon.png",
+      entry,
+      referencedWasm,
+    ),
+  ).toBe(false);
+  expect(
+    shouldCopyShowcaseAsset(
+      "composeResources/gazekeep.shared.generated.resources/files/showcase_cjk.otf",
+      entry,
+      referencedWasm,
+    ),
+  ).toBe(true);
+  expect(
+    shouldCopyShowcaseAsset(
+      "composeResources/gazekeep.shared.generated.resources/values/strings.commonMain.cvr",
+      entry,
+      referencedWasm,
+    ),
+  ).toBe(true);
+
+  // 若未来入口脚本实际通过 import/URL 引用外部 skiko.mjs，则仍会保留。
+  const externalImport = `${entry};import("./skiko.mjs");`;
+  expect(shouldCopyShowcaseAsset("skiko.mjs", externalImport, referencedWasm)).toBe(true);
 });

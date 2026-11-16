@@ -26,6 +26,37 @@ export interface ShowcasePreloadOptions {
   hasStrings: boolean;
 }
 
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function hasExternalModuleReference(entryCode: string, filename: string): boolean {
+  const escaped = escapeRegExp(filename);
+  return new RegExp(`(?:import\\s*\\(|new\\s+URL\\(|from\\s+|\\.p\\s*\\+\\s*)["'](?:\\.\\/)?${escaped}["']`).test(
+    entryCode,
+  );
+}
+
+/**
+ * 过滤展示页无需分发到 CDN 的构建产物：
+ * 剔除 source map、js 冗余的未引用 skiko.wasm/skikod8.mjs/内联化 mjs，以及 Showcase 裁剪掉的 About 图标。
+ */
+export function shouldCopyShowcaseAsset(
+  relativePath: string,
+  entryCode: string,
+  referencedWasm: readonly string[],
+): boolean {
+  const normalized = relativePath.replaceAll("\\", "/").replace(/^\.\//, "");
+  if (!normalized || normalized.endsWith(".map")) return false;
+  if (normalized === "composeResources/gazekeep.shared.generated.resources/drawable/app_icon.png") return false;
+  if (normalized.endsWith(".wasm")) return referencedWasm.includes(normalized);
+  if (normalized === "skikod8.mjs") return false;
+  if (normalized === "skiko.mjs" || normalized === "js-reexport-symbols.mjs") {
+    return hasExternalModuleReference(entryCode, normalized);
+  }
+  return true;
+}
+
 /** 生成展示页 iframe 所需的并行预加载标签，将原本串行的入口、WASM、字体与词条表折叠到同一轮网络往返。 */
 export function buildShowcasePreloads({ entry, wasmFiles, hasFont, hasStrings }: ShowcasePreloadOptions): string {
   const links = [

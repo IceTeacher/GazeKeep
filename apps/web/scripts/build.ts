@@ -1,8 +1,15 @@
 import { spawnSync } from "node:child_process";
 import { access, cp, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { assertFixedPublicPath } from "./kmp-showcase.ts";
-import { buildShowcasePreloads, findReferencedWasm, hashedAssetName, renderShowcaseIndex } from "./kmp-preload.ts";
+import {
+  buildShowcasePreloads,
+  findReferencedWasm,
+  hashedAssetName,
+  renderShowcaseIndex,
+  shouldCopyShowcaseAsset,
+} from "./kmp-preload.ts";
 
 async function exists(url: URL): Promise<boolean> {
   try {
@@ -29,21 +36,27 @@ for (const [target, folder] of [
   const output = new URL(`../public/kmp-showcase/${folder}/`, import.meta.url);
   const source = `${app}/shared/build/dist/${target}/productionExecutable/`;
   await access(source);
+  const sourceFiles = await readdir(source);
+  const entry =
+    sourceFiles.find((name) => name === "GazeKeep-shared.mjs") ??
+    sourceFiles.find((name) => name === "GazeKeep-shared.js") ??
+    sourceFiles.find((name) => name === "shared.js");
+  if (!entry) throw new Error(`找不到 ${target} 浏览器入口：${sourceFiles.join(", ")}`);
+  const entryCode = await readFile(`${source}${entry}`, "utf8");
+  assertFixedPublicPath(entryCode, target);
+  const wasmFiles = findReferencedWasm(entryCode, sourceFiles);
   await rm(output, { recursive: true, force: true });
   await mkdir(output, { recursive: true });
-  await cp(source, output, { recursive: true, filter: (path) => !path.endsWith(".map") });
-  const files = await readdir(output);
-  const entry =
-    files.find((name) => name === "GazeKeep-shared.mjs") ??
-    files.find((name) => name === "GazeKeep-shared.js") ??
-    files.find((name) => name === "shared.js");
-  if (!entry) throw new Error(`找不到 ${target} 浏览器入口：${files.join(", ")}`);
-  const entryCode = await readFile(new URL(entry, output), "utf8");
-  assertFixedPublicPath(entryCode, target);
+  await cp(source, output, {
+    recursive: true,
+    filter: (item) => {
+      const rel = relative(source, item);
+      return rel ? shouldCopyShowcaseAsset(rel, entryCode, wasmFiles) : true;
+    },
+  });
   // 对未带内容哈希的入口脚本附加内容指纹，使 CDN 与浏览器可长期强缓存并跳过重复协商。
   const hashedEntry = hashedAssetName(entry, entryCode);
   await rename(new URL(entry, output), new URL(hashedEntry, output));
-  const wasmFiles = findReferencedWasm(entryCode, files);
   const [hasFont, hasStrings] = await Promise.all([
     exists(new URL("composeResources/gazekeep.shared.generated.resources/files/showcase_cjk.otf", output)),
     exists(new URL("composeResources/gazekeep.shared.generated.resources/values/strings.commonMain.cvr", output)),

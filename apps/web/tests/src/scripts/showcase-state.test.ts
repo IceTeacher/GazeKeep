@@ -6,6 +6,8 @@ import {
   createShowcaseState,
   createDriftTracker,
   liveStatusText,
+  resolveShowcaseLoadMode,
+  shouldAutoLoadShowcase,
 } from "../../../src/scripts/showcase-state.ts";
 
 test("桥接延迟就绪时重放最新页面、状态、演示场景和主题", () => {
@@ -119,4 +121,24 @@ test("内屏未就绪或处于其他阶段时保留演示状态文案", () => {
   expect(
     liveStatusText(labels, { route: "home", status: "sampling", scene: "detect", ready: true, finePointer: false }),
   ).toBe("临近熄屏 · 短时采样");
+});
+
+test("自适应加载模式：默认与 4G 走空闲预载，Save-Data 或慢速移动网络走按需加载", () => {
+  expect(resolveShowcaseLoadMode(undefined)).toBe("idle");
+  expect(resolveShowcaseLoadMode(null)).toBe("idle");
+  expect(resolveShowcaseLoadMode({ effectiveType: "4g", saveData: false })).toBe("idle");
+  expect(resolveShowcaseLoadMode({ effectiveType: "4g", saveData: true })).toBe("demand");
+  expect(resolveShowcaseLoadMode({ effectiveType: "slow-2g" })).toBe("demand");
+  expect(resolveShowcaseLoadMode({ effectiveType: "2g" })).toBe("demand");
+  expect(resolveShowcaseLoadMode({ effectiveType: "3g" })).toBe("demand");
+});
+
+test("首屏以下滚动位置或展示区段锚点立即触发 KMP 挂载", () => {
+  expect(shouldAutoLoadShowcase({ scrollY: 0, hash: "" })).toBe(false);
+  expect(shouldAutoLoadShowcase({ scrollY: 16, hash: "#hero" })).toBe(false);
+  expect(shouldAutoLoadShowcase({ scrollY: 16, hash: "#privacy" })).toBe(false);
+  expect(shouldAutoLoadShowcase({ scrollY: 25, hash: "" })).toBe(true);
+  for (const hash of ["#workflow", "#backends", "#whitelist", "#settings"]) {
+    expect(shouldAutoLoadShowcase({ scrollY: 0, hash })).toBe(true);
+  }
 });

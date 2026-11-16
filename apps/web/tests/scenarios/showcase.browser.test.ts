@@ -302,3 +302,39 @@ test("标签页隐藏时暂停后端轮换与内屏演示，回到前台后继�
   await expect.poll(() => activeCalls().at(-1)).toBe(true);
   await expect.poll(pressedBackend, { timeout: 3_000 }).toBe("shizuku");
 });
+
+test("Save-Data 或慢速网络在首屏空闲时不主动加载 KMP，点击手机或向下滚动时立即触发挂载", async () => {
+  const original = Object.getOwnPropertyDescriptor(Navigator.prototype, "connection");
+  let mockConn: { saveData?: boolean; effectiveType?: string } = { saveData: true, effectiveType: "4g" };
+  Object.defineProperty(navigator, "connection", { configurable: true, get: () => mockConn });
+  try {
+    await page.viewport(1440, 900);
+    site = await mountWebsite("zh");
+    await nextFrame();
+    await nextFrame();
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    const frame = document.querySelector<HTMLIFrameElement>("#kmp-frame")!;
+    expect(frame.getAttribute("src")).toBeNull();
+    expect(screen().dataset.ready).toBe("false");
+
+    // 轻触或点击首屏手机内屏立即触发挂载。
+    screen().dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    await expect.poll(() => frame.getAttribute("src"), { timeout: SHOWCASE_TIMEOUT }).toContain("/kmp-showcase/");
+    await expect.poll(() => screen().dataset.ready, { timeout: SHOWCASE_TIMEOUT }).toBe("true");
+
+    site.unmount();
+    mockConn = { saveData: false, effectiveType: "3g" };
+    site = await mountWebsite("zh");
+    await nextFrame();
+    await nextFrame();
+    const frame2 = document.querySelector<HTMLIFrameElement>("#kmp-frame")!;
+    expect(frame2.getAttribute("src")).toBeNull();
+
+    await dock(".story-heading");
+    await expect.poll(() => frame2.getAttribute("src"), { timeout: SHOWCASE_TIMEOUT }).toContain("/kmp-showcase/");
+    await expect.poll(() => screen().dataset.ready, { timeout: SHOWCASE_TIMEOUT }).toBe("true");
+  } finally {
+    if (original) Object.defineProperty(Navigator.prototype, "connection", original);
+    delete (navigator as { connection?: unknown }).connection;
+  }
+});

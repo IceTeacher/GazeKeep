@@ -1,11 +1,14 @@
 import {
   type Bridge,
+  type NetworkInformationLike,
   createShowcaseState,
   createShowcaseAttempts,
   createRenderGate,
   createDriftTracker,
   chooseRuntime,
   liveStatusText,
+  resolveShowcaseLoadMode,
+  shouldAutoLoadShowcase,
 } from "./showcase-state.ts";
 import { initScreenTouch } from "./screen-touch.ts";
 import { createAutoCycle } from "./demo-cycle.ts";
@@ -44,6 +47,7 @@ export function initWebsite() {
     renderTimeout: ReturnType<typeof setTimeout> | undefined;
   const frame = document.querySelector<HTMLIFrameElement>("#kmp-frame")!;
   const screen = document.querySelector<HTMLElement>(".phone-screen")!;
+  screen.dataset.ready = "false";
   const phone = document.querySelector<HTMLElement>("#phone-chassis")!;
   const placeholder = document.querySelector<HTMLElement>("#phone-placeholder")!;
   const recovery = document.querySelector<HTMLButtonElement>("#retry-showcase")!;
@@ -146,6 +150,7 @@ export function initWebsite() {
     }),
   );
   function sync(route: KmpRoute, status: DemoState, effect = "none", scene = "none") {
+    if (route !== "home" || scene !== "none") ensureLoaded();
     if (scene !== shown.scene) {
       // 只停止离开的场景：进入前访客已悬停的卡片保持暂停。
       if (shown.scene === "detect") detect.stop();
@@ -169,6 +174,7 @@ export function initWebsite() {
   backendCards.forEach((card, i) => {
     // 访客选中后暂停轮换：悬停与键盘聚焦期间保持，离开后等待片刻从该项继续；触屏点按同样等待后继续。
     const activate = () => {
+      ensureLoaded();
       backendCycle.hold(i);
       selectBackend(i);
       if (drift.active()) restore();
@@ -191,6 +197,7 @@ export function initWebsite() {
   scopeCards.forEach((card) => {
     const scope = card.dataset.scope === "blacklist" ? "blacklist" : "whitelist";
     const activate = () => {
+      ensureLoaded();
       clearTimeout(scopeReleaseTimer);
       scopeReleaseTimer = undefined;
       scopeHeld = true;
@@ -260,8 +267,24 @@ export function initWebsite() {
     message.textContent = content.locale === "zh" ? "界面暂时不可用" : "Interface unavailable";
     window.dispatchEvent(new Event("gazekeep:scene-ready"));
   }
+  let loadStarted = false,
+    frameLoad = 0,
+    idleHandle = 0,
+    idleTimer: ReturnType<typeof setTimeout> | undefined;
+  const demandCleanups: (() => void)[] = [];
+  const cancelPendingLoad = () => {
+    cancelAnimationFrame(frameLoad);
+    frameLoad = 0;
+    if (idleHandle && typeof cancelIdleCallback === "function") cancelIdleCallback(idleHandle);
+    idleHandle = 0;
+    clearTimeout(idleTimer);
+    idleTimer = undefined;
+    demandCleanups.splice(0).forEach((fn) => fn());
+  };
   function load() {
     if (disposed) return;
+    loadStarted = true;
+    cancelPendingLoad();
     clearTimeout(timeout);
     state.loading();
     renderGate.reset();
@@ -279,6 +302,9 @@ export function initWebsite() {
     frame.src = `/kmp-showcase/${runtime}/index.html?attempt=${attempt}&lang=${content.locale}`;
     timeout = setTimeout(() => failed(attempt), 60000);
   }
+  const ensureLoaded = () => {
+    if (!disposed && !loadStarted) load();
+  };
   listen(window, "gazekeep:ready", ((event: CustomEvent<{ attempt: number }>) => {
     if (!attempts.ready(event.detail?.attempt)) return;
     const bridge = (frame.contentWindow as DemoWindow | null)?.GazeKeepWebShowcaseBridge;
@@ -386,12 +412,40 @@ export function initWebsite() {
   );
   disposers.push(initScrollReveal());
 
-  // 仅让出当前帧使首帧 3D 机身立即完成绘制，随后即刻装载 KMP 内屏，避免长达 1.5s 的空闲等待拖慢交互就绪。
-  const frameLoad = requestAnimationFrame(() => load());
+  // 高速/未知网络让出首帧机身绘制后于浏览器空闲期（上限 700ms）挂载 KMP；Save-Data 或 2G/3G 等慢网仅在滚动或交互时按需加载。
+  const navConnection = (navigator as Navigator & { connection?: NetworkInformationLike }).connection;
+  const loadMode = resolveShowcaseLoadMode(navConnection);
+  const onDemand = (target: EventTarget, type: string, fn: EventListener, options?: AddEventListenerOptions) => {
+    target.addEventListener(type, fn, options);
+    demandCleanups.push(() => target.removeEventListener(type, fn, options));
+  };
+  const triggerByPosition = () => {
+    if (shouldAutoLoadShowcase({ scrollY, hash: location.hash })) ensureLoaded();
+  };
+  onDemand(window, "scroll", triggerByPosition, { passive: true });
+  onDemand(window, "hashchange", triggerByPosition);
+  onDemand(screen, "pointerdown", () => ensureLoaded(), { passive: true });
+  if (loadMode === "idle" || shouldAutoLoadShowcase({ scrollY, hash: location.hash })) {
+    onDemand(screen, "pointerenter", () => {
+      if (finePointer.matches) ensureLoaded();
+    });
+    frameLoad = requestAnimationFrame(() => {
+      if (disposed || loadStarted) return;
+      if (shouldAutoLoadShowcase({ scrollY, hash: location.hash })) {
+        ensureLoaded();
+        return;
+      }
+      if (typeof requestIdleCallback === "function") {
+        idleHandle = requestIdleCallback(() => ensureLoaded(), { timeout: 700 });
+      } else {
+        idleTimer = setTimeout(() => ensureLoaded(), 250);
+      }
+    });
+  }
   disposers.push(() => {
     clearTimeout(timeout);
     clearTimeout(renderTimeout);
-    cancelAnimationFrame(frameLoad);
+    cancelPendingLoad();
   });
   disposers.push(initStoryScroll(sync, phoneDisplay.update, (route) => renderGate.ready(route)));
   listen(window, "pagehide", ((event: PageTransitionEvent) => {
