@@ -136,7 +136,7 @@ export const zh = {
     text: "开源的 Android 注视保亮工具。由你掌控，也欢迎你参与。",
     docs: "使用文档",
     license: "开源协议",
-    openSource: "端侧离线 · Apache 2.0 开源协议",
+    openSource: "端侧离线 · MIT 开源协议",
     navTitle: "页面导航",
     linksTitle: "项目与版本",
   },
