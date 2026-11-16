@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.platform.Font
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeViewport
@@ -50,6 +51,8 @@ import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseScripts
 import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseSettings
 import gazekeep.shared.generated.resources.Res
 import gazekeep.shared.generated.resources.m0_capturing
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -57,6 +60,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.jetbrains.compose.resources.decodeToImageBitmap
+import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -327,8 +331,19 @@ fun startShowcase() {
     director.density = LocalDensity.current.density
     director.windowHeight = LocalWindowInfo.current.containerSize.height.toFloat()
     val family by produceState<FontFamily?>(null) {
-      val bytes = Res.readBytes("files/showcase_cjk.otf")
-      value = FontFamily(Font("gazekeep-showcase", bytes))
+      // 字体与字符串资源表（.cvr）并行预加载，避免首帧渲染后再串行等待 .cvr 或因粗体字重回退触发外部字体拉取。
+      val bytes = coroutineScope {
+        val fontDeferred = async { Res.readBytes("files/showcase_cjk.otf") }
+        val stringsWarmup = async { getString(Res.string.m0_capturing) }
+        stringsWarmup.await()
+        fontDeferred.await()
+      }
+      value = FontFamily(
+        Font("gazekeep-showcase", bytes, FontWeight.Normal),
+        Font("gazekeep-showcase", bytes, FontWeight.Medium),
+        Font("gazekeep-showcase", bytes, FontWeight.SemiBold),
+        Font("gazekeep-showcase", bytes, FontWeight.Bold),
+      )
     }
     val font = family ?: return@ComposeViewport
     val textStyles = remember(font) {
