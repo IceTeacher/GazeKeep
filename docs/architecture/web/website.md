@@ -23,7 +23,7 @@
 
 Web 字体使用带 OFL 许可的 Noto CJK 字符子集，位于 showcaseMain，仅用于网页展示。官网构建过滤 source map；KMP 生成目录排除在 Astro 类型检查之外。shared 的 `webpack.config.d/public-path.js` 把 webpack `publicPath` 固定为 `./`：展示入口以 module 脚本加载，取不到 `currentScript`，自动推断会改用页面最后一个 http(s) 脚本的地址，托管方在页尾注入的脚本（如 Cloudflare Web Analytics 的 beacon）会把 `.wasm` 请求引到外站；`scripts/build.ts` 发现入口仍含自动推断运行时即中止构建。
 
-首屏加载：`shaders/js` 的 `createShader` 会注册整个组件库，构建插件（`scripts/build-performance.ts`）在打包时把注册表裁到首屏实际使用的组件，保留列表与页面创建的图层同源于 `src/scripts/hero-shader.ts`；shaders 版本固定，升级后注册表结构变化会让构建直接失败，而不是退回全量打包。页面初始化先校验 `navigator.gpu.requestAdapter()` 并延后一帧创建首屏 WebGPU 背景，避免无适配器环境白耗 1.3 MB JS 拉取或抢占首帧机身与 KMP 启动带宽。构建完成后为站点入口与 Three.js 分块注入 `modulepreload`；样式内联，不再单独发出阻塞渲染的请求；KMP 展示包在构建时为入口脚本生成内容指纹（`shared.<hash>.js`），并在展示 `index.html` 中并行预加载入口、被引用 `.wasm`、Web 字体与对应语言 `.cvr` 词条表，`Showcase.kt` 并行预取字体与词条表并映射完整字重。页面内图标使用 192px WebP，favicon 使用 32px PNG。分享元数据由 `layouts/BaseLayout.astro` 输出：生产域名在 `site.config.ts`（同时作为 Astro `site`），`canonical` 与 `og:url` 指向各语言页，`og:site_name`、`og:locale` 与 `og:locale:alternate` 齐全，Twitter 使用 `summary_large_image`；分享图为 `public/og/og-<语言>.png`（1200×630，深色主题首屏截图，约 440 KB），替代文本在双语数据的 `ogImageAlt`。首屏改版后需重新截取分享图。KMP 内屏的 Wasm 体积取决于托管端压缩：上线托管需对 `.wasm`/`.js` 启用 Brotli 或 gzip，带哈希的资源设为长期不可变缓存，无哈希的 KMP 入口用协商缓存。
+首屏加载：`shaders/js` 的 `createShader` 会注册整个组件库，构建插件（`scripts/build-performance.ts`）在打包时把注册表裁到首屏实际使用的组件，保留列表与页面创建的图层同源于 `src/scripts/hero-shader.ts`；shaders 版本固定，升级后注册表结构变化会让构建直接失败，而不是退回全量打包。页面初始化先校验 `navigator.gpu.requestAdapter()` 并延后一帧创建首屏 WebGPU 背景，避免无适配器环境白耗 1.3 MB JS 拉取或抢占首帧机身与 KMP 启动带宽。构建完成后为站点入口与 Three.js 分块注入 `modulepreload`；样式内联，不再单独发出阻塞渲染的请求；KMP 展示包在 `shared/build.gradle.kts` 关闭 Compose `includeSourceInformation` 与 `includeTraceMarkers`，`Showcase.kt` 改用仅含 5 个展示页的 `ShowcaseNavHost`（裁剪 `SelfTest`/`Logs`/`About`/`Notices`、`kotlin.text.regex` 与 `app_icon.png`）；`scripts/build.ts` 过滤 source map、JS 回退未引用的重复 `skiko.wasm` / 已内联 `skiko.mjs` / `skikod8.mjs` / `js-reexport-symbols.mjs` 及展示无用图标，移除未被引用的 `public/app-icon.png`；为入口脚本生成内容指纹（`shared.<hash>.js`），并在展示 `index.html` 中并行预加载入口、被引用 `.wasm`、Web 字体与对应语言 `.cvr` 词条表，`Showcase.kt` 并行预取字体与词条表并映射完整字重。页面内图标使用 192px WebP，favicon 使用 32px PNG。分享元数据由 `layouts/BaseLayout.astro` 输出：生产域名在 `site.config.ts`（同时作为 Astro `site`），`canonical` 与 `og:url` 指向各语言页，`og:site_name`、`og:locale` 与 `og:locale:alternate` 齐全，Twitter 使用 `summary_large_image`；分享图为 `public/og/og-<语言>.png`（1200×630，深色主题首屏截图，约 440 KB），替代文本在双语数据的 `ogImageAlt`。首屏改版后需重新截取分享图。KMP 内屏的 Wasm 体积取决于托管端压缩：上线托管需对 `.wasm`/`.js` 启用 Brotli 或 gzip，`edgeone.json` 为 `/_astro/*`、`*.wasm` 与 `shared.*.js` 配置长期不可变缓存（`immutable`），无哈希的 KMP `index.html` 与词条资源使用短缓存配 `stale-while-revalidate`。
 
 ### 1.1 核心定位
 
@@ -65,9 +65,9 @@ Web 字体使用带 OFL 许可的 Noto CJK 字符子集，位于 showcaseMain，
 1. **首屏与内屏的 GPU 算力接力 (`IntersectionObserver`)**：
    - 当用户位于首屏时，`shaders/js` 满帧运行；
    - 当用户向下滚动离开首屏时，`IntersectionObserver` 立即调用 `shaderInstance.pause()` 挂起首屏 WebGPU 渲染循环，减少首屏渲染与 KMP 手机内屏、视差动画的竞争。
-2. **KMP WASM 首帧后即刻装入与同构 DOM 主页占位**：
+2. **KMP WASM 自适应混合挂载与同构 DOM 主页占位**：
    - 手机模型首帧显现瞬间，屏幕内立即展示直接读取 `strings.xml` 与 `android/build.gradle.kts` 生成的同构 HomeScreen DOM 预览（随深浅主题与中英文即时切换，在主页 `<head>` 预加载并复用展示包 `showcase_cjk.otf` 子集字体、Miuix 色板、92dp 圆环进度与几何尺寸；正常加载时隐藏机内 `.placeholder-status` 胶囊，仅由机外 `#demo-status` 提示状态，待首帧 `gazekeep:rendered` 绘出后再以 150ms 淡出接管，异常时切换居中重试视图）；
-   - 通过 `requestAnimationFrame` 让出首帧 3D 机身绘制后立即挂载 KMP 展示 iframe，取消 1.5 秒 `requestIdleCallback` 空闲延迟，并配合展示包内部并行预加载与 `edgeone.json` 缓存头缩短交互就绪等待。
+   - 通过 `resolveShowcaseLoadMode` 与 `shouldAutoLoadShowcase` 做自适应调度：高速或未知网络在首帧 `requestAnimationFrame` 让出机身绘制后，经 `requestIdleCallback`（上限 700ms，或悬停/滚动/点击提前触发）挂载 KMP iframe；当检测到 `Save-Data` 或 `slow-2g` / `2g` / `3g` 且仍位于首屏顶部时，延迟到用户点击手机屏幕、向下滚动（`scrollY > 24`）或交互展示卡片时才按需挂载（并配合展示包并行预加载与 `edgeone.json` 长期不可变缓存缩短就绪耗时）。已评估 Kotlin/Wasm 单模块内按页面拆 chunk 方案：Kotlin 2.4.20 暂无跨模块动态 WasmGC 链接，且 Compose/Miuix/Skiko 共享底座占代码 90.4%，改以 Web 阶段按需挂载与裁减 `ShowcaseNavHost` 达成更优减负。
 3. **全站单实例 KMP Canvas 复用**：
    - 全站仅维护 **1 个** KMP 展示 iframe，iframe 保持 `inert` 与 `pointer-events: none`，不接收焦点、滚轮或触摸；内屏上方的页面层透明命中层承接指针，滚轮与快速竖向滑动交给页面原生滚动，轻点、鼠标拖动与长按后的滑动转发进画布。所有模块的界面变化均通过 JS 桥接函数在同一实例内切换路由与状态。
 4. **不启用 `COOP/COEP` 跨源隔离头**：
@@ -137,7 +137,7 @@ Web 字体使用带 OFL 许可的 Noto CJK 字符子集，位于 showcaseMain，
 
 ### 4.2 KMP 展示桥接
 
-`apps/app/shared/src/showcaseMain/kotlin/.../Showcase.kt` 提供固定演示数据、路由和状态；JS/Wasm 平台入口把 `setScreen`、`setDemoStatus`、`setLocaleAndTheme` 挂在同源 iframe 的 `window.GazeKeepWebShowcaseBridge`。父页面等字体及首帧就绪事件后重放最新状态。每次 iframe 加载带独立尝试编号；旧加载的就绪或错误事件不会改变新加载状态，重复错误只处理一次。Wasm 加载失败转 JS，最终失败显示重试入口。采样时主页显示“检测中”，第二幕展示隐私页，看不清阶段用全黑遮罩覆盖内屏；后端演示状态只在后端区锁定选项，其余阶段维持自动选择。演示与 App 共用 `SettingsNavHost`（返回栈、底栏与转场），自检页需要相机，演示中不可进入；访客操作只改内存中的演示状态。
+`apps/app/shared/src/showcaseMain/kotlin/.../Showcase.kt` 提供固定演示数据、路由和状态；JS/Wasm 平台入口把 `setScreen`、`setDemoStatus`、`setLocaleAndTheme` 挂在同源 iframe 的 `window.GazeKeepWebShowcaseBridge`。父页面等字体及首帧就绪事件后重放最新状态。每次 iframe 加载带独立尝试编号；旧加载的就绪或错误事件不会改变新加载状态，重复错误只处理一次。Wasm 加载失败转 JS，最终失败显示重试入口。采样时主页显示“检测中”，第二幕展示隐私页，看不清阶段用全黑遮罩覆盖内屏；后端演示状态只在后端区锁定选项，其余阶段维持自动选择。演示通过 `ShowcaseNavHost` 复用 `SettingsNavContainer` 的返回栈、底栏与转场，仅保留 `Home`、`Backend`、`Apps`、`Settings`、`Privacy` 五个展示页，把 `SelfTest`、`Logs`、`About`、`Notices` 设为不可达并在编译器层面消除死代码；访客操作只改内存中的演示状态。
 
 ### 4.3 手机外壳与视觉调度
 
