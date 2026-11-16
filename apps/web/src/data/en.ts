@@ -162,7 +162,7 @@ export const en = {
     text: "An open-source Android utility. Yours to control, explore and improve.",
     docs: "User guide",
     license: "License",
-    openSource: "On-device offline · Apache 2.0 License",
+    openSource: "On-device offline · MIT License",
     navTitle: "Explore",
     linksTitle: "Resources",
   },
