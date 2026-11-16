@@ -6,6 +6,7 @@
 @import "./sections/theme.css";
 @import "./sections/hero.css";
 @import "./sections/device.css";
+@import "./sections/showcase-preview.css";
 @import "./sections/workflow.css";
 @import "./sections/features.css";
 @import "./sections/backends.css";

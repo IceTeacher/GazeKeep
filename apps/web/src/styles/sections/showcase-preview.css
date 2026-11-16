@@ -1,0 +1,227 @@
+/* KMP 就绪前的同构 HomeScreen DOM 预渲染层：复用 KMP 子集字体与 Miuix 色板尺寸，首帧绘出后 150ms 平滑交接。 */
+@font-face {
+  font-family: "GazeKeep Showcase Sans";
+  src: url("/kmp-showcase/wasm/composeResources/gazekeep.shared.generated.resources/files/showcase_cjk.otf")
+    format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+:root {
+  --preview-bg: #000000;
+  --preview-fg: #f2f2f2;
+  --preview-card-fg: #eaeaea;
+  --preview-muted: #929292;
+  --preview-card: #242424;
+  --preview-hero-bg: #193623;
+  --preview-hero-fg: #e6faeb;
+  --preview-hero-sub: rgba(230, 250, 235, 0.78);
+  --preview-accent: #32d74b;
+  --preview-chip-bg: #183824;
+  --preview-chip-label: #eaeaea;
+  --preview-chip-fg: #4ade80;
+  --preview-nav-bg: #000000;
+  --preview-nav-border: #252525;
+  --preview-nav-active: #e6e6e6;
+  --preview-nav-inactive: #5c5c5c;
+}
+:root[data-theme="light"] {
+  --preview-bg: #f7f7f7;
+  --preview-fg: #000000;
+  --preview-card-fg: #000000;
+  --preview-muted: #666666;
+  --preview-card: #ffffff;
+  --preview-hero-bg: #dff6e4;
+  --preview-hero-fg: #102a17;
+  --preview-hero-sub: rgba(16, 42, 23, 0.78);
+  --preview-accent: #34c759;
+  --preview-chip-bg: #e8f6eb;
+  --preview-chip-label: #101111;
+  --preview-chip-fg: #16a34a;
+  --preview-nav-bg: #f7f7f7;
+  --preview-nav-border: #e8e8e8;
+  --preview-nav-active: #000000;
+  --preview-nav-inactive: #949494;
+}
+#phone-placeholder {
+  background: var(--preview-bg);
+  transition: opacity 0.15s ease;
+}
+.phone-screen[data-ready="true"] #phone-placeholder {
+  transition:
+    opacity 0.15s ease,
+    visibility 0s linear 0.15s;
+}
+.app-preview {
+  position: absolute;
+  inset: var(--status-height, 40px) 0 var(--nav-height, 24px);
+  display: flex;
+  flex-direction: column;
+  background: var(--preview-bg);
+  color: var(--preview-fg);
+  font-family: "GazeKeep Showcase Sans", system-ui, -apple-system, sans-serif;
+  font-synthesis-weight: auto;
+  text-align: left;
+  overflow: hidden;
+  user-select: none;
+}
+.app-preview-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.app-preview-topbar {
+  box-sizing: border-box;
+  height: 102px;
+  padding: 56px 26px 0;
+  flex-shrink: 0;
+}
+.app-preview-title {
+  margin: 0;
+  font-size: 32px;
+  line-height: 38px;
+  font-weight: 400;
+}
+.app-preview-content {
+  padding: 12px 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.app-preview-hero {
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+  min-height: 130px;
+  padding: 20px 96px 14px 20px;
+  border-radius: 16px;
+  background: var(--preview-hero-bg);
+  color: var(--preview-hero-fg);
+}
+.app-preview-hero-copy {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+.app-preview-state {
+  font-size: 20px;
+  line-height: 26px;
+  font-weight: 700;
+}
+.app-preview-decision {
+  margin-top: 5px;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--preview-hero-sub);
+}
+.app-preview-backend {
+  margin-top: 21px;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+}
+.app-preview-ring {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 92px;
+  height: 92px;
+  transform: translate(12px, 14px);
+  color: var(--preview-accent);
+  pointer-events: none;
+}
+.app-preview-card {
+  flex-shrink: 0;
+  padding-top: 1px;
+  border-radius: 16px;
+  background: var(--preview-card);
+  color: var(--preview-card-fg);
+  display: flex;
+  flex-direction: column;
+}
+.app-preview-item {
+  padding: 16px;
+}
+.app-preview-label {
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 500;
+}
+.app-preview-value {
+  margin: 3px 0 1px;
+  font-size: 14px;
+  line-height: 19px;
+  color: var(--preview-muted);
+}
+.app-preview-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  margin: 10px 0 1px;
+}
+.app-preview-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--preview-chip-bg);
+  color: var(--preview-chip-label);
+  font-size: 12px;
+  line-height: 17px;
+}
+.app-preview-chip strong {
+  color: var(--preview-chip-fg);
+  font-weight: 600;
+}
+.app-preview-nav {
+  box-sizing: border-box;
+  flex-shrink: 0;
+  height: 65px;
+  padding-top: 9px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
+  background: var(--preview-nav-bg);
+  border-top: 1px solid var(--preview-nav-border);
+}
+.app-preview-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 3px;
+  color: var(--preview-nav-inactive);
+  font-size: 12px;
+  line-height: 14px;
+}
+.app-preview-tab.is-active {
+  color: var(--preview-nav-active);
+  font-weight: 600;
+}
+/* 正常加载时不在屏幕内显示悬浮胶囊（改由机外 #demo-status 提示），仅在彻底失败时居中展现重试面板。 */
+.placeholder-status {
+  display: none;
+}
+.placeholder-status .placeholder-error-icon {
+  display: none;
+}
+#phone-placeholder[data-state="error"] .app-preview {
+  display: none;
+}
+#phone-placeholder[data-state="error"] .placeholder-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 24px;
+  color: var(--phone-foreground);
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
+}
+#phone-placeholder[data-state="error"] .placeholder-error-icon {
+  display: block;
+}

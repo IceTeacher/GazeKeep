@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import { readdir, readFile, stat } from "node:fs/promises";
-import { pruneShaderRegistry, injectModulePreload } from "../../scripts/build-performance.ts";
+import { pruneShaderRegistry, injectModulePreload, selectFirstFramePreloads } from "../../scripts/build-performance.ts";
 
 const registry = `import { n as componentDefinition } from "./AngularBlur-x.js";
 import { n as componentDefinition$41 } from "./CursorTrail-x.js";
@@ -34,6 +34,18 @@ test("Three.js 分块以 modulepreload 提前请求，只注入一次且不影�
   expect(injectModulePreload(redirect, ["/_astro/three.module.abc.js"])).toBe(redirect);
 });
 
+test("Three.js 与站点入口分块会作为首帧并行预加载候选被选出", () => {
+  const assets = ["Website.astro_astro_type_script_index_0_lang.abc.js", "three.module.xyz.js", "js.other.js"];
+  const page = `<script type="module" src="/_astro/Website.astro_astro_type_script_index_0_lang.abc.js"></script>`;
+  expect(selectFirstFramePreloads(assets, page)).toEqual([
+    "/_astro/Website.astro_astro_type_script_index_0_lang.abc.js",
+    "/_astro/three.module.xyz.js",
+  ]);
+  expect(
+    selectFirstFramePreloads(assets, `<script type="module" src="/_astro/ChangelogPage.def.js"></script>`),
+  ).toEqual(["/_astro/three.module.xyz.js"]);
+});
+
 test("页面内图标与 favicon 使用小尺寸资源", async () => {
   const src = new URL("../../src/", import.meta.url);
   const files = (await readdir(src, { recursive: true })).filter((file) => file.endsWith(".astro"));
@@ -47,4 +59,17 @@ test("页面内图标与 favicon 使用小尺寸资源", async () => {
     const { size } = await stat(new URL(`../../public${src}`, import.meta.url));
     expect(size, `${src} ${size} B`).toBeLessThanOrEqual(16 * 1024);
   }
+});
+
+test("主页复用并预加载 KMP 子集字体，与预渲染样式 @font-face 同源同属性避免重复下载", async () => {
+  const layout = await readFile(new URL("../../src/layouts/BaseLayout.astro", import.meta.url), "utf8");
+  const css = await readFile(new URL("../../src/styles/sections/showcase-preview.css", import.meta.url), "utf8");
+  const expectedPath = "/kmp-showcase/wasm/composeResources/gazekeep.shared.generated.resources/files/showcase_cjk.otf";
+  expect(layout).toContain(`page === "home"`);
+  expect(layout).toContain(`rel="preload"`);
+  expect(layout).toContain(`as="font"`);
+  expect(layout).toContain(`crossorigin="anonymous"`);
+  expect(layout).toContain(expectedPath);
+  expect(css).toContain(expectedPath);
+  expect(css).toContain(`font-display: swap`);
 });

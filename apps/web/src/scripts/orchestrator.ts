@@ -255,9 +255,9 @@ export function initWebsite() {
       return;
     }
     state.fail();
+    placeholder.dataset.state = "error";
     recovery.hidden = false;
     message.textContent = content.locale === "zh" ? "界面暂时不可用" : "Interface unavailable";
-    placeholder.querySelector(".loader")?.setAttribute("hidden", "");
     window.dispatchEvent(new Event("gazekeep:scene-ready"));
   }
   function load() {
@@ -270,13 +270,13 @@ export function initWebsite() {
     drift.clear();
     clearTimeout(renderTimeout);
     resetSettingCards();
+    delete placeholder.dataset.state;
     recovery.hidden = true;
     screen.dataset.ready = "false";
     renderStatus();
     message.textContent = content.loading;
-    placeholder.querySelector(".loader")?.removeAttribute("hidden");
     const attempt = attempts.begin();
-    frame.src = `/kmp-showcase/${runtime}/index.html?attempt=${attempt}`;
+    frame.src = `/kmp-showcase/${runtime}/index.html?attempt=${attempt}&lang=${content.locale}`;
     timeout = setTimeout(() => failed(attempt), 60000);
   }
   listen(window, "gazekeep:ready", ((event: CustomEvent<{ attempt: number }>) => {
@@ -299,14 +299,17 @@ export function initWebsite() {
       },
     });
     setAppearance();
-    screen.dataset.ready = "true";
-    renderStatus();
     recovery.hidden = true;
   }) as EventListener);
   listen(window, "gazekeep:rendered", ((event: CustomEvent<{ attempt: number; route: string; revision: number }>) => {
     const d = event.detail;
     if (!attempts.ready(d?.attempt) || !renderGate.accept(d.route, d.revision)) return;
     clearTimeout(renderTimeout);
+    if (screen.dataset.ready !== "true") {
+      screen.dataset.ready = "true";
+      renderStatus();
+      recovery.hidden = true;
+    }
     window.dispatchEvent(new Event("gazekeep:scene-ready"));
   }) as EventListener);
   // 设置区卡片与专注范围按钮随内屏演示同步，并标出当前状态。
@@ -383,14 +386,12 @@ export function initWebsite() {
   );
   disposers.push(initScrollReveal());
 
-  const fallbackTimeout = window.setTimeout.bind(window);
-  const idle =
-    "requestIdleCallback" in window ? window.requestIdleCallback(load, { timeout: 1500 }) : fallbackTimeout(load, 600);
+  // 仅让出当前帧使首帧 3D 机身立即完成绘制，随后即刻装载 KMP 内屏，避免长达 1.5s 的空闲等待拖慢交互就绪。
+  const frameLoad = requestAnimationFrame(() => load());
   disposers.push(() => {
     clearTimeout(timeout);
     clearTimeout(renderTimeout);
-    if ("cancelIdleCallback" in window) window.cancelIdleCallback(idle);
-    else clearTimeout(idle);
+    cancelAnimationFrame(frameLoad);
   });
   disposers.push(initStoryScroll(sync, phoneDisplay.update, (route) => renderGate.ready(route)));
   listen(window, "pagehide", ((event: PageTransitionEvent) => {
