@@ -1,7 +1,17 @@
 import { spawnSync } from "node:child_process";
-import { cp, mkdir, rm, access, readdir, readFile, writeFile } from "node:fs/promises";
+import { access, cp, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { assertFixedPublicPath } from "./kmp-showcase.ts";
+import { buildShowcasePreloads, findReferencedWasm, hashedAssetName, renderShowcaseIndex } from "./kmp-preload.ts";
+
+async function exists(url: URL): Promise<boolean> {
+  try {
+    await access(url);
+    return true;
+  } catch {
+    return false;
+  }
+}
 const web = fileURLToPath(new URL("../", import.meta.url));
 const app = fileURLToPath(new URL("../../app/", import.meta.url));
 function run(command: string, args: string[], cwd: string) {
@@ -28,11 +38,18 @@ for (const [target, folder] of [
     files.find((name) => name === "GazeKeep-shared.js") ??
     files.find((name) => name === "shared.js");
   if (!entry) throw new Error(`找不到 ${target} 浏览器入口：${files.join(", ")}`);
-  assertFixedPublicPath(await readFile(new URL(entry, output), "utf8"), target);
+  const entryCode = await readFile(new URL(entry, output), "utf8");
+  assertFixedPublicPath(entryCode, target);
+  // 对未带内容哈希的入口脚本附加内容指纹，使 CDN 与浏览器可长期强缓存并跳过重复协商。
+  const hashedEntry = hashedAssetName(entry, entryCode);
+  await rename(new URL(entry, output), new URL(hashedEntry, output));
+  const wasmFiles = findReferencedWasm(entryCode, files);
+  const [hasFont, hasStrings] = await Promise.all([
+    exists(new URL("composeResources/gazekeep.shared.generated.resources/files/showcase_cjk.otf", output)),
+    exists(new URL("composeResources/gazekeep.shared.generated.resources/values/strings.commonMain.cvr", output)),
+  ]);
+  const preloads = buildShowcasePreloads({ entry: hashedEntry, wasmFiles, hasFont, hasStrings });
   const html = await readFile(`${app}/shared/src/showcaseMain/resources/index.html`, "utf8");
-  await writeFile(
-    new URL("index.html", output),
-    html.replace("<!--SHOWCASE_ENTRY-->", `<script type="module" src="./${entry}"></script>`),
-  );
+  await writeFile(new URL("index.html", output), renderShowcaseIndex(html, preloads, hashedEntry));
 }
 run("pnpm", ["run", "build:site"], web);

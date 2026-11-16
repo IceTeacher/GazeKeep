@@ -43,24 +43,30 @@ export function injectModulePreload(html: string, hrefs: string[]) {
   return links ? html.replace("</head>", `${links}</head>`) : html;
 }
 
-/** Astro 集成：构建后为首帧机身所需的 Three.js 分块加 modulepreload，与入口脚本并行下载。 */
+/** 从构建分块中筛选当前页面应并行 modulepreload 的首帧核心模块。 */
+export function selectFirstFramePreloads(assetNames: readonly string[], html: string): string[] {
+  const threeChunks = assetNames.filter((name) => /^three\.module\.[\w-]+\.js$/.test(name));
+  if (threeChunks.length !== 1) throw new Error(`应恰有一个 Three.js 分块，实际：${threeChunks.join(", ") || "无"}`);
+  const websiteChunks = assetNames.filter(
+    (name) => /^Website\.[\w.-]+\.js$/.test(name) && html.includes(`"/_astro/${name}"`),
+  );
+  return [...websiteChunks, ...threeChunks].map((name) => `/_astro/${name}`);
+}
+
+/** Astro 集成：构建后为首帧机身所需的入口与 Three.js 分块加 modulepreload，与 HTML 解析并行下载。 */
 export function preloadFirstFrameChunks(): AstroIntegration {
   return {
     name: "gazekeep:preload-first-frame",
     hooks: {
       "astro:build:done": async ({ dir }) => {
         const root = fileURLToPath(dir);
-        const chunks = (await readdir(`${root}/_astro`)).filter((name) => /^three\.module\.[\w-]+\.js$/.test(name));
-        if (chunks.length !== 1) throw new Error(`应恰有一个 Three.js 分块，实际：${chunks.join(", ") || "无"}`);
+        const assetNames = await readdir(`${root}/_astro`);
         const files = (await readdir(root, { recursive: true })).filter(
           (name) => name.endsWith(".html") && !name.startsWith("kmp-showcase"),
         );
         for (const file of files) {
           const html = await readFile(`${root}/${file}`, "utf8");
-          const next = injectModulePreload(
-            html,
-            chunks.map((name) => `/_astro/${name}`),
-          );
+          const next = injectModulePreload(html, selectFirstFramePreloads(assetNames, html));
           if (next !== html) await writeFile(`${root}/${file}`, next);
         }
       },

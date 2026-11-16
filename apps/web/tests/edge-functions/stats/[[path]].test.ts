@@ -39,6 +39,7 @@ test("上报请求保留方法、请求体与 User-Agent，并以访客 IP 写�
         headers: {
           "content-type": "application/json",
           "user-agent": "Mozilla/5.0 Test",
+          "if-none-match": '"abc123"',
           // 客户端可伪造的请求头不能冒充访客 IP。
           "x-forwarded-for": "198.51.100.9",
           cookie: "site=secret",
@@ -51,6 +52,7 @@ test("上报请求保留方法、请求体与 User-Agent，并以访客 IP 写�
   expect(forwarded.method).toBe("POST");
   expect(await forwarded.text()).toBe('{"type":"event"}');
   expect(forwarded.headers.get("user-agent")).toBe("Mozilla/5.0 Test");
+  expect(forwarded.headers.get("if-none-match")).toBe('"abc123"');
   expect(forwarded.headers.get("x-forwarded-for")).toBe("203.0.113.7");
   // 官网 Cookie 不发往统计服务。
   expect(forwarded.headers.get("cookie")).toBeNull();

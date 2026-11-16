@@ -1,8 +1,16 @@
 /** 同站代理 Umami：脚本与上报走 /stats/*，避免第三方域名被拦截，也不必为统计服务配置跨域。 */
 const UPSTREAM = "https://umami.rainafter.cn";
 const PREFIX = "/stats/";
-// 只转发 Umami 需要的请求头；官网 Cookie 等不发往统计服务。
-const FORWARDED_HEADERS = ["accept", "accept-language", "content-type", "user-agent", "referer"];
+// 只转发 Umami 需要的请求头；官网 Cookie 等不发往统计服务，条件请求头保留以允许 304 协商缓存。
+const FORWARDED_HEADERS = [
+  "accept",
+  "accept-language",
+  "content-type",
+  "if-modified-since",
+  "if-none-match",
+  "user-agent",
+  "referer",
+];
 
 /** EdgeOne 边缘函数在 request.eo 上提供访客信息；只声明用到的字段，避免引入平台类型依赖。 */
 type EdgeRequest = Request & { eo?: { clientIp?: string } };
