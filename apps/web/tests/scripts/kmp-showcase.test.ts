@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import vm from "node:vm";
 import { expect, test } from "vitest";
 import { assertFixedPublicPath } from "../../scripts/kmp-showcase.ts";
 import {
@@ -86,4 +88,46 @@ test("展示资源复制只保留运行时实际引用的 wasm/mjs，剔除 sour
   // 若未来入口脚本实际通过 import/URL 引用外部 skiko.mjs，则仍会保留。
   const externalImport = `${entry};import("./skiko.mjs");`;
   expect(shouldCopyShowcaseAsset("skiko.mjs", externalImport, referencedWasm)).toBe(true);
+});
+
+test("展示页模板在独立打开且父页无 lang 时安全兜底语言标签，并监听 WebGL 上下文丢失", () => {
+  const html = readFileSync(
+    new URL("../../../app/shared/src/showcaseMain/resources/index.html", import.meta.url),
+    "utf8",
+  );
+  const scriptMatch = /<script>([\s\S]*?)<\/script>/.exec(html);
+  expect(scriptMatch).toBeTruthy();
+
+  const dispatched: string[] = [];
+  const navigatorMock = { language: "zh-CN" };
+  const listeners = new Map<string, () => void>();
+  const ctx = {
+    location: { search: "" },
+    navigator: navigatorMock,
+    document: { documentElement: { lang: "" } },
+    window: {
+      parent: null as unknown,
+      addEventListener: (type: string, fn: () => void) => listeners.set(type, fn),
+    },
+    HTMLCanvasElement: { prototype: { getContext: () => null } },
+    URLSearchParams,
+    CustomEvent: class {
+      type: string;
+      detail: unknown;
+      constructor(type: string, init?: { detail?: unknown }) {
+        this.type = type;
+        this.detail = init?.detail;
+      }
+    },
+    addEventListener: (type: string, fn: () => void) => listeners.set(type, fn),
+  };
+  ctx.window.parent = ctx.window;
+  (ctx.window as { dispatchEvent?: (ev: { type: string }) => void }).dispatchEvent = (ev) => {
+    dispatched.push(ev.type);
+  };
+  vm.runInNewContext(scriptMatch![1], ctx);
+
+  expect((navigatorMock as { languages?: string[] }).languages).toEqual(["zh-CN"]);
+  expect(html).toContain("webglcontextlost");
+  expect(html).toContain("webglcontextcreationerror");
 });

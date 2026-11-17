@@ -21,12 +21,41 @@
   <body>
     <div id="showcase"></div>
     <script>
+      const fallbackLang = navigator.language || "zh";
+      const resolveLang = () => {
+        const q = new URLSearchParams(location.search).get("lang");
+        if (q) return q;
+        try {
+          const p = window.parent && window.parent !== window ? window.parent.document.documentElement.lang : "";
+          if (p) return p;
+        } catch {}
+        return document.documentElement.lang || fallbackLang;
+      };
+      document.documentElement.lang = resolveLang();
       Object.defineProperty(navigator, "languages", {
         configurable: true,
-        get: () => [window.parent.document.documentElement.lang],
+        get: () => [resolveLang()],
       });
       const attempt = Number(new URLSearchParams(location.search).get("attempt"));
-      const reportError = () => window.parent.dispatchEvent(new CustomEvent("gazekeep:error", { detail: { attempt } }));
+      const reportError = () => {
+        if (window.parent && window.parent !== window) {
+          window.parent.dispatchEvent(new CustomEvent("gazekeep:error", { detail: { attempt } }));
+        }
+      };
+      const origGetContext = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function () {
+        const ctx = origGetContext.apply(this, arguments);
+        if (this && !this.__gazekeepWatched) {
+          this.__gazekeepWatched = true;
+          this.addEventListener("webglcontextlost", () => {
+            setTimeout(() => {
+              if (ctx && typeof ctx.isContextLost === "function" && ctx.isContextLost()) reportError();
+            }, 1500);
+          });
+          this.addEventListener("webglcontextcreationerror", reportError);
+        }
+        return ctx;
+      };
       window.addEventListener("error", reportError);
       window.addEventListener("unhandledrejection", reportError);
     </script>
