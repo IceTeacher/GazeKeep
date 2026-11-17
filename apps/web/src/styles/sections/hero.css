@@ -30,6 +30,17 @@
 .hero[data-motion-paused="true"]::before {
   animation-play-state: paused;
 }
+.hero[data-shader-active="true"]::before {
+  opacity: 0;
+  animation: none;
+}
+@media (pointer: coarse) {
+  .hero::before {
+    inset: -25%;
+    filter: blur(22px);
+    will-change: transform;
+  }
+}
 .hero::after {
   content: "";
   position: absolute;
