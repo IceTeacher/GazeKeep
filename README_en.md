@@ -83,7 +83,7 @@ GazeKeep relies on a resident service waking up on time during the timeout count
 - **Other ROMs**: You usually need to lock GazeKeep in the recent-apps screen and allow auto-start and background activity in the system settings; the exact entries vary by device (not yet tested one by one).
 - **Accessibility switch is greyed out**: Since Android 13, APKs not installed from an app store must first be granted "Allow restricted settings" from the top-right menu of the system "App info" page before the accessibility service can be turned on.
 
-See the [Usage Guide](docs/product/usage.md) for more troubleshooting.
+See the [Product & Usage Guide](docs/product.md) for more troubleshooting.
 
 ## Three Working Backends
 
@@ -153,7 +153,7 @@ Last touch
 - **The only preview**: The camera picture appears only on the self-test wizard you open yourself, and is released as soon as you leave it.
 - **Logs record results only**: Diagnostic logs are off by default and record only the time, foreground app package name, decision, skip reason, backend, and duration—never images, face positions, angles, or probabilities.
 
-See [Privacy & Security](docs/product/privacy-security.md) for the full boundaries.
+See [Privacy & Security](docs/product.md) for the full boundaries.
 
 ## Project Structure & Tech Stack
 
@@ -168,7 +168,7 @@ See [Privacy & Security](docs/product/privacy-security.md) for the full boundari
 | `apps/web`           | Bilingual (Chinese/English) website built with Astro, Tailwind CSS, and Three.js    |
 | `scripts/repo-tools` | Repository tooling for docs, commits, and releases                                  |
 
-Main dependencies: Kotlin, Compose Multiplatform, [miuix](https://github.com/compose-miuix-ui/miuix), AndroidX CameraX, [ML Kit Face Detection](https://developers.google.com/ml-kit/vision/face-detection), [Shizuku API](https://github.com/RikkaApps/Shizuku-API), and [libxposed API](https://github.com/libxposed/api). See the [Architecture Overview](docs/architecture/overview.md) for details.
+Main dependencies: Kotlin, Compose Multiplatform, [miuix](https://github.com/compose-miuix-ui/miuix), AndroidX CameraX, [ML Kit Face Detection](https://developers.google.com/ml-kit/vision/face-detection), [Shizuku API](https://github.com/RikkaApps/Shizuku-API), and [libxposed API](https://github.com/libxposed/api). See the [Android & KMP Architecture](docs/architecture/app.md) and [Backends Architecture](docs/architecture/backends.md) for details.
 
 ## Current Status
 
@@ -184,7 +184,7 @@ Main dependencies: Kotlin, Compose Multiplatform, [miuix](https://github.com/com
 pnpm --filter @gazekeep/app exec ./gradlew :android:assembleDebug
 ```
 
-- **Documentation**: See the [Contributing Guide](docs/development/contributing.md) for build and toolchain requirements, [Testing & Acceptance](docs/development/testing.md) for test matrices, and the [Documentation Index](docs/index.md) for everything else.
+- **Documentation**: See [Development, Testing & Release](docs/development.md) for build, toolchain, and test matrices, and the [Documentation Index](docs/index.md) for everything else.
 - **Further reading** (Chinese): [为你的 Android 设备补齐注视保亮功能 —— GazeKeep 使用指南与原理解析](https://www.rainafter.cn/posts/%E4%B8%BA%E4%BD%A0%E7%9A%84-android-%E8%AE%BE%E5%A4%87%E8%A1%A5%E9%BD%90%E6%B3%A8%E8%A7%86%E4%BF%9D%E4%BA%AE%E5%8A%9F%E8%83%BD--gazekeep-%E4%BD%BF%E7%94%A8%E6%8C%87%E5%8D%97/).
 
 ## License

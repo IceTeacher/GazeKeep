@@ -83,7 +83,7 @@ GazeKeep 依赖常驻服务在熄屏倒计时阶段准时唤醒，被系统冻�
 - **其他 ROM**：通常需要在多任务界面锁定 GazeKeep，并在系统设置里允许自启动、后台运行，具体入口因机型而异（尚未逐一实测）。
 - **无障碍开关是灰色的**：Android 13 起，不是从应用商店安装的 APK 需要先在系统「应用信息」页右上角菜单里「允许受限制的设置」，再回到无障碍设置开启。
 
-更多排查见[使用说明](docs/product/usage.md)。
+更多排查见[产品与使用说明](docs/product.md#安装启用与故障排查)。
 
 ## 三种工作后端
 
@@ -153,7 +153,7 @@ GazeKeep 不常开相机，而是跟着系统的熄屏倒计时走：
 - **唯一的预览**：相机画面只出现在你主动打开的自检向导页，离开页面立即释放。
 - **日志只记结果**：诊断日志默认关闭，只记录时间、前台应用包名、判定结果、跳过原因、后端与耗时，不记录图像、人脸位置、角度或概率。
 
-完整边界见[隐私与安全](docs/product/privacy-security.md)。
+完整边界见[隐私与安全](docs/product.md#隐私与安全红线)。
 
 ## 项目结构与技术栈
 
@@ -168,7 +168,7 @@ GazeKeep 不常开相机，而是跟着系统的熄屏倒计时走：
 | `apps/web`           | 基于 Astro、Tailwind CSS 与 Three.js 的中英双语官网            |
 | `scripts/repo-tools` | 文档、提交与发布相关的仓库工具                                 |
 
-主要依赖：Kotlin、Compose Multiplatform、[miuix](https://github.com/compose-miuix-ui/miuix)、AndroidX CameraX、[ML Kit Face Detection](https://developers.google.com/ml-kit/vision/face-detection)、[Shizuku API](https://github.com/RikkaApps/Shizuku-API)、[libxposed API](https://github.com/libxposed/api)。架构说明见[架构总览](docs/architecture/overview.md)。
+主要依赖：Kotlin、Compose Multiplatform、[miuix](https://github.com/compose-miuix-ui/miuix)、AndroidX CameraX、[ML Kit Face Detection](https://developers.google.com/ml-kit/vision/face-detection)、[Shizuku API](https://github.com/RikkaApps/Shizuku-API)、[libxposed API](https://github.com/libxposed/api)。架构说明见[Android 与 KMP 架构](docs/architecture/app.md)及[三大保亮后端架构](docs/architecture/backends.md)。
 
 ## 当前状态
 
@@ -184,7 +184,7 @@ GazeKeep 不常开相机，而是跟着系统的熄屏倒计时走：
 pnpm --filter @gazekeep/app exec ./gradlew :android:assembleDebug
 ```
 
-- **文档**：完整构建与工具链要求见[开发与贡献](docs/development/contributing.md)，测试与验收矩阵见[测试与验收](docs/development/testing.md)，全部文档导航见[文档导航](docs/index.md)。
+- **文档**：完整构建、工具链与测试验收矩阵见[开发、测试与发布](docs/development.md)，全部文档导航见[文档导航](docs/index.md)。
 - **延伸阅读**：[为你的 Android 设备补齐注视保亮功能 —— GazeKeep 使用指南与原理解析](https://www.rainafter.cn/posts/%E4%B8%BA%E4%BD%A0%E7%9A%84-android-%E8%AE%BE%E5%A4%87%E8%A1%A5%E9%BD%90%E6%B3%A8%E8%A7%86%E4%BF%9D%E4%BA%AE%E5%8A%9F%E8%83%BD--gazekeep-%E4%BD%BF%E7%94%A8%E6%8C%87%E5%8D%97/)。
 
 ## 开源协议

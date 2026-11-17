@@ -1,0 +1,3 @@
+interface:
+  display_name: "testing"
+  short_description: "编写、运行或评审 GazeKeep 单元、UI 截图与实机测试。"

@@ -131,29 +131,40 @@ export const en = {
     title: "A few things to know.",
     items: [
       {
-        question: "Is the camera always on?",
+        question: "Is the camera always on? Does it drain battery, and can I hide the green dot?",
         answer:
-          "The front camera opens briefly near screen timeout and closes after checking. Battery use varies with the device, backend and usage.",
+          'No. GazeKeep stays idle until near dim or screen timeout. Only after non-camera checks pass (screen unlocked, app in scope, not on a call, camera free) does it briefly read proximity, light and accelerometer sensors (~1 s), then open the front camera for 1–3 frames (~0.6–0.9 s total) and close it immediately.\n\nAfter two consecutive "Looking" checks, GazeKeep shortens the lead time and samples fewer frames. "Pause on Battery Saver" and "Low battery threshold" (15% or below while unplugged) are also enabled by default.\n\nThe green camera dot in the status bar on Android 12+ is a system privacy indicator confirming the camera only opens at that moment. If you use the LSPosed backend, you can enable the experimental "Hide camera privacy indicator" option in Settings to suppress the dot for GazeKeep alone.',
       },
       {
-        question: "What about low light or glasses?",
+        question: "What if detection is inconsistent with glasses, backlighting or low light?",
         answer:
-          "Light, angles and occlusion affect detection. Uncertain results let the screen sleep. Run the self-test in your usual environment.",
+          'Standard sensitivity requires both facing forward and eyes open. If reflective lenses or frames make eye-open detection unreliable, go to Settings → Sensitivity and switch to "Relaxed: facing forward", then re-run Settings → Camera self-test in your usual lighting.\n\nTo avoid keeping the screen on blindly or waking the camera repeatedly in the dark, very dark frames let the screen sleep. After two consecutive dark checks in very low ambient light, GazeKeep pauses opening the camera until lighting improves.',
       },
       {
-        question: "Which backend should I choose?",
+        question: "How do I choose between LSPosed, Shizuku and Accessibility?",
         answer:
-          "Automatic mode tries ready backends in this order: LSPosed, Shizuku, Accessibility. You can also lock a backend. Behavior depends on your system and permissions.",
+          "Automatic mode picks the first ready backend in this order: LSPosed → Shizuku → Accessibility. Locking a specific backend disables silent fallback and sends an alert if it disconnects:\n• LSPosed (Root): Hooks system timeout timing directly with the lowest overhead and supports hiding the camera green dot. Enable the System Framework scope and reboot—also required after updating GazeKeep (API 100 is unsupported).\n• Shizuku (No root): Start Shizuku via wireless debugging or ADB and authorize GazeKeep. More stable than Accessibility with accurate foreground detection, though Shizuku must be restarted after a phone reboot.\n• Accessibility (Zero setup): Enable in system settings—ideal for spare phones or tablets. Due to system window-event limits, full-screen pages without a launcher entry may keep the previous app's package name; use Shizuku or LSPosed if strict app matching matters.",
       },
       {
-        question: "What about background restrictions?",
+        question: "Why is the Accessibility toggle grayed out on Android 13 or later?",
         answer:
-          "Allow the background operation required by GazeKeep and your selected backend. If something stops working, check backend readiness on the home page and run the camera self-test.",
+          'Starting with Android 13, Android restricts Accessibility access for sideloaded APKs by default.\n\nIn GazeKeep, open Settings → Backend and tap "Open app info (Restricted settings)" (or open GazeKeep in System Settings → Apps), tap the top-right "⋮" menu, select "Allow restricted settings", then return to Accessibility settings to turn it on.',
       },
       {
-        question: "Why does the screen still sleep in some apps?",
+        question:
+          "How do I keep it running in the background? Why does it stop on Xiaomi / HyperOS after using the Camera app?",
         answer:
-          "Only selected apps are enabled by default, and excluded apps never stay awake. Check your app scope and list, self-test and backend status. Uncertain detection or reaching the protection limit will also let the screen sleep.",
+          '• Xiaomi / HyperOS (Important): The default "Battery saver" policy freezes GazeKeep in the background once you open the system Camera app and never unfreezes it—ignoring battery optimization alone is not enough. Open GazeKeep → Settings → Background activity and set it to "No restrictions". Changing this force-stops the app, so reopen GazeKeep once afterward.\n• Other ROMs: Lock GazeKeep in Recents and allow auto-start / unrestricted background activity. On Android 13+, grant notification permission so disconnect alerts can reach you.\n• Quick toggle: Add the "GazeKeep" Quick Settings tile to pause or resume anytime (on Android 14+, resuming from the tile briefly brings the app forward to satisfy foreground camera rules).',
+      },
+      {
+        question: "GazeKeep is enabled, so why does the screen still sleep in some apps?",
+        answer:
+          'Check in this order:\n1. Check the Home status card: It shows the exact "Last check" or "Last skip" reason (not whitelisted, Battery Saver active, low battery, too dark, etc.).\n2. Check App scope & list: "Whitelist only" is active by default with an empty list. Preinstalled system apps are hidden by default—tap "More options → Show system apps" in the App list if needed. Camera apps are always skipped.\n3. Check power gates: "Pause on Battery Saver" and "Low battery threshold" (15% or below while unplugged) are enabled by default.\n4. Tune lead time & max hold: If your device dims quickly or wakes the camera slowly, increase "Detection lead time" above 8 s. Reaching "Maximum keep-awake time" (30 min by default) intentionally lets the screen sleep once until you touch it.\n5. Inspect Detailed logs: Enable Settings → Detailed logs and reproduce once to see the exact per-round reason (kept for 24 h, cleared immediately when turned off).',
+      },
+      {
+        question: "Which APK from GitHub Releases should I download, and will upgrading keep my settings?",
+        answer:
+          "• arm64-v8a (Recommended): Most modern Android phones and tablets.\n• armeabi-v7a: Older 32-bit Android devices.\n• x86_64: Android emulators on PC.\n• universal: All-ABI package if you are unsure of your device architecture.\n\nAll official release APKs share the same signature and version code, so you can install over an existing release to upgrade without losing settings or app lists. If switching from a differently signed or Debug build, uninstall first. LSPosed users must reboot after updating the APK.",
       },
     ],
   },

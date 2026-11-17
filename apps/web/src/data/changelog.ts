@@ -20,8 +20,6 @@ export interface ReleaseEntry {
   setupHtml: string;
 }
 
-const RELEASE_FILE_RE = /^v(\d+\.\d+\.\d+)\.md$/;
-
 export function parseSemver(version: string): [number, number, number] {
   const parts = version.replace(/^v/, "").split(".").map(Number);
   return [parts[0] || 0, parts[1] || 0, parts[2] || 0];
@@ -331,11 +329,36 @@ export function parseReleaseMarkdown(
   };
 }
 
+export function splitChangelogVersions(markdown: string): Map<string, string> {
+  const sections = new Map<string, string>();
+  let fenced = false;
+  let currentVersion = "";
+  let currentLines: string[] = [];
+
+  for (const line of markdown.replace(/\r\n?/g, "\n").split("\n")) {
+    if (/^\s*(```|~~~)/.test(line)) {
+      fenced = !fenced;
+      if (currentVersion) currentLines.push(line);
+      continue;
+    }
+    const h1 = !fenced ? line.match(/^#\s+(v\d+\.\d+\.\d+)\s*$/) : null;
+    if (h1) {
+      if (currentVersion) sections.set(currentVersion, currentLines.join("\n").trim());
+      currentVersion = h1[1];
+      currentLines = [];
+      continue;
+    }
+    if (currentVersion) currentLines.push(line);
+  }
+  if (currentVersion) sections.set(currentVersion, currentLines.join("\n").trim());
+  return sections;
+}
+
 export function findReleasesDir(startDir: string): string | undefined {
   let current = path.resolve(startDir);
   while (true) {
-    const candidate = path.join(current, "docs", "releases");
-    if (fs.existsSync(candidate)) return candidate;
+    const candidate = path.join(current, "docs");
+    if (fs.existsSync(path.join(candidate, "CHANGELOG.md"))) return candidate;
     const parent = path.dirname(current);
     if (parent === current) return undefined;
     current = parent;
@@ -347,23 +370,24 @@ function defaultReleasesDir() {
   if (fromModule) return fromModule;
   const fromCwd = findReleasesDir(process.cwd());
   if (fromCwd) return fromCwd;
-  return path.resolve(process.cwd(), "docs/releases");
+  return path.resolve(process.cwd(), "docs");
 }
 
 export function loadChangelog(locale: Locale, releasesDir = defaultReleasesDir()): ReleaseEntry[] {
-  if (!fs.existsSync(releasesDir)) return [];
-  const entries = fs.readdirSync(releasesDir);
-  const versions = entries
-    .map((name) => name.match(RELEASE_FILE_RE)?.[1])
-    .filter((v): v is string => Boolean(v))
-    .sort(compareVersionsDesc);
+  const zhPath = path.join(releasesDir, "CHANGELOG.md");
+  if (!fs.existsSync(zhPath)) return [];
+  const enPath = path.join(releasesDir, "CHANGELOG.en.md");
+  const zhSections = splitChangelogVersions(fs.readFileSync(zhPath, "utf8"));
+  const enSections = fs.existsSync(enPath)
+    ? splitChangelogVersions(fs.readFileSync(enPath, "utf8"))
+    : new Map<string, string>();
+  const versions = [...zhSections.keys()].sort((a, b) => compareVersionsDesc(a, b));
 
   return versions.map((version) => {
-    const localizedName = locale === "en" ? `v${version}.en.md` : `v${version}.md`;
-    const localizedPath = path.join(releasesDir, localizedName);
-    const zhPath = path.join(releasesDir, `v${version}.md`);
-    const existsLocalized = fs.existsSync(localizedPath);
-    const markdown = fs.readFileSync(existsLocalized ? localizedPath : zhPath, "utf8");
-    return parseReleaseMarkdown(`v${version}`, locale, markdown, locale === "en" && !existsLocalized);
+    const enMarkdown = enSections.get(version);
+    const zhMarkdown = zhSections.get(version) ?? "";
+    const hasEn = Boolean(enMarkdown);
+    const markdown = locale === "en" && hasEn ? enMarkdown! : zhMarkdown;
+    return parseReleaseMarkdown(version, locale, markdown, locale === "en" && !hasEn);
   });
 }

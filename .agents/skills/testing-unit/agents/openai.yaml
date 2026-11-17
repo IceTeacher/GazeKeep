@@ -1,3 +1,0 @@
-interface:
-  display_name: "testing-unit"
-  short_description: "编写或评审 GazeKeep Kotlin、web 纯逻辑与仓库工具的单元测试。"

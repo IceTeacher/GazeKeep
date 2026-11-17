@@ -16,47 +16,27 @@ function fixture(t: TestContext) {
     writeFileSync(path, contents);
     return path;
   }
-  function check(script: string) {
-    return spawnSync(process.execPath, [join(ROOT, "scripts/repo-tools/scripts", script), "--root", root], {
+  function check(script: string, ...args: string[]) {
+    return spawnSync(process.execPath, [join(ROOT, "scripts/repo-tools/scripts", script), "--root", root, ...args], {
       encoding: "utf8",
     });
   }
   function docs() {
-    write(
-      ".agents/docs-index.md",
-      "# 索引\n\n| 文档 | 类型 | 加载时机 | 维护状态 | 最后复核 |\n| --- | --- | --- | --- | --- |\n| [development.md](../docs/development.md) | 规范 | 开发时 | 持续维护 | 2026-10-08 |\n| `../docs/index.md` | 导航 | 查阅时 | 持续维护 | 2026-10-08 |\n",
-    );
     write("docs/index.md", "# 文档\n\n[开发](development.md)\n");
     write("docs/development.md", "# 开发\n");
   }
   return { root, write, check, docs };
 }
 
-test("文档登记、失效链接与未登记文档", (t) => {
+test("文档导航、失效链接与缺失导航检查", (t) => {
   const f = fixture(t);
   f.docs();
   assert.equal(f.check("check-docs.ts").status, 0);
   f.write("docs/development.md", "# 开发\n[缺失](missing.md)\n");
   assert.match(f.check("check-docs.ts").stderr, /missing.md/);
   f.write("docs/development.md", "# 开发\n");
-  f.write("docs/unregistered.md", "# 未登记\n");
-  assert.match(f.check("check-docs.ts").stderr, /未登记/);
-});
-
-test("计划日期一致", (t) => {
-  const f = fixture(t);
-  f.docs();
-  assert.equal(f.check("check-docs.ts").status, 0);
-  f.write("docs/plans/20261008-sample.md", "# 计划\n\n最后维护：2026-10-07\n");
-  const index = join(f.root, ".agents/docs-index.md");
-  writeFileSync(
-    index,
-    readFileSync(index, "utf8") +
-      "| [计划](../docs/plans/20261008-sample.md) | 计划 | 修改时 | 计划文档 | 2026-10-08 |\n",
-  );
-  assert.match(f.check("check-docs.ts").stderr, /日期/);
-  f.write("docs/plans/20261008-sample.md", "# 计划\n\n最后维护：2026-10-08\n");
-  assert.equal(f.check("check-docs.ts").status, 0);
+  rmSync(join(f.root, "docs/index.md"));
+  assert.match(f.check("check-docs.ts").stderr, /缺少 docs\/index\.md/);
 });
 
 test("代码块不检查链接，中文重复锚点、编码路径与越界引用正确处理", (t) => {
@@ -75,25 +55,13 @@ test("代码块不检查链接，中文重复锚点、编码路径与越界引�
   assert.match(result.stderr, /越出仓库/);
 });
 
-test("复核日期必须是真实日历日期", (t) => {
+test("检查四个核心工程 AGENTS.md 与重复 skill name", (t) => {
   const f = fixture(t);
-  f.docs();
-  const index = join(f.root, ".agents/docs-index.md");
-  writeFileSync(index, readFileSync(index, "utf8").replace("2026-10-08", "2026-02-30"));
-  const result = f.check("check-docs.ts");
-  assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /日期非法/);
-});
-
-test("检查移动后的模块规则和重复 skill name", (t) => {
-  const f = fixture(t);
-  f.write("apps/app/settings.gradle.kts", 'include(":core")\n');
   f.write("AGENTS.md", "# 根规则\n");
-  let result = f.check("check-agent-assets.ts");
+  const result = f.check("check-agent-assets.ts");
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /core\/AGENTS.md/);
-  for (const name of ["apps/app", "apps/web", "scripts/repo-tools", "apps/app/core"])
-    f.write(`${name}/AGENTS.md`, "# 模块规则\n");
+  assert.match(result.stderr, /apps\/app\/AGENTS\.md/);
+  for (const name of ["apps/app", "apps/web", "scripts/repo-tools"]) f.write(`${name}/AGENTS.md`, "# 工程规则\n");
   for (const name of ["first", "second"])
     f.write(`.agents/skills/${name}/SKILL.md`, "---\nname: first\ndescription: 有效的技能描述\n---\n\n# 技能\n");
   assert.match(f.check("check-agent-assets.ts").stderr, /重复/);
@@ -101,10 +69,8 @@ test("检查移动后的模块规则和重复 skill name", (t) => {
 
 test("检查 Claude Code Skill 适配层与真源同步", (t) => {
   const f = fixture(t);
-  f.write("apps/app/settings.gradle.kts", 'include(":core")\n');
   f.write("AGENTS.md", "# 根规则\n");
-  for (const name of ["apps/app", "apps/web", "scripts/repo-tools", "apps/app/core"])
-    f.write(`${name}/AGENTS.md`, "# 模块规则\n");
+  for (const name of ["apps/app", "apps/web", "scripts/repo-tools"]) f.write(`${name}/AGENTS.md`, "# 工程规则\n");
   const skill = "---\nname: sample\ndescription: 有效的技能描述\n---\n\n# 技能\n";
   f.write(".agents/skills/sample/SKILL.md", skill);
   f.write(".claude/skills/sample/SKILL.md", skill);
@@ -152,149 +118,46 @@ test("架构检查阻断模块变动、非法依赖与源码目录错误", (t) =
   assert.match(f.check("check-architecture.ts").stderr, /模块与边界规则不一致/);
 });
 
-test("分类索引识别反引号路径并拒绝缺失、重复、越界和非法日期", (t) => {
+test("双语聚合 CHANGELOG 校验版本配对、章节结构与提取指定版本", (t) => {
   const f = fixture(t);
   f.docs();
-  const index = join(f.root, ".agents/docs-index.md");
-  const base = readFileSync(index, "utf8").replace(
-    "[development.md](../docs/development.md)",
-    "`../docs/development.md`",
-  );
-  writeFileSync(index, base.replace("# 索引", "# 索引\n\n## 顶层规范"));
-  assert.equal(f.check("check-docs.ts").status, 0);
-  for (const [path, date, expected] of [
-    ["missing.md", "2026-10-08", /不存在/],
-    ["../docs/development.md", "2026-10-08", /重复登记/],
-    ["../../outside.md", "2026-10-08", /越出仓库/],
-    ["../docs/development.md", "2026-02-30", /日期非法/],
-  ] as [string, string, RegExp][]) {
-    writeFileSync(index, base + `| \`${path}\` | 规范 | 开发 | 持续维护 | ${date} |\n`);
-    const result = f.check("check-docs.ts");
-    assert.notEqual(result.status, 0);
-    assert.match(result.stderr, expected);
-  }
-  writeFileSync(index, base);
-  f.write("docs/archive/history.md", "# 未登记\n[失效](gone.md)\n");
-  const result = f.check("check-docs.ts");
-  assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /未登记/);
-  assert.match(result.stderr, /不存在/);
-});
-
-test("公开导航、Agent 资料与任务计划均受登记和链接检查", (t) => {
-  const f = fixture(t);
-  f.docs();
-  const index = join(f.root, ".agents/docs-index.md");
-  const base = readFileSync(index, "utf8");
-  for (const name of [".agents/workflow.md", "docs/plans/todo.md", "docs/plans/20261008-sample.md"]) {
-    const contents = name.endsWith("-sample.md") ? "# 计划\n\n最后维护：2026-10-08\n" : "# 资料\n";
-    f.write(name, contents);
-    assert.match(f.check("check-docs.ts").stderr, /未登记/);
-    writeFileSync(index, readFileSync(index, "utf8") + `| \`../${name}\` | 资料 | 修改时 | 持续维护 | 2026-10-08 |\n`);
-    assert.equal(f.check("check-docs.ts").status, 0);
-  }
-  f.write("docs/index.md", "# 文档\n[失效](missing.md)\n");
-  assert.match(f.check("check-docs.ts").stderr, /不存在/);
-  f.write("docs/index.md", "# 文档\n");
-  writeFileSync(index, base.replace(/^.*`\.\.\/docs\/index.md`.*\n/m, ""));
-  assert.match(f.check("check-docs.ts").stderr, /未登记：docs\/index.md/);
-  rmSync(index);
-  assert.match(f.check("check-docs.ts").stderr, /缺少 \.agents\/docs-index.md/);
-});
-
-test("活动文档变更必须同步 Agent 登记，修改读者导航不能代替登记", (t) => {
-  const f = fixture(t);
-  f.docs();
-  const documents = [
-    "docs/development.md",
-    ".agents/workflow.md",
-    "docs/plans/todo.md",
-    "docs/plans/20261008-sample.md",
-  ];
-  const index = join(f.root, ".agents/docs-index.md");
-  for (const name of documents.slice(1)) {
-    f.write(name, name.endsWith("-sample.md") ? "# 计划\n\n最后维护：2026-10-08\n" : "# 资料\n");
-    writeFileSync(index, readFileSync(index, "utf8") + `| \`../${name}\` | 资料 | 修改时 | 持续维护 | 2026-10-08 |\n`);
-  }
-  function git(...args: string[]) {
-    const result = spawnSync(
-      "git",
-      [
-        "-C",
-        f.root,
-        "-c",
-        "core.hooksPath=/dev/null",
-        "-c",
-        "commit.gpgsign=false",
-        "-c",
-        "user.name=Fixture",
-        "-c",
-        "user.email=fixture@example.invalid",
-        ...args,
-      ],
-      { encoding: "utf8" },
-    );
-    assert.equal(result.status, 0, result.stderr);
-  }
-  git("init", "--quiet");
-  git("add", ".");
-  git("commit", "--quiet", "-m", "fixture");
-  assert.equal(f.check("check-docs.ts").status, 0);
-  const registration = readFileSync(index, "utf8");
-  const navigation = readFileSync(join(f.root, "docs/index.md"), "utf8");
-  for (const name of documents) {
-    const original = readFileSync(join(f.root, name), "utf8");
-    f.write(name, original + "\n新增说明。\n");
-    assert.match(f.check("check-docs.ts").stderr, /未同步 \.agents\/docs-index.md/);
-    f.write("docs/index.md", navigation + "\n导航说明。\n");
-    assert.match(f.check("check-docs.ts").stderr, /未同步 \.agents\/docs-index.md/);
-    writeFileSync(index, registration.replace("开发时", "开发与贡献时"));
-    assert.equal(f.check("check-docs.ts").status, 0);
-    f.write(name, original);
-    f.write("docs/index.md", navigation);
-    writeFileSync(index, registration);
-  }
-});
-
-test("发布说明只含更新日志与启用步骤两节，文件名为 tag", (t) => {
-  const f = fixture(t);
-  f.docs();
-  const index = join(f.root, ".agents/docs-index.md");
-  const register = (name: string) =>
-    writeFileSync(
-      index,
-      readFileSync(index, "utf8") + `| \`../${name}\` | 发布说明 | 发布时 | 已发布后冻结 | 2026-10-08 |\n`,
-    );
-  const valid = "## 更新日志\n\n### 修复\n\n- 修复问题。\n\n## 启用步骤\n\n- 打开总开关。\n";
-  const validEn = "## Changelog\n\n### Fixed\n\n- Fix an issue.\n\n## Setup\n\n- Turn on the main toggle.\n";
-  f.write("docs/releases/v1.2.0.md", valid);
-  register("docs/releases/v1.2.0.md");
-  // 缺少配对英文发布说明时报错。
-  assert.match(f.check("check-docs.ts").stderr, /v1\.2\.0\.en\.md/);
-  f.write("docs/releases/v1.2.0.en.md", validEn);
-  register("docs/releases/v1.2.0.en.md");
+  const validZh = "# v1.2.0\n\n## 更新日志\n\n### 修复\n\n- 修复问题。\n\n## 启用步骤\n\n- 打开总开关。\n";
+  const validEn =
+    "# v1.2.0\n\n## Changelog\n\n### Fixed\n\n- Fix an issue.\n\n## Setup\n\n- Turn on the main toggle.\n";
+  f.write("docs/CHANGELOG.md", validZh);
+  // 缺少配对英文 CHANGELOG 时报错。
+  assert.match(f.check("check-docs.ts").stderr, /CHANGELOG\.en\.md/);
+  f.write("docs/CHANGELOG.en.md", validEn);
   assert.equal(f.check("check-docs.ts").status, 0, f.check("check-docs.ts").stderr);
-  for (const notes of [
-    `# GazeKeep 1.2.0 预发布说明\n\n${valid}`,
-    `${valid}\n## 安装包\n\n由 CI 生成。\n`,
-    `${valid}\n## 实测范围\n\n- 某设备。\n`,
-    "## 启用步骤\n\n- 打开总开关。\n\n## 更新日志\n\n- 修复问题。\n",
-    "## 更新日志\n\n- 修复问题。\n",
+
+  // 测试 --extract-release 提取章节
+  const out = join(f.root, "extracted.md");
+  const extractOk = f.check("check-docs.ts", "--extract-release", "v1.2.0", "--output", out);
+  assert.equal(extractOk.status, 0, extractOk.stderr);
+  assert.match(readFileSync(out, "utf8"), /^## 更新日志\n/);
+  assert.doesNotMatch(readFileSync(out, "utf8"), /^# v1\.2\.0/m);
+
+  const extractMissing = f.check("check-docs.ts", "--extract-release", "v9.9.9");
+  assert.notEqual(extractMissing.status, 0);
+  assert.match(extractMissing.stderr, /v9\.9\.9/);
+
+  for (const badZh of [
+    `${validZh}\n## 安装包\n\n由 CI 生成。\n`,
+    "# v1.2.0\n\n## 启用步骤\n\n- 打开总开关。\n\n## 更新日志\n\n- 修复问题。\n",
+    "# v1.2.0\n\n## 更新日志\n\n- 修复问题。\n",
+    "# GazeKeep 1.2.0\n\n## 更新日志\n\n- 修复。\n\n## 启用步骤\n\n- 开启。\n",
   ]) {
-    f.write("docs/releases/v1.2.0.md", notes);
-    assert.match(f.check("check-docs.ts").stderr, /v1\.2\.0\.md.*更新日志.*启用步骤/, notes);
+    f.write("docs/CHANGELOG.md", badZh);
+    assert.notEqual(f.check("check-docs.ts").status, 0, badZh);
   }
-  f.write("docs/releases/v1.2.0.md", valid);
-  for (const notesEn of [
-    `# GazeKeep 1.2.0\n\n${validEn}`,
-    "## Setup\n\n- Turn on.\n\n## Changelog\n\n- Fixed.\n",
-    "## Changelog\n\n- Fixed.\n",
+  f.write("docs/CHANGELOG.md", validZh);
+
+  for (const badEn of [
+    "# v1.2.0\n\n## Setup\n\n- Turn on.\n\n## Changelog\n\n- Fixed.\n",
+    "# v1.2.0\n\n## Changelog\n\n- Fixed.\n",
+    "# v1.1.9\n\n## Changelog\n\n- Fixed.\n\n## Setup\n\n- Turn on.\n",
   ]) {
-    f.write("docs/releases/v1.2.0.en.md", notesEn);
-    assert.match(f.check("check-docs.ts").stderr, /v1\.2\.0\.en\.md.*Changelog.*Setup/, notesEn);
+    f.write("docs/CHANGELOG.en.md", badEn);
+    assert.notEqual(f.check("check-docs.ts").status, 0, badEn);
   }
-  f.write("docs/releases/v1.2.0.en.md", validEn);
-  f.write("docs/releases/GazeKeep-1.2.1.md", valid);
-  register("docs/releases/GazeKeep-1.2.1.md");
-  assert.match(f.check("check-docs.ts").stderr, /GazeKeep-1\.2\.1\.md.*v<版本>/);
 });

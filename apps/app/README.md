@@ -1,6 +1,6 @@
 # GazeKeep Android 工程
 
-`apps/app` 是 GazeKeep 的完整 Gradle 工程，包含 Android App、KMP UI、纯 Kotlin 决策逻辑、三种后端、LSPosed 桥接和真实设备测试模块。产品目标、隐私承诺和当前缺口分别以[产品定义](../../docs/product/overview.md)、[隐私与安全](../../docs/product/privacy-security.md)和[任务清单](../../docs/plans/todo.md)为准。
+`apps/app` 是 GazeKeep 的完整 Gradle 工程，包含 Android App、KMP UI、纯 Kotlin 决策逻辑、三种后端、LSPosed 桥接和真实设备测试模块。产品目标、隐私承诺和当前缺口分别以[产品、术语与隐私](../../docs/product.md)和[任务清单](../../docs/plans/todo.md)为准。
 
 ## 工程结构
 
@@ -17,7 +17,7 @@
 | `xposed`          | `system_server` 入口、Hook、电源调度和隐私指示器过滤             |
 | `e2e`             | 独立进程的 UiAutomator 实机旅程                                  |
 
-模块依赖方向和代码定位见[架构总览](../../docs/architecture/overview.md)。接口、AIDL、descriptor、transaction 编号、协议版本和字段顺序属于兼容边界，修改前先更新对应架构专题。
+模块依赖方向和代码定位见[Android 与 KMP 架构](../../docs/architecture/app.md)及[三大保亮后端架构](../../docs/architecture/backends.md)。接口、AIDL、descriptor、transaction 编号、协议版本和字段顺序属于兼容边界，修改前先更新对应架构专题。
 
 ## 环境与构建
 
@@ -49,7 +49,7 @@ Debug APK 输出在 `apps/app/android/build/outputs/apk/debug/`。本地配置�
 
 ## 测试与验收
 
-测试分层、命令入口、UI/截图、实机矩阵和七条不变量见[测试与验收](../../docs/development/testing.md)。按改动风险选择最小充分验证：
+测试分层、命令入口、UI/截图、实机矩阵和七条不变量见[开发、测试与发布](../../docs/development.md)。按改动风险选择最小充分验证：
 
 ```bash
 pnpm --filter @gazekeep/app verify       # 主机门禁与测试 APK 构建
@@ -65,4 +65,4 @@ pnpm --filter @gazekeep/app test:device  # 已获授权且已连接设备时运�
 - App 不申请网络、存储/相册、全量应用列表或悬浮窗权限。
 - `system_server` Hook 异常必须隔离；Shizuku 临时修改系统超时必须先持久化原值并在恢复条件满足后写回。
 
-完整产品安全承诺见[Android 工程规则](AGENTS.md#产品安全承诺)。发布签名、ABI、APK 静态门禁和分发步骤见[发布门禁](../../docs/development/release.md)。
+完整产品安全承诺见[Android 工程规则](AGENTS.md#产品安全承诺)。发布签名、ABI、APK 静态门禁和分发步骤见[开发、测试与发布](../../docs/development.md#持续集成cicd与发布门禁)。
