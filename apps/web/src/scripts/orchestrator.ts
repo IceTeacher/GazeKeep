@@ -300,7 +300,7 @@ export function initWebsite() {
     message.textContent = content.loading;
     const attempt = attempts.begin();
     frame.src = `/kmp-showcase/${runtime}/index.html?attempt=${attempt}&lang=${content.locale}`;
-    timeout = setTimeout(() => failed(attempt), 60000);
+    timeout = setTimeout(() => failed(attempt), 25000);
   }
   const ensureLoaded = () => {
     if (!disposed && !loadStarted) load();
