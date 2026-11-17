@@ -1,4 +1,4 @@
-import { heroShaderLayers } from "./hero-shader.ts";
+import { heroShaderLayers, shouldUseHeroWebGPU } from "./hero-shader.ts";
 
 /** 首屏 Shader 底色与染色取自 tokens.css，随主题由 updateTheme 重读。 */
 function palette() {
@@ -9,34 +9,24 @@ function palette() {
   };
 }
 
-/** 首屏 WebGPU 背景：仅在首屏可见、页面前台且未要求减少动态时运行；不支持或失败时保留 CSS 降级。 */
+/** 首屏 WebGPU 背景：仅在首屏可见、页面前台、未要求减少动态且非 iOS/iPadOS WebKit 时运行；其余保留 CSS 降级。 */
 export function initHeroBackdrop() {
   const canvas = document.querySelector<HTMLCanvasElement>("#hero-shader")!;
   const hero = document.getElementById("hero")!;
   const reduce = matchMedia("(prefers-reduced-motion: reduce)");
+  const finePointer = matchMedia("(pointer: fine)");
   let instance: Awaited<ReturnType<(typeof import("shaders/js"))["createShader"]>> | undefined;
   let visible = true,
-    disposed = false,
-    raf = 0,
-    elapsed = 0,
-    last = 0;
-  const tick = (now: number) => {
-    if (last) elapsed += (now - last) / 1000;
-    last = now;
-    instance?.update("gaze-gradient", { angle: 120 + Math.sin(elapsed * 0.16) * 65 });
-    raf = requestAnimationFrame(tick);
-  };
+    disposed = false;
+
   const update = () => {
     const running = visible && !document.hidden && !reduce.matches;
     canvas.hidden = reduce.matches;
     hero.dataset.motionPaused = String(!running);
-    cancelAnimationFrame(raf);
-    last = 0;
     if (instance) {
       if (running) instance.resume();
       else instance.pause();
       canvas.dataset.running = String(running);
-      if (running) raf = requestAnimationFrame(tick);
     }
   };
   const updateTheme = () => {
@@ -44,9 +34,10 @@ export function initHeroBackdrop() {
     instance?.update("gaze-gradient", colors);
     instance?.update("gaze-noise", colors);
     instance?.update("gaze-prism", { beamColor: colors.colorB });
-    instance?.update("gaze-cursor", colors);
+    if (finePointer.matches) instance?.update("gaze-cursor", colors);
   };
   const fallback = () => {
+    delete hero.dataset.shaderActive;
     canvas.dataset.fallback = "true";
     canvas.style.opacity = "0";
   };
@@ -63,7 +54,16 @@ export function initHeroBackdrop() {
   update();
 
   async function create() {
-    if (!("gpu" in navigator)) return;
+    if (
+      !shouldUseHeroWebGPU({
+        userAgent: navigator.userAgent,
+        maxTouchPoints: navigator.maxTouchPoints ?? 0,
+        hasWebGPU: "gpu" in navigator && Boolean((navigator as Navigator & { gpu?: unknown }).gpu),
+      })
+    ) {
+      canvas.hidden = true;
+      return;
+    }
     try {
       // 先探测 WebGPU 适配器并在首帧机身与内屏发起加载之后再延迟拉取 1.3 MB 的 shaders 运行时，避免无适配器环境白耗流量及抢占首帧资源。
       await new Promise<void>((resolve) => {
@@ -79,7 +79,7 @@ export function initHeroBackdrop() {
       if (disposed) return;
       instance = await createShader(
         canvas,
-        { components: heroShaderLayers(palette()) },
+        { components: heroShaderLayers(palette(), { interactiveCursor: finePointer.matches }) },
         {
           disableTelemetry: true,
           onError: (reason) => {
@@ -98,6 +98,7 @@ export function initHeroBackdrop() {
         fallback();
         return;
       }
+      hero.dataset.shaderActive = "true";
       updateTheme();
       update();
     } catch {
@@ -109,8 +110,8 @@ export function initHeroBackdrop() {
     updateTheme,
     dispose() {
       disposed = true;
+      delete hero.dataset.shaderActive;
       io.disconnect();
-      cancelAnimationFrame(raf);
       document.removeEventListener("visibilitychange", update);
       reduce.removeEventListener("change", update);
       instance?.destroy();

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import vm from "node:vm";
 import { expect, test } from "vitest";
 import { assertFixedPublicPath } from "../../scripts/kmp-showcase.ts";
 import {
@@ -86,4 +88,129 @@ test("展示资源复制只保留运行时实际引用的 wasm/mjs，剔除 sour
   // 若未来入口脚本实际通过 import/URL 引用外部 skiko.mjs，则仍会保留。
   const externalImport = `${entry};import("./skiko.mjs");`;
   expect(shouldCopyShowcaseAsset("skiko.mjs", externalImport, referencedWasm)).toBe(true);
+});
+
+test("展示页模板在独立打开且父页无 lang 时安全兜底语言标签，并监听 WebGL 上下文丢失", () => {
+  const html = readFileSync(
+    new URL("../../../app/shared/src/showcaseMain/resources/index.html", import.meta.url),
+    "utf8",
+  );
+  const scriptMatch = /<script>([\s\S]*?)<\/script>/.exec(html);
+  expect(scriptMatch).toBeTruthy();
+
+  const dispatched: string[] = [];
+  const navigatorMock = { language: "zh-CN" };
+  const listeners = new Map<string, () => void>();
+  const ctx = {
+    location: { search: "" },
+    navigator: navigatorMock,
+    document: { documentElement: { lang: "" } },
+    window: {
+      parent: null as unknown,
+      addEventListener: (type: string, fn: () => void) => listeners.set(type, fn),
+    },
+    HTMLCanvasElement: { prototype: { getContext: () => null } },
+    URLSearchParams,
+    CustomEvent: class {
+      type: string;
+      detail: unknown;
+      constructor(type: string, init?: { detail?: unknown }) {
+        this.type = type;
+        this.detail = init?.detail;
+      }
+    },
+    addEventListener: (type: string, fn: () => void) => listeners.set(type, fn),
+  };
+  ctx.window.parent = ctx.window;
+  (ctx.window as { dispatchEvent?: (ev: { type: string }) => void }).dispatchEvent = (ev) => {
+    dispatched.push(ev.type);
+  };
+  vm.runInNewContext(scriptMatch![1], ctx);
+
+  expect((navigatorMock as { languages?: string[] }).languages).toEqual(["zh-CN"]);
+  expect(html).toContain("webglcontextlost");
+  expect(html).toContain("webglcontextcreationerror");
+});
+
+test("展示页模板在 WebKit 下包裹 Skiko 非内存类 Wasm 导入并在 Chromium 下保持原样", async () => {
+  const html = readFileSync(
+    new URL("../../../app/shared/src/showcaseMain/resources/index.html", import.meta.url),
+    "utf8",
+  );
+  const scriptMatch = /<script>([\s\S]*?)<\/script>/.exec(html);
+  expect(scriptMatch).toBeTruthy();
+
+  const createEnv = (userAgent: string) => {
+    let seenImports: Record<string, unknown> | undefined;
+    let seenOpts: unknown;
+    const origInstantiate = async (_source: unknown, imports?: Record<string, unknown>) => ({ imports });
+    const origInstantiateStreaming = async (_source: unknown, imports?: Record<string, unknown>, opts?: unknown) => {
+      seenImports = imports;
+      seenOpts = opts;
+      return { imports, opts };
+    };
+    const wasm = {
+      instantiate: origInstantiate,
+      instantiateStreaming: origInstantiateStreaming,
+    };
+    const ctx: Record<string, unknown> = {
+      location: { search: "" },
+      navigator: { language: "zh-CN", userAgent },
+      document: { documentElement: { lang: "" } },
+      window: {
+        parent: null as unknown,
+        addEventListener: () => {},
+      },
+      HTMLCanvasElement: { prototype: { getContext: () => null } },
+      WebAssembly: wasm,
+      URLSearchParams,
+      CustomEvent: class {},
+      addEventListener: () => {},
+    };
+    ctx.window = Object.assign(ctx.window as object, { parent: ctx.window });
+    vm.runInNewContext(scriptMatch![1], ctx);
+    return {
+      wasm,
+      origInstantiate,
+      origInstantiateStreaming,
+      getSeenImports: () => seenImports,
+      getSeenOpts: () => seenOpts,
+    };
+  };
+
+  const memFn = (x: number) => x + 1;
+  const renderFn = (x: number) => x * 2;
+  const jsCodeFn = () => true;
+  const skikoApiObj = { _releaseLocalCallbackScope: () => {} };
+  const compileOpts = { builtins: ["js-string"], importedStringConstants: "'" };
+  const rawImports = {
+    js_code: { helper: jsCodeFn },
+    "./skiko.mjs": {
+      skia_memSetByte: memFn,
+      org_jetbrains_skiko_node_RenderNodeKt_RenderNode_1nMake: renderFn,
+      skikoApi: skikoApiObj,
+    },
+  };
+
+  // Safari / iPadOS WebKit: 应替换 instantiateStreaming 与 instantiate，包裹非 skia_mem 导入且透传第 3 参数
+  const webkit = createEnv(
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Safari/605.1.15",
+  );
+  expect(webkit.wasm.instantiate).not.toBe(webkit.origInstantiate);
+  expect(webkit.wasm.instantiateStreaming).not.toBe(webkit.origInstantiateStreaming);
+  await webkit.wasm.instantiateStreaming({}, rawImports, compileOpts as never);
+  const wrappedSkiko = (webkit.getSeenImports() as typeof rawImports)["./skiko.mjs"];
+  expect((webkit.getSeenImports() as typeof rawImports).js_code).toBe(rawImports.js_code);
+  expect(wrappedSkiko.skia_memSetByte).toBe(memFn);
+  expect(wrappedSkiko.skikoApi).toBe(skikoApiObj);
+  expect(wrappedSkiko.org_jetbrains_skiko_node_RenderNodeKt_RenderNode_1nMake).not.toBe(renderFn);
+  expect(wrappedSkiko.org_jetbrains_skiko_node_RenderNodeKt_RenderNode_1nMake(21)).toBe(42);
+  expect(webkit.getSeenOpts()).toBe(compileOpts);
+
+  // Chromium: 保持原生 WebAssembly API 不变
+  const chrome = createEnv(
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+  );
+  expect(chrome.wasm.instantiate).toBe(chrome.origInstantiate);
+  expect(chrome.wasm.instantiateStreaming).toBe(chrome.origInstantiateStreaming);
 });

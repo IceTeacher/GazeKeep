@@ -21,12 +21,65 @@
   <body>
     <div id="showcase"></div>
     <script>
+      const fallbackLang = navigator.language || "zh";
+      const resolveLang = () => {
+        const q = new URLSearchParams(location.search).get("lang");
+        if (q) return q;
+        try {
+          const p = window.parent && window.parent !== window ? window.parent.document.documentElement.lang : "";
+          if (p) return p;
+        } catch {}
+        return document.documentElement.lang || fallbackLang;
+      };
+      document.documentElement.lang = resolveLang();
       Object.defineProperty(navigator, "languages", {
         configurable: true,
-        get: () => [window.parent.document.documentElement.lang],
+        get: () => [resolveLang()],
       });
       const attempt = Number(new URLSearchParams(location.search).get("attempt"));
-      const reportError = () => window.parent.dispatchEvent(new CustomEvent("gazekeep:error", { detail: { attempt } }));
+      const reportError = () => {
+        if (window.parent && window.parent !== window) {
+          window.parent.dispatchEvent(new CustomEvent("gazekeep:error", { detail: { attempt } }));
+        }
+      };
+      const origGetContext = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function () {
+        const ctx = origGetContext.apply(this, arguments);
+        if (this && !this.__gazekeepWatched) {
+          this.__gazekeepWatched = true;
+          this.addEventListener("webglcontextlost", () => {
+            setTimeout(() => {
+              if (ctx && typeof ctx.isContextLost === "function" && ctx.isContextLost()) reportError();
+            }, 1500);
+          });
+          this.addEventListener("webglcontextcreationerror", reportError);
+        }
+        return ctx;
+      };
+      // Safari/WebKit 安全上下文下 Kotlin/WasmGC 直连 Skiko 线性内存 Wasm 导出的跨模块调用会丢失实际绘制，
+      // 通过 JS 包装打破跨模块直连（跳过高频 skia_mem* 内存读写以保留性能）即可恢复正常渲染。
+      const ua = navigator.userAgent || "";
+      const isWebKit = /AppleWebKit/i.test(ua) && !/Chrome|Chromium|Edg\//i.test(ua);
+      if (isWebKit && typeof WebAssembly !== "undefined") {
+        const wrapSkikoImports = (imports) => {
+          const skiko = imports && imports["./skiko.mjs"];
+          if (!skiko || typeof skiko !== "object") return imports;
+          const wrapped = {};
+          for (const [key, value] of Object.entries(skiko)) {
+            wrapped[key] =
+              typeof value === "function" && !key.startsWith("skia_mem") ? (...args) => value(...args) : value;
+          }
+          return Object.assign({}, imports, { "./skiko.mjs": wrapped });
+        };
+        const wrapArgs = (args) =>
+          args.length >= 2 && args[1] ? [args[0], wrapSkikoImports(args[1]), ...args.slice(2)] : args;
+        const origInstantiate = WebAssembly.instantiate.bind(WebAssembly);
+        WebAssembly.instantiate = (...args) => origInstantiate(...wrapArgs(args));
+        if (typeof WebAssembly.instantiateStreaming === "function") {
+          const origInstantiateStreaming = WebAssembly.instantiateStreaming.bind(WebAssembly);
+          WebAssembly.instantiateStreaming = (...args) => origInstantiateStreaming(...wrapArgs(args));
+        }
+      }
       window.addEventListener("error", reportError);
       window.addEventListener("unhandledrejection", reportError);
     </script>
