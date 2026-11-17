@@ -1,6 +1,8 @@
 name: 使用问题反馈
 description: 用着不顺手、出了问题，或者有什么想法，都可以在这里告诉我们
 title: "[反馈] "
+assignees:
+  - IceTeacher
 body:
   - type: markdown
     attributes:
