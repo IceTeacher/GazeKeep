@@ -3,6 +3,7 @@ package cn.rainafter.app.gazekeep.runtime
 import cn.rainafter.app.gazekeep.core.engine.LastOutcome
 import cn.rainafter.app.gazekeep.core.model.Attention
 import cn.rainafter.app.gazekeep.core.model.BackendId
+import cn.rainafter.app.gazekeep.core.model.Readiness
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -12,6 +13,7 @@ data class RuntimeStatus(
   val backend: BackendId? = null,
   val lastDecision: Attention? = null,
   val lastOutcome: LastOutcome? = null,
+  val shizukuReadiness: Readiness? = null,
 )
 
 /** 只发布 reducer 的输出与服务生命周期，不能通过此对象驱动决策。 */
@@ -26,7 +28,17 @@ object RuntimeStatusStore {
   }
 
   fun updateRunning(running: Boolean, backend: BackendId?) {
-    mutableStatus.update { it.copy(running = running, backend = backend) }
+    mutableStatus.update {
+      it.copy(
+        running = running,
+        backend = backend,
+        shizukuReadiness = if (running) it.shizukuReadiness else null,
+      )
+    }
+  }
+
+  fun updateShizukuReadiness(readiness: Readiness?) {
+    mutableStatus.update { it.copy(shizukuReadiness = readiness) }
   }
 
   fun recordDecision(attention: Attention) {
