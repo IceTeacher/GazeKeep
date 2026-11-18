@@ -21,6 +21,11 @@ object EngineReducer {
   fun reduce(snapshot: EngineSnapshot, event: EngineEvent, now: Long): Transition = when (event) {
     is EngineEvent.ConfigChanged -> configChanged(snapshot, event.config)
 
+    EngineEvent.BackendSwitching -> Transition(
+      snapshot.copy(state = EngineState.Disabled),
+      listOf(EngineEffect.CancelCapture, EngineEffect.CancelWake, EngineEffect.CancelHoldLimit),
+    )
+
     is EngineEvent.BackendSelected -> backendChanged(snapshot, event.backend)
 
     EngineEvent.ScreenOff -> screenOff(snapshot)

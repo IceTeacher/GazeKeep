@@ -470,4 +470,24 @@ class EngineReducerTest {
     assertTrue(EngineEffect.ClearAlert(Alert.CameraUnavailable) in result.effects)
     assertTrue(EngineEffect.ClearAlert(Alert.CameraPermissionLost) in result.effects)
   }
+
+  @Test
+  fun backendSwitchingDisablesAndCancelsRoundWithoutAlertAndRejectsLateCapture() {
+    val round = capturing()
+    val switching = EngineReducer.reduce(round, EngineEvent.BackendSwitching, 13_000L)
+    assertEquals(EngineState.Disabled, switching.snapshot.state)
+    assertTrue(EngineEffect.CancelCapture in switching.effects)
+    assertTrue(EngineEffect.CancelWake in switching.effects)
+    assertTrue(EngineEffect.CancelHoldLimit in switching.effects)
+    assertTrue(switching.effects.none { it is EngineEffect.Notify || it is EngineEffect.Extend })
+
+    // 旧检测轮次的迟到结果不得再产生 Extend 或切换到无效扩展流程。
+    val late = EngineReducer.reduce(
+      switching.snapshot,
+      EngineEvent.CaptureFinished(Attention.Looking, emptyList(), 50L),
+      13_050L,
+    )
+    assertEquals(EngineState.Disabled, late.snapshot.state)
+    assertTrue(late.effects.isEmpty())
+  }
 }

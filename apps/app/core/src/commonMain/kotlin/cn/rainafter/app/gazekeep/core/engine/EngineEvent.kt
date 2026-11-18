@@ -11,6 +11,7 @@ import cn.rainafter.app.gazekeep.core.policy.GateDecision
 
 sealed interface EngineEvent {
   data class ConfigChanged(val config: GazeConfig) : EngineEvent
+  data object BackendSwitching : EngineEvent
   data class BackendSelected(val backend: BackendId?) : EngineEvent
   data object ScreenOn : EngineEvent
   data object ScreenOff : EngineEvent

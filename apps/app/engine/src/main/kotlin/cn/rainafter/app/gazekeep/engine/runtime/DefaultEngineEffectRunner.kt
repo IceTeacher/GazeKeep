@@ -21,6 +21,7 @@ import cn.rainafter.app.gazekeep.engine.gate.GateProbe
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
@@ -189,6 +190,16 @@ class DefaultEngineEffectRunner(
 
       is EngineEffect.ClearAlert -> onClearAlert(effect.alert)
     }
+  }
+
+  /** 切换后端前取消并等待当前检测与延长任务完全退出，避免旧轮次误用新后端或抵消强制释放。 */
+  suspend fun quiesce() {
+    scheduler.cancel()
+    gateJob?.cancelAndJoin()
+    captureJob?.cancelAndJoin()
+    extendJob?.cancelAndJoin()
+    holdJob?.cancelAndJoin()
+    backendLock.withLock {}
   }
 
   override fun close() {

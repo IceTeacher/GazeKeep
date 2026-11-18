@@ -21,6 +21,7 @@ import cn.rainafter.app.gazekeep.core.engine.EngineEvent
 import cn.rainafter.app.gazekeep.core.engine.EngineSnapshot
 import cn.rainafter.app.gazekeep.core.engine.EngineState
 import cn.rainafter.app.gazekeep.core.engine.toLastOutcome
+import cn.rainafter.app.gazekeep.core.model.BackendId
 import cn.rainafter.app.gazekeep.core.model.GazeConfig
 import cn.rainafter.app.gazekeep.engine.camera.CameraXFrameSource
 import cn.rainafter.app.gazekeep.engine.camera.CaptureOwnershipCoordinator
@@ -214,29 +215,45 @@ class BackendSession(
   }
 
   private suspend fun applyBackendChange(previous: KeepAwakeBackend?, target: KeepAwakeBackend?, config: GazeConfig) {
-    // 被切走的后端之后收不到熄屏释放，临时设置必须立即恢复。
-    if (previous != null) {
-      runCatching { previous.forceRelease() }
-    }
-    backend = target
-    syncIndicator(target, config)
-    engine?.submit(EngineEvent.BackendSelected(target?.id))
-    // Oracle 启动会立即发出首个 deadline；等 reducer 先确认后端，避免首个事件落在 Disabled 状态。
-    if (target != null) {
-      withTimeoutOrNull(1_000L) {
-        engine?.snapshot?.first { it.backend == target.id }
-      }
-    }
-    configureOracle(target, config)
+    switchBackendTransition(
+      previous = previous,
+      target = target,
+      stopOracles = ::stopOracles,
+      submitEvent = { event -> engine?.submit(event) },
+      awaitDisabled = {
+        withTimeoutOrNull(1_000L) {
+          engine?.snapshot?.first { it.state == EngineState.Disabled }
+        }
+      },
+      quiesceEffects = {
+        withTimeoutOrNull(2_000L) {
+          effects?.quiesce()
+        }
+      },
+      assignBackend = { next ->
+        backend = next
+        syncIndicator(next, config)
+      },
+      awaitSelected = { id ->
+        withTimeoutOrNull(1_000L) {
+          engine?.snapshot?.first { it.backend == id }
+        }
+      },
+      startOracle = { next -> configureOracle(next, config) },
+    )
   }
 
-  private fun configureOracle(selected: KeepAwakeBackend?, config: GazeConfig) {
+  private fun stopOracles() {
     deadlineJob?.cancel()
     deadlineJob = null
     idleOracle?.close()
     idleOracle = null
     powerOracle?.close()
     powerOracle = null
+  }
+
+  private fun configureOracle(selected: KeepAwakeBackend?, config: GazeConfig) {
+    stopOracles()
 
     if (selected is LsposedKeepAwakeBackend) {
       deadlineJob = scope.launch {
@@ -358,7 +375,36 @@ class BackendSession(
     screenReceiver = receiver
   }
 
-  private companion object {
+  internal companion object {
     const val TAG = "GazeKeepEngine"
+
+    /** 切换后端时先停旧 oracle 并取消等待在途采集/延长结束，再强制释放与替换引用。 */
+    suspend fun switchBackendTransition(
+      previous: KeepAwakeBackend?,
+      target: KeepAwakeBackend?,
+      stopOracles: () -> Unit,
+      submitEvent: (EngineEvent) -> Unit,
+      awaitDisabled: suspend () -> Unit,
+      quiesceEffects: suspend () -> Unit,
+      assignBackend: (KeepAwakeBackend?) -> Unit,
+      awaitSelected: suspend (BackendId) -> Unit,
+      startOracle: (KeepAwakeBackend?) -> Unit,
+    ) {
+      stopOracles()
+      if (previous != null) {
+        submitEvent(EngineEvent.BackendSwitching)
+        awaitDisabled()
+        quiesceEffects()
+        // 被切走的后端之后收不到熄屏释放，须在旧轮完全静止后立即恢复。
+        runCatching { previous.forceRelease() }
+      }
+      assignBackend(target)
+      submitEvent(EngineEvent.BackendSelected(target?.id))
+      // Oracle 启动会立即发出首个 deadline；等 reducer 先确认后端，避免首个事件落在 Disabled 状态。
+      if (target != null) {
+        awaitSelected(target.id)
+      }
+      startOracle(target)
+    }
   }
 }

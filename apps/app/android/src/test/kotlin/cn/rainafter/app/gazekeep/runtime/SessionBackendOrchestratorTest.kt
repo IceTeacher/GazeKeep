@@ -3,6 +3,7 @@ package cn.rainafter.app.gazekeep.runtime
 import cn.rainafter.app.gazekeep.core.backend.ExtendResult
 import cn.rainafter.app.gazekeep.core.backend.ExtendToken
 import cn.rainafter.app.gazekeep.core.backend.KeepAwakeBackend
+import cn.rainafter.app.gazekeep.core.engine.EngineEvent
 import cn.rainafter.app.gazekeep.core.model.BackendId
 import cn.rainafter.app.gazekeep.core.model.BackendLock
 import cn.rainafter.app.gazekeep.core.model.Readiness
@@ -204,5 +205,55 @@ class SessionBackendOrchestratorTest {
       orch.cancel()
       scope.cancel()
     }
+  }
+
+  @Test
+  fun switchTransitionQuiescesOldRoundBeforeForceReleaseAndSwappingBackend() = runBlocking {
+    val steps = mutableListOf<String>()
+    val previous = object : KeepAwakeBackend {
+      override val id = BackendId.Accessibility
+      override val readiness = MutableStateFlow<Readiness>(Readiness.Ready)
+      override suspend fun extend(token: ExtendToken) = ExtendResult.Done
+      override suspend fun release() = Unit
+      override suspend fun forceRelease() {
+        steps += "forceRelease:${id.name}"
+      }
+      override suspend fun attach() = Unit
+      override suspend fun detach() = Unit
+    }
+    val target = FakeBackend(BackendId.Shizuku, Readiness.Ready)
+
+    BackendSession.switchBackendTransition(
+      previous = previous,
+      target = target,
+      stopOracles = { steps += "stopOracles" },
+      submitEvent = { event ->
+        steps += when (event) {
+          EngineEvent.BackendSwitching -> "submit:BackendSwitching"
+          is EngineEvent.BackendSelected -> "submit:BackendSelected(${event.backend?.name})"
+          else -> "submit:other"
+        }
+      },
+      awaitDisabled = { steps += "awaitDisabled" },
+      quiesceEffects = { steps += "quiesce" },
+      assignBackend = { next -> steps += "assign:${next?.id?.name}" },
+      awaitSelected = { id -> steps += "awaitSelected:${id.name}" },
+      startOracle = { next -> steps += "startOracle:${next?.id?.name}" },
+    )
+
+    assertEquals(
+      listOf(
+        "stopOracles",
+        "submit:BackendSwitching",
+        "awaitDisabled",
+        "quiesce",
+        "forceRelease:Accessibility",
+        "assign:Shizuku",
+        "submit:BackendSelected(Shizuku)",
+        "awaitSelected:Shizuku",
+        "startOracle:Shizuku",
+      ),
+      steps,
+    )
   }
 }
