@@ -14,12 +14,14 @@ import cn.rainafter.app.gazekeep.R
 import cn.rainafter.app.gazekeep.core.engine.Alert
 
 /** 文案每次按当前应用语言解析：运行中切换语言时，服务不会重建本对象。 */
-class GazeNotifier(private val localized: () -> Context) {
+class GazeNotifier internal constructor(private val localized: () -> Context, private val elapsedClock: () -> Long) {
+  constructor(localized: () -> Context) : this(localized, SystemClock::elapsedRealtime)
+
   private val context get() = localized()
   private val lastAlerts = mutableMapOf<Alert, Long>()
 
   @Synchronized fun notifyAlert(alert: Alert) {
-    val now = SystemClock.elapsedRealtime()
+    val now = elapsedClock()
     val previous = lastAlerts[alert]
     if (previous != null && now - previous < ALERT_SUPPRESSION_MS) return
     lastAlerts[alert] = now
@@ -50,7 +52,6 @@ class GazeNotifier(private val localized: () -> Context) {
   }
 
   @Synchronized fun cancelAlert(alert: Alert) {
-    lastAlerts.remove(alert)
     context.getSystemService(NotificationManager::class.java).cancel(ALERT_NOTIFICATION_ID + alert.ordinal)
   }
 

@@ -15,21 +15,29 @@ import kotlin.test.assertTrue
 class GazeNotifierAlertTest {
   private val app: Context = RuntimeEnvironment.getApplication()
   private val manager = app.getSystemService(NotificationManager::class.java)
-  private val notifier = GazeNotifier { app }
+  private var nowMs = 1_000L
+  private val notifier = GazeNotifier({ app }, { nowMs })
 
-  @Test fun cancelAlertRemovesNotificationAndResetsSuppressionForFutureFailure() {
+  @Test fun cancelAlertRemovesNotificationWhileKeepingRateLimitWithinTenMinutes() {
     notifier.createChannels()
     notifier.notifyAlert(Alert.BackendUnavailable)
     assertEquals(1, shadowOf(manager).allNotifications.size)
 
-    // 10 分钟内重复故障应继续抑制。
-    notifier.notifyAlert(Alert.BackendUnavailable)
-    assertEquals(1, shadowOf(manager).allNotifications.size)
-
-    // 后端恢复清除后，通知栏移除该提醒，且后续再次真实失效时应重新提醒。
+    // 后端恢复清除后，通知栏应立即撤销；但 10 分钟内同类故障仍受限频约束，避免抖动刷屏。
     notifier.cancelAlert(Alert.BackendUnavailable)
     assertTrue(shadowOf(manager).allNotifications.isEmpty())
 
+    nowMs += 5_000L
+    notifier.notifyAlert(Alert.BackendUnavailable)
+    assertTrue(shadowOf(manager).allNotifications.isEmpty())
+
+    // 不同告警类型相互独立，不受前一种告警限频影响。
+    notifier.notifyAlert(Alert.CameraUnavailable)
+    assertEquals(1, shadowOf(manager).allNotifications.size)
+    notifier.cancelAlert(Alert.CameraUnavailable)
+
+    // 超过 10 分钟冷却窗口后，再次失效允许重新通知。
+    nowMs += 10 * 60 * 1000L
     notifier.notifyAlert(Alert.BackendUnavailable)
     assertEquals(1, shadowOf(manager).allNotifications.size)
   }
