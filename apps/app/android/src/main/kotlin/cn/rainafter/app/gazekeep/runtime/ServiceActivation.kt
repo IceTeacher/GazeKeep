@@ -6,6 +6,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import cn.rainafter.app.gazekeep.engine.config.ConfigStore
+import cn.rainafter.app.gazekeep.notification.GazeNotifier
+import cn.rainafter.app.gazekeep.platform.AppLocales
 import cn.rainafter.app.gazekeep.service.GazeQuickTileService
 import cn.rainafter.app.gazekeep.service.GazeService
 import kotlinx.coroutines.CancellationException
@@ -23,19 +25,30 @@ object ServiceActivation {
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
   private var pending: Job? = null
   fun stop(context: Context) {
+    stopServiceOnly(context)
+    GazeNotifier { AppLocales.wrap(context) }.clearAllAlerts()
+  }
+
+  private fun stopServiceOnly(context: Context) {
     pending?.cancel()
     pending = null
     RuntimeStatusStore.intentionalStop = true
     context.stopService(Intent(context, GazeService::class.java))
     GazeQuickTileService.requestRefresh(context)
   }
+
   fun reconfigure(context: Context) {
-    stop(context)
+    stopServiceOnly(context)
     pending = scope.launch {
       try {
         delay(250L)
         val settings = ConfigStore(context).settings.first()
-        if (!settings.config.enabled || settings.selfTestPassedAt == null) return@launch
+        if (!settings.config.enabled || settings.selfTestPassedAt == null) {
+          if (!settings.config.enabled) {
+            GazeNotifier { AppLocales.wrap(context) }.clearAllAlerts()
+          }
+          return@launch
+        }
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) !=
           PackageManager.PERMISSION_GRANTED
         ) {

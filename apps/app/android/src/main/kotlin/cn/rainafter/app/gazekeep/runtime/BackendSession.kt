@@ -22,7 +22,6 @@ import cn.rainafter.app.gazekeep.core.engine.EngineSnapshot
 import cn.rainafter.app.gazekeep.core.engine.EngineState
 import cn.rainafter.app.gazekeep.core.engine.toLastOutcome
 import cn.rainafter.app.gazekeep.core.model.BackendId
-import cn.rainafter.app.gazekeep.core.model.BackendLock
 import cn.rainafter.app.gazekeep.core.model.GazeConfig
 import cn.rainafter.app.gazekeep.engine.camera.CameraXFrameSource
 import cn.rainafter.app.gazekeep.engine.camera.CaptureOwnershipCoordinator
@@ -37,12 +36,10 @@ import cn.rainafter.app.gazekeep.engine.runtime.HandlerWakeScheduler
 import cn.rainafter.app.gazekeep.engine.runtime.logName
 import cn.rainafter.app.gazekeep.notification.GazeNotifier
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.PrintWriter
 
@@ -66,37 +63,15 @@ class BackendSession(
   private var idleOracle: IdleClockOracle? = null
   private var powerOracle: PowerDumpOracle? = null
   private var deadlineJob: Job? = null
-  private var backendSelectionJob: Job? = null
-  private var lsposedSelectionJob: Job? = null
-  private var a11ySelectionJob: Job? = null
-  private var backend: KeepAwakeBackend? = null
-  private var shizukuBackend: ShizukuKeepAwakeBackend? = null
-  private var lsposedBackend: LsposedKeepAwakeBackend? = null
-  private val backendSwitchLock = kotlinx.coroutines.sync.Mutex()
+  private var orchestrator: SessionBackendOrchestrator? = null
+
+  @Volatile private var backend: KeepAwakeBackend? = null
   private var frameSource: CameraXFrameSource? = null
   private var classifier: MlKitFrameClassifier? = null
   private var gateProbe: AndroidGateProbe? = null
   fun start() {
     RuntimeStatusStore.intentionalStop = false
     val permission = context.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
-    val a11yBackend = GazeA11yService.current?.backend
-    shizukuBackend = if (config.backendLock == BackendLock.Accessibility) {
-      null
-    } else {
-      ShizukuKeepAwakeBackend(context)
-    }
-    lsposedBackend = LsposedKeepAwakeBackend(
-      leadMillis = config.leadMillis,
-      // 隐私指示器状态只在后端真正选中后同步，避免 attach 顺序覆盖非 LSPosed 后端的恢复状态。
-      hideCameraIndicator = false,
-    )
-    val candidates = mutableMapOf<BackendId, KeepAwakeBackend>().apply {
-      a11yBackend?.let { put(BackendId.Accessibility, it) }
-      shizukuBackend?.let { put(BackendId.Shizuku, it) }
-      lsposedBackend?.let { put(BackendId.Lsposed, it) }
-    }
-    val selector = BackendSelector(config.backendLock, candidates)
-    backend = selector.select()
     val gateProbe = AndroidGateProbe(
       context,
       ForegroundAppSource {
@@ -148,6 +123,7 @@ class BackendSession(
         RuntimeStatusStore.recordOutcome(record.toLastOutcome(), record.attention)
       },
       onNotify = notifier::notifyAlert,
+      onClearAlert = notifier::cancelAlert,
       // Shizuku 退路写回原超时后，按真实熄屏点重新安排检测。
       onReleased = { powerOracle?.requestRead() },
     )
@@ -155,16 +131,12 @@ class BackendSession(
     engine = GazeEngine(
       EngineSnapshot(
         config = config,
-        backend = backend?.id,
+        backend = null,
         cameraPermissionGranted = permission,
       ),
       runner,
     )
     registerScreenReceiver()
-    engine?.submit(EngineEvent.BackendSelected(backend?.id))
-    // 先让 reducer 进入可运行状态，再启动会立即发出首个 deadline 的 oracle，
-    // 避免首个事件在 Disabled 状态被丢弃后一直等不到下一轮检测。
-    configureOracle(backend, config)
     scope.launch {
       engine?.snapshot?.collectLatest { snapshot ->
         RuntimeStatusStore.updateRunning(running = true, backend = snapshot.backend)
@@ -184,27 +156,28 @@ class BackendSession(
         }
       }
     }
-    shizukuBackend?.let { shizuku ->
-      backendSelectionJob = scope.launch {
-        shizuku.attach()
-        shizuku.readiness.collectLatest {
-          switchBackend(selector, config)
-        }
-      }
-    }
-    lsposedBackend?.let { lsposed ->
-      lsposedSelectionJob = scope.launch {
-        lsposed.attach()
-        lsposed.readiness.collectLatest {
-          switchBackend(selector, config)
-        }
-      }
-    }
-    a11ySelectionJob = scope.launch {
-      selector.trackAvailability(BackendId.Accessibility, GazeA11yService.availableBackend) {
-        switchBackend(selector, config)
-      }
-    }
+    orchestrator = SessionBackendOrchestrator(
+      lock = config.backendLock,
+      scope = scope,
+      createShizuku = { ShizukuKeepAwakeBackend(context) },
+      hasPendingShizukuBind = { (it as? ShizukuKeepAwakeBackend)?.hasPendingBind() == true },
+      createLsposed = {
+        LsposedKeepAwakeBackend(
+          leadMillis = config.leadMillis,
+          // 隐私指示器状态只在后端真正选中后同步，避免 attach 顺序覆盖非 LSPosed 后端的恢复状态。
+          hideCameraIndicator = false,
+        )
+      },
+      currentAccessibility = { GazeA11yService.current?.backend },
+      accessibilityAvailability = GazeA11yService.availableBackend,
+      onShizukuReadiness = RuntimeStatusStore::updateShizukuReadiness,
+      onRetainSameBackend = { retained ->
+        syncIndicator(retained, config)
+      },
+      onBackendChanged = { previous, target ->
+        applyBackendChange(previous, target, config)
+      },
+    ).also { it.start() }
   }
 
   fun dump(writer: PrintWriter) {
@@ -234,46 +207,53 @@ class BackendSession(
     }
   }
 
-  private suspend fun switchBackend(selector: BackendSelector, config: GazeConfig) = backendSwitchLock.withLock {
-    switchBackendLocked(selector, config)
-  }
-
-  private suspend fun switchBackendLocked(selector: BackendSelector, config: GazeConfig) {
-    val target = selector.select()
-    if (target === backend) {
-      runCatching {
-        lsposedBackend?.syncHideCameraIndicator(config.hideCameraIndicator && target is LsposedKeepAwakeBackend)
-      }
-      return
-    }
-
-    engine?.submit(EngineEvent.BackendSelected(null))
-    val previous = backend
-    // 被切走的后端之后收不到熄屏释放，临时设置必须立即恢复。
-    if (previous != null) {
-      runCatching { previous.forceRelease() }
-    }
-    backend = target
+  private fun syncIndicator(selected: KeepAwakeBackend?, config: GazeConfig) {
+    val lsposed = orchestrator?.lsposedBackend as? LsposedKeepAwakeBackend ?: return
     runCatching {
-      lsposedBackend?.syncHideCameraIndicator(config.hideCameraIndicator && target is LsposedKeepAwakeBackend)
+      lsposed.syncHideCameraIndicator(config.hideCameraIndicator && selected is LsposedKeepAwakeBackend)
     }
-    engine?.submit(EngineEvent.BackendSelected(target?.id))
-    // Oracle 启动会立即发出首个 deadline；等 reducer 先确认后端，避免首个事件落在 Disabled 状态。
-    if (target != null) {
-      withTimeoutOrNull(1_000L) {
-        engine?.snapshot?.first { it.backend == target.id }
-      }
-    }
-    configureOracle(target, config)
   }
 
-  private fun configureOracle(selected: KeepAwakeBackend?, config: GazeConfig) {
+  private suspend fun applyBackendChange(previous: KeepAwakeBackend?, target: KeepAwakeBackend?, config: GazeConfig) {
+    switchBackendTransition(
+      previous = previous,
+      target = target,
+      stopOracles = ::stopOracles,
+      submitEvent = { event -> engine?.submit(event) },
+      awaitDisabled = {
+        withTimeoutOrNull(1_000L) {
+          engine?.snapshot?.first { it.state == EngineState.Disabled }
+        }
+      },
+      quiesceEffects = {
+        withTimeoutOrNull(2_000L) {
+          effects?.quiesce()
+        }
+      },
+      assignBackend = { next ->
+        backend = next
+        syncIndicator(next, config)
+      },
+      awaitSelected = { id ->
+        withTimeoutOrNull(1_000L) {
+          engine?.snapshot?.first { it.backend == id }
+        }
+      },
+      startOracle = { next -> configureOracle(next, config) },
+    )
+  }
+
+  private fun stopOracles() {
     deadlineJob?.cancel()
     deadlineJob = null
     idleOracle?.close()
     idleOracle = null
     powerOracle?.close()
     powerOracle = null
+  }
+
+  private fun configureOracle(selected: KeepAwakeBackend?, config: GazeConfig) {
+    stopOracles()
 
     if (selected is LsposedKeepAwakeBackend) {
       deadlineJob = scope.launch {
@@ -331,12 +311,10 @@ class BackendSession(
     effects = null
     deadlineJob?.cancel()
     deadlineJob = null
-    backendSelectionJob?.cancel()
-    backendSelectionJob = null
-    lsposedSelectionJob?.cancel()
-    lsposedSelectionJob = null
-    a11ySelectionJob?.cancel()
-    a11ySelectionJob = null
+    orchestrator?.cancel()
+    val shizuku = orchestrator?.shizukuBackend as? ShizukuKeepAwakeBackend
+    val lsposed = orchestrator?.lsposedBackend as? LsposedKeepAwakeBackend
+    orchestrator = null
     engine?.close()
     engine = null
     oracle = null
@@ -353,24 +331,13 @@ class BackendSession(
     if (config.enabled && !RuntimeStatusStore.intentionalStop) {
       notifier.notifyAlert(Alert.BackendUnavailable)
     }
-    lsposedBackend?.detachImmediately()
+    lsposed?.detachImmediately()
     GazeA11yService.current?.backend?.detachImmediately()
-    val shellBackend = shizukuBackend
-    // 销毁回调返回后 scope 会取消；超时恢复必须拥有独立的清理任务。
-    if (shellBackend != null) {
-      CoroutineScope(Dispatchers.IO).launch {
-        try {
-          shellBackend.release()
-        } finally {
-          runCatching { shellBackend.detach() }
-        }
-      }
-    }
+    // 销毁回调返回后 scope 会取消；超时恢复与 UserService 解绑必须在独立清理作用域中完成并由新会话等待。
+    shizuku?.detachInBackground()
     a11ySubscription?.close()
     a11ySubscription = null
     backend = null
-    shizukuBackend = null
-    lsposedBackend = null
     RuntimeStatusStore.updateRunning(running = false, backend = null)
   }
 
@@ -408,7 +375,36 @@ class BackendSession(
     screenReceiver = receiver
   }
 
-  private companion object {
+  internal companion object {
     const val TAG = "GazeKeepEngine"
+
+    /** 切换后端时先停旧 oracle 并取消等待在途采集/延长结束，再强制释放与替换引用。 */
+    suspend fun switchBackendTransition(
+      previous: KeepAwakeBackend?,
+      target: KeepAwakeBackend?,
+      stopOracles: () -> Unit,
+      submitEvent: (EngineEvent) -> Unit,
+      awaitDisabled: suspend () -> Unit,
+      quiesceEffects: suspend () -> Unit,
+      assignBackend: (KeepAwakeBackend?) -> Unit,
+      awaitSelected: suspend (BackendId) -> Unit,
+      startOracle: (KeepAwakeBackend?) -> Unit,
+    ) {
+      stopOracles()
+      if (previous != null) {
+        submitEvent(EngineEvent.BackendSwitching)
+        awaitDisabled()
+        quiesceEffects()
+        // 被切走的后端之后收不到熄屏释放，须在旧轮完全静止后立即恢复。
+        runCatching { previous.forceRelease() }
+      }
+      assignBackend(target)
+      submitEvent(EngineEvent.BackendSelected(target?.id))
+      // Oracle 启动会立即发出首个 deadline；等 reducer 先确认后端，避免首个事件落在 Disabled 状态。
+      if (target != null) {
+        awaitSelected(target.id)
+      }
+      startOracle(target)
+    }
   }
 }

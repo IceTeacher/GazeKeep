@@ -26,6 +26,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.resume
@@ -59,6 +60,7 @@ class DefaultEngineEffectRunnerTest {
     onExtended: () -> Unit = { error("must not extend") },
     backend: KeepAwakeBackend? = null,
     onReleased: () -> Unit = {},
+    onClearAlert: (cn.rainafter.app.gazekeep.core.engine.Alert) -> Unit = {},
     config: GazeConfig = GazeConfig(),
   ) = DefaultEngineEffectRunner(
     parentScope = scope,
@@ -72,6 +74,7 @@ class DefaultEngineEffectRunnerTest {
     onReleased = onReleased,
     onRecord = {},
     onNotify = {},
+    onClearAlert = onClearAlert,
   )
 
   @Test
@@ -241,6 +244,69 @@ class DefaultEngineEffectRunnerTest {
       val event = assertIs<EngineEvent.ExtendFinished>(events.single())
       assertIs<ExtendResult.Failed>(event.result)
       Unit
+    } finally {
+      runner.close()
+      scope.cancel()
+    }
+  }
+
+  @Test
+  fun clearAlertForwardsToCallback() = runBlocking {
+    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+    val cleared = mutableListOf<cn.rainafter.app.gazekeep.core.engine.Alert>()
+    val runner = runner(scope, onClearAlert = cleared::add)
+    try {
+      runner.run(EngineEffect.ClearAlert(cn.rainafter.app.gazekeep.core.engine.Alert.BackendUnavailable)) {}
+      assertEquals(listOf(cn.rainafter.app.gazekeep.core.engine.Alert.BackendUnavailable), cleared)
+    } finally {
+      runner.close()
+      scope.cancel()
+    }
+  }
+
+  @Test
+  fun quiesceCancelsActiveCaptureAndWaitsForInFlightExtendBeforeReturning() = runBlocking {
+    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    val extendStarted = CompletableDeferred<Unit>()
+    val extendGate = CompletableDeferred<Unit>()
+    var cleanedUp = false
+    val backend = object : KeepAwakeBackend {
+      override val id = BackendId.Accessibility
+      override val readiness = MutableStateFlow<Readiness>(Readiness.Ready)
+      override suspend fun extend(token: ExtendToken): ExtendResult {
+        extendStarted.complete(Unit)
+        try {
+          kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+            extendGate.await()
+          }
+        } finally {
+          cleanedUp = true
+        }
+        return ExtendResult.Done
+      }
+      override suspend fun release() = Unit
+      override suspend fun attach() = Unit
+      override suspend fun detach() = Unit
+    }
+    val runner = runner(scope, backend = backend)
+    val events = mutableListOf<EngineEvent>()
+    try {
+      runner.run(EngineEffect.Extend(ExtendToken.None), events::add)
+      extendStarted.await()
+
+      val quiesceDone = CompletableDeferred<Unit>()
+      val quiesceJob = launch {
+        runner.quiesce()
+        quiesceDone.complete(Unit)
+      }
+      kotlinx.coroutines.yield()
+      kotlin.test.assertFalse(quiesceDone.isCompleted)
+
+      extendGate.complete(Unit)
+      quiesceJob.join()
+      assertTrue(cleanedUp)
+      assertTrue(quiesceDone.isCompleted)
+      assertTrue(events.isEmpty())
     } finally {
       runner.close()
       scope.cancel()

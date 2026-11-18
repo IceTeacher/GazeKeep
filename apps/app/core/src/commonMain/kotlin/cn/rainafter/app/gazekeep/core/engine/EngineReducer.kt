@@ -21,6 +21,11 @@ object EngineReducer {
   fun reduce(snapshot: EngineSnapshot, event: EngineEvent, now: Long): Transition = when (event) {
     is EngineEvent.ConfigChanged -> configChanged(snapshot, event.config)
 
+    EngineEvent.BackendSwitching -> Transition(
+      snapshot.copy(state = EngineState.Disabled),
+      listOf(EngineEffect.CancelCapture, EngineEffect.CancelWake, EngineEffect.CancelHoldLimit),
+    )
+
     is EngineEvent.BackendSelected -> backendChanged(snapshot, event.backend)
 
     EngineEvent.ScreenOff -> screenOff(snapshot)
@@ -82,14 +87,21 @@ object EngineReducer {
 
   private fun configChanged(snapshot: EngineSnapshot, config: GazeConfig): Transition {
     val updated = snapshot.copy(config = config)
-    return if (!config.enabled || !updated.cameraPermissionGranted || updated.backend == null) {
+    return if (!config.enabled) {
       disabled(
         updated,
-        when {
-          updated.backend == null -> Alert.BackendUnavailable
-          !updated.cameraPermissionGranted -> Alert.CameraPermissionLost
-          else -> null
-        },
+        alert = null,
+        clearAlerts = listOf(
+          Alert.BackendUnavailable,
+          Alert.BackendFailed,
+          Alert.CameraUnavailable,
+          Alert.CameraPermissionLost,
+        ),
+      )
+    } else if (!updated.cameraPermissionGranted || updated.backend == null) {
+      disabled(
+        updated,
+        if (updated.backend == null) Alert.BackendUnavailable else Alert.CameraPermissionLost,
       )
     } else if (config.maxHoldMinutes == 0 && updated.context.forcedYieldPending) {
       val nextState = if (updated.state == EngineState.Yielded(YieldReason.MaxHold)) {
@@ -109,17 +121,31 @@ object EngineReducer {
   private fun backendChanged(snapshot: EngineSnapshot, backend: BackendId?): Transition {
     val updated = snapshot.copy(backend = backend)
     return if (backend == null || !updated.config.enabled || !updated.cameraPermissionGranted) {
-      disabled(
-        updated,
-        when {
-          backend == null -> Alert.BackendUnavailable
-          !updated.cameraPermissionGranted -> Alert.CameraPermissionLost
-          else -> null
-        },
-      )
+      val alert = when {
+        !updated.config.enabled -> null
+        backend == null -> Alert.BackendUnavailable
+        else -> Alert.CameraPermissionLost
+      }
+      val clearAlerts = buildList {
+        if (!updated.config.enabled || backend != null) {
+          add(Alert.BackendUnavailable)
+          add(Alert.BackendFailed)
+        }
+        if (updated.cameraPermissionGranted) {
+          add(Alert.CameraPermissionLost)
+        }
+      }
+      disabled(updated, alert, clearAlerts)
     } else {
-      val effects =
-        listOf(EngineEffect.CancelCapture, EngineEffect.CancelWake, EngineEffect.CancelHoldLimit, EngineEffect.Release)
+      val effects = listOf(
+        EngineEffect.CancelCapture,
+        EngineEffect.CancelWake,
+        EngineEffect.CancelHoldLimit,
+        EngineEffect.Release,
+        EngineEffect.ClearAlert(Alert.BackendUnavailable),
+        EngineEffect.ClearAlert(Alert.BackendFailed),
+        EngineEffect.ClearAlert(Alert.CameraPermissionLost),
+      )
       Transition(
         updated.copy(
           state = EngineState.Yielded(YieldReason.WaitingDeadline),
@@ -313,6 +339,8 @@ object EngineReducer {
       next,
       listOf(
         EngineEffect.Release,
+        EngineEffect.ClearAlert(Alert.CameraUnavailable),
+        EngineEffect.ClearAlert(Alert.CameraPermissionLost),
         EngineEffect.Record(
           next.record(
             now,
@@ -375,6 +403,10 @@ object EngineReducer {
             if (snapshot.context.holdStartUptime == null && maxHoldMs > 0L) {
               add(EngineEffect.ScheduleHoldLimit(start, start + maxHoldMs))
             }
+            add(EngineEffect.ClearAlert(Alert.BackendUnavailable))
+            add(EngineEffect.ClearAlert(Alert.BackendFailed))
+            add(EngineEffect.ClearAlert(Alert.CameraUnavailable))
+            add(EngineEffect.ClearAlert(Alert.CameraPermissionLost))
             add(
               EngineEffect.Record(
                 next.record(now, DecisionReason.Extended, Attention.Looking, true, snapshot.context.captureLatencyMs),
@@ -390,6 +422,8 @@ object EngineReducer {
           next,
           listOf(
             EngineEffect.Release,
+            EngineEffect.ClearAlert(Alert.CameraUnavailable),
+            EngineEffect.ClearAlert(Alert.CameraPermissionLost),
             EngineEffect.Record(next.record(now, DecisionReason.StaleExtend, Attention.Looking, false, null)),
           ),
         )
@@ -402,6 +436,8 @@ object EngineReducer {
         )
         val effects = buildList {
           add(EngineEffect.Release)
+          add(EngineEffect.ClearAlert(Alert.CameraUnavailable))
+          add(EngineEffect.ClearAlert(Alert.CameraPermissionLost))
           add(
             EngineEffect.Record(next.record(now, DecisionReason.FailedExtend, Attention.Looking, false, null)),
           )
@@ -435,13 +471,14 @@ object EngineReducer {
     )
   }
 
-  private fun disabled(snapshot: EngineSnapshot, alert: Alert?): Transition {
+  private fun disabled(snapshot: EngineSnapshot, alert: Alert?, clearAlerts: List<Alert> = emptyList()): Transition {
     val next = snapshot.copy(state = EngineState.Disabled)
     val effects = buildList {
       add(EngineEffect.CancelCapture)
       add(EngineEffect.CancelWake)
       add(EngineEffect.CancelHoldLimit)
       add(EngineEffect.Release)
+      clearAlerts.forEach { add(EngineEffect.ClearAlert(it)) }
       if (alert != null) add(EngineEffect.Notify(alert))
     }
     return Transition(next, effects)

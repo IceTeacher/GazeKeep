@@ -26,4 +26,5 @@ sealed interface EngineEffect {
   data object ForceRelease : EngineEffect
   data class Record(val record: DecisionRecord) : EngineEffect
   data class Notify(val alert: Alert) : EngineEffect
+  data class ClearAlert(val alert: Alert) : EngineEffect
 }

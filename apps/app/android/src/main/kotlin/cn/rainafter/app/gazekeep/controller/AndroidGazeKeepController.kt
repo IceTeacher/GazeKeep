@@ -132,6 +132,7 @@ class AndroidGazeKeepController(
       }
     }
     scope.launch {
+      var lastShizukuReadiness: Readiness? = RuntimeStatusStore.status.value.shizukuReadiness
       RuntimeStatusStore.status.collect { runtime ->
         mutableState.update {
           it.copy(
@@ -144,6 +145,10 @@ class AndroidGazeKeepController(
         }
         syncIndicatorState()
         GazeQuickTileService.requestRefresh(context)
+        if (runtime.shizukuReadiness != lastShizukuReadiness) {
+          lastShizukuReadiness = runtime.shizukuReadiness
+          refresh()
+        }
       }
     }
     scope.launch {
