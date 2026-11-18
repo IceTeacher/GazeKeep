@@ -425,4 +425,49 @@ class EngineReducerTest {
     val timerIgnored = EngineReducer.reduce(gated.snapshot, EngineEvent.HoldLimitReached(100L), 99_999_999L)
     assertIs<EngineState.Capturing>(timerIgnored.snapshot.state)
   }
+
+  @Test
+  fun backendRecoveryAndExtendClearStaleBackendAlerts() {
+    val lost = EngineReducer.reduce(ready(), EngineEvent.BackendSelected(null), 100L)
+    assertTrue(EngineEffect.Notify(Alert.BackendUnavailable) in lost.effects)
+
+    val recovered = EngineReducer.reduce(lost.snapshot, EngineEvent.BackendSelected(BackendId.Shizuku), 200L)
+    assertTrue(EngineEffect.ClearAlert(Alert.BackendUnavailable) in recovered.effects)
+    assertTrue(EngineEffect.ClearAlert(Alert.BackendFailed) in recovered.effects)
+
+    val extending = EngineReducer.reduce(
+      capturing(recovered.snapshot),
+      EngineEvent.CaptureFinished(Attention.Looking, emptyList(), 20L),
+      13_000L,
+    ).snapshot
+    val done = EngineReducer.reduce(extending, EngineEvent.ExtendFinished(ExtendResult.Done), 13_050L)
+    assertTrue(EngineEffect.ClearAlert(Alert.BackendUnavailable) in done.effects)
+    assertTrue(EngineEffect.ClearAlert(Alert.BackendFailed) in done.effects)
+    assertTrue(EngineEffect.ClearAlert(Alert.CameraUnavailable) in done.effects)
+    assertTrue(EngineEffect.ClearAlert(Alert.CameraPermissionLost) in done.effects)
+  }
+
+  @Test
+  fun disablingClearsAlertsInsteadOfNotifyingBackendUnavailableWhenBackendNull() {
+    val noBackend = ready().copy(backend = null, state = EngineState.Disabled)
+    val transition = EngineReducer.reduce(
+      noBackend,
+      EngineEvent.ConfigChanged(GazeConfig(enabled = false)),
+      100L,
+    )
+    assertTrue(transition.effects.none { it is EngineEffect.Notify })
+    assertTrue(EngineEffect.ClearAlert(Alert.BackendUnavailable) in transition.effects)
+    assertTrue(EngineEffect.ClearAlert(Alert.BackendFailed) in transition.effects)
+  }
+
+  @Test
+  fun normalCaptureClearsCameraAlerts() {
+    val result = EngineReducer.reduce(
+      capturing(),
+      EngineEvent.CaptureFinished(Attention.Away, emptyList(), 50L),
+      13_000L,
+    )
+    assertTrue(EngineEffect.ClearAlert(Alert.CameraUnavailable) in result.effects)
+    assertTrue(EngineEffect.ClearAlert(Alert.CameraPermissionLost) in result.effects)
+  }
 }

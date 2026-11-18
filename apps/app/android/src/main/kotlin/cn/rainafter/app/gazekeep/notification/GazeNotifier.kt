@@ -17,7 +17,8 @@ import cn.rainafter.app.gazekeep.core.engine.Alert
 class GazeNotifier(private val localized: () -> Context) {
   private val context get() = localized()
   private val lastAlerts = mutableMapOf<Alert, Long>()
-  fun notifyAlert(alert: Alert) {
+
+  @Synchronized fun notifyAlert(alert: Alert) {
     val now = SystemClock.elapsedRealtime()
     val previous = lastAlerts[alert]
     if (previous != null && now - previous < ALERT_SUPPRESSION_MS) return
@@ -42,9 +43,19 @@ class GazeNotifier(private val localized: () -> Context) {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
           ),
         )
+        .setGroup(ALERT_GROUP)
         .setAutoCancel(true)
         .build(),
     )
+  }
+
+  @Synchronized fun cancelAlert(alert: Alert) {
+    lastAlerts.remove(alert)
+    context.getSystemService(NotificationManager::class.java).cancel(ALERT_NOTIFICATION_ID + alert.ordinal)
+  }
+
+  fun clearAllAlerts() {
+    Alert.entries.forEach(::cancelAlert)
   }
 
   fun createChannels() {
@@ -87,6 +98,7 @@ class GazeNotifier(private val localized: () -> Context) {
       .setContentTitle(context.getString(R.string.notification_service_title))
       .setContentText(context.getString(R.string.notification_service_waiting))
       .setContentIntent(intent)
+      .setGroup(SERVICE_GROUP)
       .setOngoing(true)
       .build()
   }
@@ -95,6 +107,8 @@ class GazeNotifier(private val localized: () -> Context) {
     const val NOTIFICATION_ID = 1001
     private const val CHANNEL_ID = "service"
     private const val ALERT_CHANNEL_ID = "alerts"
+    private const val SERVICE_GROUP = "gazekeep_service"
+    private const val ALERT_GROUP = "gazekeep_alerts"
     private const val ALERT_NOTIFICATION_ID = 2001
     private const val ALERT_SUPPRESSION_MS = 10 * 60 * 1000L
   }

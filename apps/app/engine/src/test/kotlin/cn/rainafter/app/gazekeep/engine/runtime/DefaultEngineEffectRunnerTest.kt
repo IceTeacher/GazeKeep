@@ -59,6 +59,7 @@ class DefaultEngineEffectRunnerTest {
     onExtended: () -> Unit = { error("must not extend") },
     backend: KeepAwakeBackend? = null,
     onReleased: () -> Unit = {},
+    onClearAlert: (cn.rainafter.app.gazekeep.core.engine.Alert) -> Unit = {},
     config: GazeConfig = GazeConfig(),
   ) = DefaultEngineEffectRunner(
     parentScope = scope,
@@ -72,6 +73,7 @@ class DefaultEngineEffectRunnerTest {
     onReleased = onReleased,
     onRecord = {},
     onNotify = {},
+    onClearAlert = onClearAlert,
   )
 
   @Test
@@ -241,6 +243,20 @@ class DefaultEngineEffectRunnerTest {
       val event = assertIs<EngineEvent.ExtendFinished>(events.single())
       assertIs<ExtendResult.Failed>(event.result)
       Unit
+    } finally {
+      runner.close()
+      scope.cancel()
+    }
+  }
+
+  @Test
+  fun clearAlertForwardsToCallback() = runBlocking {
+    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+    val cleared = mutableListOf<cn.rainafter.app.gazekeep.core.engine.Alert>()
+    val runner = runner(scope, onClearAlert = cleared::add)
+    try {
+      runner.run(EngineEffect.ClearAlert(cn.rainafter.app.gazekeep.core.engine.Alert.BackendUnavailable)) {}
+      assertEquals(listOf(cn.rainafter.app.gazekeep.core.engine.Alert.BackendUnavailable), cleared)
     } finally {
       runner.close()
       scope.cancel()

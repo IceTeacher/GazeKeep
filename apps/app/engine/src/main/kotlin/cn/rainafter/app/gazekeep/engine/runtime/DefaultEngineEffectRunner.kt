@@ -38,6 +38,7 @@ class DefaultEngineEffectRunner(
   private val onExtended: () -> Unit,
   private val onRecord: (DecisionRecord) -> Unit,
   private val onNotify: (Alert) -> Unit,
+  private val onClearAlert: (Alert) -> Unit = {},
   // 释放可能写回临时超时（Shizuku 退路），由会话重新读取 deadline。
   private val onReleased: () -> Unit = {},
 ) : EngineEffectRunner,
@@ -185,6 +186,8 @@ class DefaultEngineEffectRunner(
       is EngineEffect.Record -> onRecord(effect.record)
 
       is EngineEffect.Notify -> onNotify(effect.alert)
+
+      is EngineEffect.ClearAlert -> onClearAlert(effect.alert)
     }
   }
 
