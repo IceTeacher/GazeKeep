@@ -256,4 +256,73 @@ class SessionBackendOrchestratorTest {
       steps,
     )
   }
+
+  @Test
+  fun rapidReadinessBurstDuringSwitchDoesNotCancelTransitionOrSkipFallback() = runBlocking {
+    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+    val shizuku = FakeBackend(BackendId.Shizuku, Readiness.Ready)
+    val lsposed = FakeBackend(BackendId.Lsposed, Readiness.NeedsSetup(SetupStep.InstallFramework))
+    val a11y = FakeBackend(BackendId.Accessibility, Readiness.Ready)
+
+    val switchStarted = CompletableDeferred<Unit>()
+    val switchGate = CompletableDeferred<Unit>()
+    var switchingPaused = false
+    val changes = mutableListOf<Pair<BackendId?, BackendId?>>()
+    val retained = mutableListOf<BackendId?>()
+
+    val orch = SessionBackendOrchestrator(
+      lock = BackendLock.Auto,
+      scope = scope,
+      createShizuku = { shizuku },
+      hasPendingShizukuBind = { false },
+      createLsposed = { lsposed },
+      currentAccessibility = { a11y },
+      accessibilityAvailability = MutableStateFlow(a11y),
+      onRetainSameBackend = { retained += it?.id },
+      onBackendChanged = { prev, next ->
+        if (prev?.id == BackendId.Shizuku && next?.id == BackendId.Accessibility) {
+          switchingPaused = true
+          switchStarted.complete(Unit)
+          switchGate.await()
+          switchingPaused = false
+        }
+        changes += prev?.id to next?.id
+      },
+      ioDispatcher = Dispatchers.Unconfined,
+    )
+    try {
+      orch.start()
+      assertEquals<List<Pair<BackendId?, BackendId?>>>(listOf(null to BackendId.Shizuku), changes)
+
+      // 触发 Shizuku -> Accessibility 切换并暂停在过渡中，此时连续抖动 readiness。
+      shizuku.mutableReadiness.value = Readiness.NeedsSetup(SetupStep.StartShizuku)
+      switchStarted.await()
+      shizuku.mutableReadiness.value = Readiness.Unavailable("restoring original timeout")
+
+      // 原切换不能被 collectLatest 取消；放行后必须完整完成 Shizuku -> Accessibility。
+      switchGate.complete(Unit)
+      assertFalse(switchingPaused)
+      assertEquals<List<Pair<BackendId?, BackendId?>>>(
+        listOf(
+          null to BackendId.Shizuku,
+          BackendId.Shizuku to BackendId.Accessibility,
+        ),
+        changes,
+      )
+
+      // 随后 Shizuku 真正恢复 Ready，应正常切回 Shizuku。
+      shizuku.mutableReadiness.value = Readiness.Ready
+      assertEquals<List<Pair<BackendId?, BackendId?>>>(
+        listOf(
+          null to BackendId.Shizuku,
+          BackendId.Shizuku to BackendId.Accessibility,
+          BackendId.Accessibility to BackendId.Shizuku,
+        ),
+        changes,
+      )
+    } finally {
+      orch.cancel()
+      scope.cancel()
+    }
+  }
 }

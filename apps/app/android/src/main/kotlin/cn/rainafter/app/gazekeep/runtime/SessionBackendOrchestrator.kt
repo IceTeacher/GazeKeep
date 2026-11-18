@@ -8,8 +8,8 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -17,7 +17,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
-/** 按 BackendLock 裁剪并协调后端附着、初始就绪等待与切换通知，避免瞬态 null 触发虚假不可用告警。 */
+/** 按 BackendLock 裁剪并协调后端附着、初始就绪等待与切换通知，避免瞬态 null 与并发取消破坏状态。 */
 internal class SessionBackendOrchestrator(
   private val lock: BackendLock,
   private val scope: CoroutineScope,
@@ -33,6 +33,7 @@ internal class SessionBackendOrchestrator(
   private val initialBindWaitMs: Long = INITIAL_SHIZUKU_WAIT_MS,
 ) {
   private val switchMutex = Mutex()
+  private val switchRequests = Channel<Unit>(Channel.CONFLATED)
   private var initialized = false
   private var currentBackend: KeepAwakeBackend? = null
 
@@ -42,6 +43,7 @@ internal class SessionBackendOrchestrator(
     private set
 
   private var mainJob: Job? = null
+  private var switchWorkerJob: Job? = null
   private var shizukuJob: Job? = null
   private var lsposedJob: Job? = null
   private var a11yJob: Job? = null
@@ -66,7 +68,8 @@ internal class SessionBackendOrchestrator(
       if (lsposed != null) {
         withContext(ioDispatcher) { lsposed.attach() }
       }
-      if (shizuku != null) {
+      val shizukuAttachedInline = shizuku != null && selector.select() == null
+      if (shizukuAttachedInline && shizuku != null) {
         shizuku.attach()
         onShizukuReadiness(shizuku.readiness.value)
         if (selector.select() == null && hasPendingShizukuBind(shizuku)) {
@@ -79,23 +82,34 @@ internal class SessionBackendOrchestrator(
 
       switchBackend(selector)
 
+      // 切换任务由独立串行队列消费，readiness 快速抖动只合并信号，不取消正在进行的切换。
+      switchWorkerJob = scope.launch {
+        for (signal in switchRequests) {
+          switchBackend(selector)
+        }
+      }
+
       if (shizuku != null) {
         shizukuJob = scope.launch {
-          shizuku.readiness.collectLatest { readiness ->
+          if (!shizukuAttachedInline) {
+            shizuku.attach()
+            onShizukuReadiness(shizuku.readiness.value)
+          }
+          shizuku.readiness.collect { readiness ->
             onShizukuReadiness(readiness)
-            switchBackend(selector)
+            switchRequests.trySend(Unit)
           }
         }
       }
       if (lsposed != null) {
         lsposedJob = scope.launch {
-          lsposed.readiness.collectLatest { switchBackend(selector) }
+          lsposed.readiness.collect { switchRequests.trySend(Unit) }
         }
       }
       if (allowAccessibility) {
         a11yJob = scope.launch {
           selector.trackAvailability(BackendId.Accessibility, accessibilityAvailability) {
-            switchBackend(selector)
+            switchRequests.trySend(Unit)
           }
         }
       }
@@ -103,8 +117,11 @@ internal class SessionBackendOrchestrator(
   }
 
   fun cancel() {
+    switchRequests.close()
     mainJob?.cancel()
     mainJob = null
+    switchWorkerJob?.cancel()
+    switchWorkerJob = null
     shizukuJob?.cancel()
     shizukuJob = null
     lsposedJob?.cancel()
@@ -120,9 +137,10 @@ internal class SessionBackendOrchestrator(
       onRetainSameBackend(target)
       return@withLock
     }
+    // 只有切换动作完整结束后才提交目标后端，避免被取消的中间切换被后续误判为已切换完成。
+    onBackendChanged(previous, target)
     initialized = true
     currentBackend = target
-    onBackendChanged(previous, target)
   }
 
   private companion object {
