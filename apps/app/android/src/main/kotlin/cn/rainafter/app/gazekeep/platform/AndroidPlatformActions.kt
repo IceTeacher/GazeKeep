@@ -35,19 +35,21 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.edit
-import androidx.lifecycle.lifecycleScope
+import cn.rainafter.app.gazekeep.app.AppGraph
 import cn.rainafter.app.gazekeep.applist.AppIconCache
 import cn.rainafter.app.gazekeep.controller.AndroidGazeKeepController
 import cn.rainafter.app.gazekeep.core.model.ConfigBackupCodec
 import cn.rainafter.app.gazekeep.core.model.ConfigExportResult
+import cn.rainafter.app.gazekeep.engine.config.ConfigStore
 import cn.rainafter.app.gazekeep.ui.contract.AppLanguage
 import cn.rainafter.app.gazekeep.ui.contract.ConfigReadResult
 import cn.rainafter.app.gazekeep.ui.contract.ConfigTransferResult
-import cn.rainafter.app.gazekeep.ui.contract.GazeKeepController
+import cn.rainafter.app.gazekeep.ui.contract.ControllerState
 import cn.rainafter.app.gazekeep.ui.contract.PlatformActions
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import rikka.shizuku.Shizuku
@@ -72,13 +74,16 @@ internal fun readBoundedUtf8(input: InputStream, maxBytes: Int = ConfigBackupCod
 
 /**
  * 无易失回调状态的 SAF 配置备份协调器：
- * 即使在系统文件选择器打开期间 Activity 旋转或重建，新实例按固定 key 重新注册 launcher 后，
- * 仍可直接从 [controller] 实时编码导出或将读取内容合入配置并发布跨重建反馈。
+ * 即使在系统文件选择器打开期间或返回 URI 后发生 Activity 旋转/重建，
+ * 固定 key launcher 与进程级传输作用域可保证读写与持久化落盘不被中断并向新界面发布反馈。
  */
 internal class SafConfigBackupCoordinator(
   registry: ActivityResultRegistry,
   private val scope: CoroutineScope,
-  private val controller: GazeKeepController,
+  private val canExportNow: () -> Boolean,
+  private val exportConfig: suspend () -> ConfigExportResult,
+  private val importConfig: suspend (ConfigReadResult) -> Boolean,
+  private val reportExportResult: (ConfigTransferResult) -> Unit,
   private val openOutput: (Uri) -> OutputStream?,
   private val openInput: (Uri) -> InputStream?,
   private val deleteExportedDocument: (Uri) -> Unit = {},
@@ -91,12 +96,12 @@ internal class SafConfigBackupCoordinator(
       ActivityResultContracts.CreateDocument(CONFIG_MIME_TYPE),
     ) { uri ->
       if (uri == null) {
-        controller.reportConfigExportResult(ConfigTransferResult.Cancelled)
+        reportExportResult(ConfigTransferResult.Cancelled)
         return@register
       }
       scope.launch(ioDispatcher) {
         val result = runCatching {
-          when (val encoded = controller.exportConfigJson()) {
+          when (val encoded = exportConfig()) {
             is ConfigExportResult.PackageListTooLarge -> {
               runCatching { deleteExportedDocument(uri) }
               ConfigTransferResult.TooLarge
@@ -109,7 +114,7 @@ internal class SafConfigBackupCoordinator(
             }
           }
         }.getOrElse { ConfigTransferResult.Failed }
-        withContext(mainDispatcher) { controller.reportConfigExportResult(result) }
+        withContext(mainDispatcher) { reportExportResult(result) }
       }
     }
 
@@ -124,22 +129,19 @@ internal class SafConfigBackupCoordinator(
           val stream = openInput(uri) ?: error("unable to open input stream")
           stream.use { readBoundedUtf8(it, ConfigBackupCodec.MAX_BACKUP_BYTES) }
         }.getOrElse { ConfigReadResult.Failed }
-        withContext(mainDispatcher) { controller.importConfigContent(readResult) }
+        withContext(mainDispatcher) { importConfig(readResult) }
       }
     }
 
   fun launchExport() {
-    val currentState = controller.state.value
-    if (currentState.loaded &&
-      ConfigBackupCodec.encode(currentState.config) is ConfigExportResult.PackageListTooLarge
-    ) {
-      controller.reportConfigExportResult(ConfigTransferResult.TooLarge)
+    if (!canExportNow()) {
+      reportExportResult(ConfigTransferResult.TooLarge)
       return
     }
     runCatching {
       exportLauncher.launch(DEFAULT_CONFIG_FILE_NAME)
     }.onFailure {
-      controller.reportConfigExportResult(ConfigTransferResult.Failed)
+      reportExportResult(ConfigTransferResult.Failed)
     }
   }
 
@@ -147,7 +149,7 @@ internal class SafConfigBackupCoordinator(
     runCatching {
       importLauncher.launch(IMPORT_CONFIG_MIME_TYPES)
     }.onFailure {
-      scope.launch(mainDispatcher) { controller.importConfigContent(ConfigReadResult.Failed) }
+      scope.launch(mainDispatcher) { importConfig(ConfigReadResult.Failed) }
     }
   }
 
@@ -157,7 +159,35 @@ internal class SafConfigBackupCoordinator(
     const val CONFIG_MIME_TYPE = "application/json"
     const val DEFAULT_CONFIG_FILE_NAME = "gazekeep-config.json"
     val IMPORT_CONFIG_MIME_TYPES = arrayOf("application/json", "text/plain", "*/*")
+    val retainedTransferScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
   }
+}
+
+internal fun createAndroidConfigBackupCoordinator(
+  activity: ComponentActivity,
+  currentState: () -> ControllerState,
+  store: ConfigStore = AppGraph(activity.applicationContext).settings,
+): SafConfigBackupCoordinator {
+  val appContext = activity.applicationContext
+  return SafConfigBackupCoordinator(
+    registry = activity.activityResultRegistry,
+    scope = SafConfigBackupCoordinator.retainedTransferScope,
+    canExportNow = {
+      val state = currentState()
+      !state.loaded || ConfigBackupCodec.encode(state.config) is ConfigExportResult.Success
+    },
+    exportConfig = { AndroidGazeKeepController.exportConfigJson(store) },
+    importConfig = { readResult -> AndroidGazeKeepController.importConfigContent(appContext, store, readResult) },
+    reportExportResult = AndroidGazeKeepController::reportConfigExportResult,
+    openOutput = { uri ->
+      runCatching { appContext.contentResolver.openOutputStream(uri, "wt") }.getOrNull()
+        ?: appContext.contentResolver.openOutputStream(uri)
+    },
+    openInput = { uri -> appContext.contentResolver.openInputStream(uri) },
+    deleteExportedDocument = { uri ->
+      runCatching { DocumentsContract.deleteDocument(appContext.contentResolver, uri) }
+    },
+  )
 }
 
 class AndroidPlatformActions(
@@ -183,18 +213,9 @@ class AndroidPlatformActions(
       }
     }
 
-  private val configBackupCoordinator = SafConfigBackupCoordinator(
-    registry = activity.activityResultRegistry,
-    scope = activity.lifecycleScope,
-    controller = controller,
-    openOutput = { uri ->
-      runCatching { activity.contentResolver.openOutputStream(uri, "wt") }.getOrNull()
-        ?: activity.contentResolver.openOutputStream(uri)
-    },
-    openInput = { uri -> activity.contentResolver.openInputStream(uri) },
-    deleteExportedDocument = { uri ->
-      runCatching { DocumentsContract.deleteDocument(activity.contentResolver, uri) }
-    },
+  private val configBackupCoordinator = createAndroidConfigBackupCoordinator(
+    activity = activity,
+    currentState = { controller.state.value },
   )
 
   override fun requestCameraPermission() =

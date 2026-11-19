@@ -21,6 +21,7 @@ import cn.rainafter.app.gazekeep.core.policy.enableRequirement
 import cn.rainafter.app.gazekeep.core.policy.shouldSyncHideCameraIndicator
 import cn.rainafter.app.gazekeep.engine.camera.CaptureOwnershipCoordinator
 import cn.rainafter.app.gazekeep.engine.config.ConfigStore
+import cn.rainafter.app.gazekeep.engine.config.StoredSettings
 import cn.rainafter.app.gazekeep.notification.DecisionLogs
 import cn.rainafter.app.gazekeep.runtime.RuntimeStatusStore
 import cn.rainafter.app.gazekeep.runtime.ServiceActivation
@@ -58,7 +59,6 @@ class AndroidGazeKeepController(
   AutoCloseable {
   private val context = context.applicationContext
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-  private val mutex = Mutex()
   private val indicatorSyncMutex = Mutex()
   private var indicatorSyncJob: Job? = null
   private val mutableState = MutableStateFlow(ControllerState(systemInfo = readSystemInfo(this.context)))
@@ -207,7 +207,7 @@ class AndroidGazeKeepController(
     }
   }
 
-  override suspend fun updateConfig(transform: (GazeConfig) -> GazeConfig) = mutex.withLock {
+  override suspend fun updateConfig(transform: (GazeConfig) -> GazeConfig) = configMutationMutex.withLock {
     try {
       store.update(transform)
       mutableState.update { it.copy(notice = null) }
@@ -220,74 +220,33 @@ class AndroidGazeKeepController(
     }
   }
 
-  override suspend fun exportConfigJson(): ConfigExportResult = ConfigBackupCodec.encode(store.settings.first().config)
+  override suspend fun exportConfigJson(): ConfigExportResult = exportConfigJson(store)
 
-  override suspend fun importConfigContent(readResult: ConfigReadResult): Boolean = when (readResult) {
-    ConfigReadResult.Cancelled -> false
-
-    ConfigReadResult.TooLarge -> {
-      emitBackupFeedback(ConfigBackupFeedback.ImportTooLarge)
-      false
-    }
-
-    ConfigReadResult.Failed -> {
-      emitBackupFeedback(ConfigBackupFeedback.ImportFailed)
-      false
-    }
-
-    is ConfigReadResult.Loaded -> mutex.withLock {
-      try {
-        val current = store.settings.first().config
-        when (val decoded = ConfigBackupCodec.decode(readResult.content, current)) {
-          is ConfigImportResult.InvalidFormat -> {
-            emitBackupFeedback(ConfigBackupFeedback.ImportInvalid)
-            false
-          }
-
-          is ConfigImportResult.Success -> {
-            val saved = store.importConfig(decoded.config)
-            mutableState.update {
-              it.copy(
-                config = saved.config,
-                selfTestPassed = saved.selfTestPassedAt != null,
-                notice = null,
-              )
-            }
-            syncIndicatorState()
-            if (saved.selfTestPassedAt != null && (saved.config.enabled || RuntimeStatusStore.status.value.running)) {
-              reconfigureEngine()
-            }
-            GazeQuickTileService.requestRefresh(context)
-            emitBackupFeedback(ConfigBackupFeedback.Imported)
-            true
-          }
-        }
-      } catch (error: CancellationException) {
-        throw error
-      } catch (_: Exception) {
-        mutableState.update { it.copy(notice = UiNotice.SaveFailed) }
-        stopEngine()
-        emitBackupFeedback(ConfigBackupFeedback.ImportFailed)
-        false
+  override suspend fun importConfigContent(readResult: ConfigReadResult): Boolean = importConfigContent(
+    appContext = context,
+    store = store,
+    readResult = readResult,
+    onApplied = { saved ->
+      mutableState.update {
+        it.copy(
+          config = saved.config,
+          selfTestPassed = saved.selfTestPassedAt != null,
+          notice = null,
+        )
       }
-    }
-  }
+      syncIndicatorState()
+    },
+    onSaveFailed = {
+      mutableState.update { it.copy(notice = UiNotice.SaveFailed) }
+    },
+  )
 
   override fun reportConfigExportResult(result: ConfigTransferResult) {
-    when (result) {
-      ConfigTransferResult.Saved -> emitBackupFeedback(ConfigBackupFeedback.Exported)
-      ConfigTransferResult.TooLarge -> emitBackupFeedback(ConfigBackupFeedback.ExportTooLarge)
-      ConfigTransferResult.Failed -> emitBackupFeedback(ConfigBackupFeedback.ExportFailed)
-      ConfigTransferResult.Cancelled -> Unit
-    }
+    Companion.reportConfigExportResult(result)
   }
 
   override fun clearBackupNotice(token: Long) {
     backupNoticeFlow.update { if (it?.token == token) null else it }
-  }
-
-  private fun emitBackupFeedback(feedback: ConfigBackupFeedback) {
-    backupNoticeFlow.value = ConfigBackupNotice(feedback, backupNoticeTokens.incrementAndGet())
   }
 
   private fun syncIndicatorState() {
@@ -397,9 +356,76 @@ class AndroidGazeKeepController(
     scope.cancel()
   }
 
-  private companion object {
-    // 进程级备份反馈：Activity 在 SAF 文件选择器期间因旋转重建后，新界面仍能展示导出/导入结果。
+  internal companion object {
+    // 进程级配置写入互斥与备份反馈：Activity 在 SAF 读写或旋转重建期间销毁时，后台传输不中断且新界面仍能展示结果。
+    private val configMutationMutex = Mutex()
     val backupNoticeFlow = MutableStateFlow<ConfigBackupNotice?>(null)
-    val backupNoticeTokens = AtomicLong(0L)
+    private val backupNoticeTokens = AtomicLong(0L)
+
+    suspend fun exportConfigJson(store: ConfigStore): ConfigExportResult =
+      ConfigBackupCodec.encode(store.settings.first().config)
+
+    suspend fun importConfigContent(
+      appContext: Context,
+      store: ConfigStore,
+      readResult: ConfigReadResult,
+      onApplied: ((StoredSettings) -> Unit)? = null,
+      onSaveFailed: (() -> Unit)? = null,
+    ): Boolean = when (readResult) {
+      ConfigReadResult.Cancelled -> false
+
+      ConfigReadResult.TooLarge -> {
+        emitBackupFeedback(ConfigBackupFeedback.ImportTooLarge)
+        false
+      }
+
+      ConfigReadResult.Failed -> {
+        emitBackupFeedback(ConfigBackupFeedback.ImportFailed)
+        false
+      }
+
+      is ConfigReadResult.Loaded -> configMutationMutex.withLock {
+        try {
+          val current = store.settings.first().config
+          when (val decoded = ConfigBackupCodec.decode(readResult.content, current)) {
+            is ConfigImportResult.InvalidFormat -> {
+              emitBackupFeedback(ConfigBackupFeedback.ImportInvalid)
+              false
+            }
+
+            is ConfigImportResult.Success -> {
+              val saved = store.importConfig(decoded.config)
+              onApplied?.invoke(saved)
+              if (saved.selfTestPassedAt != null && (saved.config.enabled || RuntimeStatusStore.status.value.running)) {
+                ServiceActivation.reconfigure(appContext)
+              }
+              GazeQuickTileService.requestRefresh(appContext)
+              emitBackupFeedback(ConfigBackupFeedback.Imported)
+              true
+            }
+          }
+        } catch (error: CancellationException) {
+          throw error
+        } catch (_: Exception) {
+          onSaveFailed?.invoke()
+          ServiceActivation.stop(appContext)
+          emitBackupFeedback(ConfigBackupFeedback.ImportFailed)
+          false
+        }
+      }
+    }
+
+    fun reportConfigExportResult(result: ConfigTransferResult) {
+      when (result) {
+        ConfigTransferResult.Saved -> emitBackupFeedback(ConfigBackupFeedback.Exported)
+        ConfigTransferResult.TooLarge -> emitBackupFeedback(ConfigBackupFeedback.ExportTooLarge)
+        ConfigTransferResult.Failed -> emitBackupFeedback(ConfigBackupFeedback.ExportFailed)
+        ConfigTransferResult.Cancelled -> Unit
+      }
+    }
+
+    private fun emitBackupFeedback(feedback: ConfigBackupFeedback) {
+      backupNoticeFlow.value = ConfigBackupNotice(feedback, backupNoticeTokens.incrementAndGet())
+    }
   }
 }
