@@ -34,6 +34,20 @@ class ConfigStore internal constructor(private val store: DataStore<Preferences>
     store.edit { values -> writeConfig(values, transform(decodeSettings(values).config)) }
   }
 
+  suspend fun importConfig(imported: GazeConfig): StoredSettings {
+    var saved = StoredSettings()
+    store.edit { values ->
+      val existing = decodeSettings(values)
+      // 外部备份严禁绕过自检或篡改启用态；未完成自检的设备一律保持关闭。
+      val merged = imported.copy(
+        enabled = if (existing.selfTestPassedAt != null) existing.config.enabled else false,
+      )
+      writeConfig(values, merged)
+      saved = StoredSettings(config = merged, selfTestPassedAt = existing.selfTestPassedAt)
+    }
+    return saved
+  }
+
   suspend fun completeSelfTest() {
     store.edit { it[SELF_TEST] = System.currentTimeMillis() }
   }

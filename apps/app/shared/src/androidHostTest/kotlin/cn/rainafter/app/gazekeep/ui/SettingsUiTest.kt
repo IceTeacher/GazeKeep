@@ -12,7 +12,12 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import cn.rainafter.app.gazekeep.core.model.AppFilterMode
+import cn.rainafter.app.gazekeep.core.model.ConfigBackupCodec
+import cn.rainafter.app.gazekeep.core.model.GazeConfig
+import cn.rainafter.app.gazekeep.core.model.Sensitivity
 import cn.rainafter.app.gazekeep.ui.contract.AppLanguage
+import cn.rainafter.app.gazekeep.ui.contract.ConfigReadResult
+import cn.rainafter.app.gazekeep.ui.contract.ConfigTransferResult
 import cn.rainafter.app.gazekeep.ui.testing.UiTestSession
 import cn.rainafter.app.gazekeep.ui.testing.launchApp
 import cn.rainafter.app.gazekeep.ui.testing.readyState
@@ -35,8 +40,17 @@ import gazekeep.shared.generated.resources.settings_apps
 import gazekeep.shared.generated.resources.settings_back
 import gazekeep.shared.generated.resources.settings_background_policy
 import gazekeep.shared.generated.resources.settings_blacklist_empty
+import gazekeep.shared.generated.resources.settings_config_exported
+import gazekeep.shared.generated.resources.settings_config_import_invalid
+import gazekeep.shared.generated.resources.settings_config_import_too_large
+import gazekeep.shared.generated.resources.settings_config_imported
+import gazekeep.shared.generated.resources.settings_dialog_cancel
+import gazekeep.shared.generated.resources.settings_export_config
 import gazekeep.shared.generated.resources.settings_hold_10
 import gazekeep.shared.generated.resources.settings_hold_unlimited
+import gazekeep.shared.generated.resources.settings_import_config
+import gazekeep.shared.generated.resources.settings_import_confirm_action
+import gazekeep.shared.generated.resources.settings_import_confirm_title
 import gazekeep.shared.generated.resources.settings_language
 import gazekeep.shared.generated.resources.settings_language_english
 import gazekeep.shared.generated.resources.settings_language_system
@@ -218,5 +232,89 @@ class SettingsUiTest {
     val titleBounds = rule.onNodeWithText(text(Res.string.settings_app_scope)).getUnclippedBoundsInRoot()
     val summaryBounds = summaryNode.getUnclippedBoundsInRoot()
     assertTrue((summaryBounds.right - summaryBounds.left) >= (titleBounds.right - titleBounds.left) * 0.8f)
+  }
+
+  @Test
+  fun exportConfigSerializesCurrentPreferencesWithoutEnabledFlag() {
+    val base = readyState()
+    val app = rule.launchApp(
+      base.copy(
+        config = base.config.copy(
+          enabled = true,
+          leadMillis = 10_000L,
+          whitelistPackages = setOf("com.example.reader"),
+        ),
+      ),
+    )
+    app.actions.nextConfigExportResult = ConfigTransferResult.Saved
+    app.openTab(text(Res.string.nav_settings))
+    val exportTitle = text(Res.string.settings_export_config)
+    rule.onNodeWithText(exportTitle).performScrollTo()
+    app.click(exportTitle)
+
+    val json = requireNotNull(app.actions.exportedConfigJson)
+    assertTrue(json.contains("\"schemaVersion\": 1"))
+    assertTrue(json.contains("\"leadMillis\": 10000"))
+    assertTrue(json.contains("\"com.example.reader\""))
+    assertTrue(!json.contains("\"enabled\""))
+    app.assertShown(text(Res.string.settings_config_exported))
+  }
+
+  @Test
+  fun importConfigConfirmsWhenListsExistAndAppliesBackupSafely() {
+    val backupJson = ConfigBackupCodec.encode(
+      GazeConfig(
+        leadMillis = 5_000L,
+        sensitivity = Sensitivity.Loose,
+        whitelistPackages = setOf("com.new.reader"),
+        maxHoldMinutes = 60,
+      ),
+    )
+    val base = readyState()
+    val app = rule.launchApp(
+      base.copy(
+        selfTestPassed = false,
+        config = base.config.copy(
+          enabled = false,
+          whitelistPackages = setOf("com.old.reader"),
+        ),
+      ),
+    )
+    app.actions.nextConfigImportResult = ConfigReadResult.Loaded(backupJson)
+    app.openTab(text(Res.string.nav_settings))
+    val importTitle = text(Res.string.settings_import_config)
+    rule.onNodeWithText(importTitle).performScrollTo()
+    app.click(importTitle)
+
+    // 已有非空名单时先弹覆盖确认弹窗；取消后不触发导入。
+    app.assertShown(text(Res.string.settings_import_confirm_title))
+    app.click(text(Res.string.settings_dialog_cancel))
+    assertTrue("importConfig" !in app.actions.calls)
+
+    // 确认后执行导入，且未自检设备仍保持关闭。
+    app.click(importTitle)
+    app.click(text(Res.string.settings_import_confirm_action))
+    assertEquals(5_000L, app.controller.state.value.config.leadMillis)
+    assertEquals(Sensitivity.Loose, app.controller.state.value.config.sensitivity)
+    assertEquals(setOf("com.new.reader"), app.controller.state.value.config.whitelistPackages)
+    assertEquals(false, app.controller.state.value.config.enabled)
+    app.assertShown(text(Res.string.settings_config_imported))
+  }
+
+  @Test
+  fun importConfigShowsClearFeedbackForInvalidAndOversizedFiles() {
+    val app = rule.launchApp(readyState())
+    app.openTab(text(Res.string.nav_settings))
+    val importTitle = text(Res.string.settings_import_config)
+    rule.onNodeWithText(importTitle).performScrollTo()
+
+    app.actions.nextConfigImportResult = ConfigReadResult.Loaded("""{"schemaVersion": 99}""")
+    app.click(importTitle)
+    app.assertShown(text(Res.string.settings_config_import_invalid))
+    assertTrue("importConfig" !in app.controller.calls)
+
+    app.actions.nextConfigImportResult = ConfigReadResult.TooLarge
+    app.click(importTitle)
+    app.assertShown(text(Res.string.settings_config_import_too_large))
   }
 }

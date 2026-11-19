@@ -23,6 +23,15 @@ class FakeGazeKeepController(initial: ControllerState, selfTest: SelfTestState =
     if (saveSucceeds) state.value = state.value.copy(config = transform(state.value.config))
   }
 
+  override suspend fun importConfig(config: GazeConfig): Boolean {
+    calls += "importConfig"
+    if (!saveSucceeds) return false
+    val current = state.value
+    val merged = config.copy(enabled = if (current.selfTestPassed) current.config.enabled else false)
+    state.value = current.copy(config = merged)
+    return true
+  }
+
   override suspend fun setEnabled(enabled: Boolean) {
     calls += "setEnabled:$enabled"
     state.value = state.value.copy(config = state.value.config.copy(enabled = enabled))

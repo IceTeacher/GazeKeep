@@ -207,6 +207,31 @@ class AndroidGazeKeepController(
     }
   }
 
+  override suspend fun importConfig(config: GazeConfig): Boolean = mutex.withLock {
+    try {
+      val saved = store.importConfig(config)
+      mutableState.update {
+        it.copy(
+          config = saved.config,
+          selfTestPassed = saved.selfTestPassedAt != null,
+          notice = null,
+        )
+      }
+      syncIndicatorState()
+      if (saved.selfTestPassedAt != null && (saved.config.enabled || RuntimeStatusStore.status.value.running)) {
+        reconfigureEngine()
+      }
+      GazeQuickTileService.requestRefresh(context)
+      true
+    } catch (error: CancellationException) {
+      throw error
+    } catch (_: Exception) {
+      mutableState.update { it.copy(notice = UiNotice.SaveFailed) }
+      stopEngine()
+      false
+    }
+  }
+
   private fun syncIndicatorState() {
     val current = state.value
     if (!current.loaded) return

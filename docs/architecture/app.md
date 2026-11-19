@@ -67,8 +67,9 @@ android → xposed（唯一 APK 打包）
 
 - **装配与会话边界**：`AppGraph` 为进程装配根；`AndroidGazeKeepController` 管理 UI 订阅、自检与应用列表，Activity 销毁关闭 controller 时不取消已保存的后台启停任务。`GazeService` 持有 `BackendSession`；息屏期间保持 `camera` 类型前台服务空转（仅释放检测与传感器资源），避免因 Android 14+ 后台广播无法重新拉起 `camera` FGS 而失效。相机权限在 `onCreate` 与每次 `onStartCommand` 提升前校验，缺失时清理会话、发通知、`stopSelf` 并返回 `START_NOT_STICKY`；权限恢复且回到前台时由 controller 自动重配恢复。
 - **快捷设置磁贴（`GazeQuickTileService`）**：通过 `TileService` 同步开关与运行状态；未授权或未自检时点击拉起 `MainActivity` 引导，绝不静默越权开启；Android 14+ 从关闭态点击开启时经 `PendingIntent` 拉起 `MainActivity`（等待配置与后端就绪加载后启动服务）以满足前台相机服务限制，关闭态可在后台直接停止服务。
-- **配置持久化与降级兼容**：
+- **配置持久化、SAF 备份与降级兼容**：
   - `ConfigStore` 经单例 DataStore 维护 `gazekeep_settings`。写入生效范围时主动删除旧键 `whitelist_enabled`：若旧键存在（说明刚从旧版升级或降级后由旧版写入）则优先按旧键推导，否则读取 `app_filter_mode`，确保版本升降级时白名单与黑名单分离且不意外扩大为全局保亮。
+  - **零权限 SAF 配置备份（`ConfigBackupCodec`）**：`core` 层纯函数读写 `schemaVersion = 1` JSON，仅包含可迁移参数与清洗后名单（单份上限 500 条），读取强制限制 64 KB 且忽略未知顶层字段；严禁导出或恢复 `enabled`、`self_test_passed_at`、`pendingTimeoutRestore`，导入经 `ConfigStore.importConfig` 原子合入并强制维持未自检设备 `enabled = false`。
   - 应用列表「显示系统应用」偏好存于独立 `gazekeep_ui_prefs`；Shizuku 超时恢复记录存于独立 `gazekeep_timeout_restore`（同步 `commit`）。
 - **应用内语言（`AppLocales`）**：不引入 AppCompat；Android 13+ 读写系统 `LocaleManager`（`localeConfig` 声明 `zh-CN` 与 `en`），Android 12 及以下持久化至 `gazekeep_app_locale` 并在 `attachBaseContext` 与进程默认 `LocaleList` 同步。语言切换时 `GazeService` 实时刷新通知渠道名与在展常驻通知；系统无障碍设置与 LSPosed 管理器中的模块描述由宿主系统按系统语言读取。
 - **诊断日志（`DecisionLogs`）**：进程单例通过无界 IO 队列串行处理读写与清理，事件时间戳取调用时刻而非写盘时刻，写入后增量插入内存列表头部；存储于 `noBackupFilesDir/decisions`，启动、读取及每分钟自动清理超 24 小时文件，支持 `.txt` 导出。
