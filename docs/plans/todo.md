@@ -15,7 +15,8 @@
 
 ## 未完成事项（Backlog）
 
-- [ ] **推进 `v1.1.7` 迭代实施**：按 [v1.1.7 迭代规划](v1.1.7.md) 交付 SAF 零权限配置导入导出、充电豁免单次保亮上限（`unlimitedHoldWhileCharging`）、连续注视稳态单帧快判（首帧 `Looking` 通过、非 `Looking` 回退 3 帧 2 票）及平躺仰视阅读兼容（`faceDownGateEnabled`）与多 ROM 后台引导。
+- [ ] **推进 `v1.1.7` 迭代实施**：按 [v1.1.7 迭代规划](v1.1.7.md) 在已完成保亮后端告警时效性限频与后端切换串行化（PR #33 / #34）基础上，交付 SAF 零权限配置导入导出与连续注视稳态单帧快判（首帧 `Looking` 通过、非 `Looking` 回退 3 帧 2 票）。
+- [ ] **规划与排期 `v1.1.8`**：按 [v1.1.8 迭代规划](v1.1.8.md) 承接顺延的充电豁免单次保亮上限（`unlimitedHoldWhileCharging`）、平躺仰视阅读兼容（`faceDownGateEnabled`）与多 ROM 后台引导扩充。
 - [ ] **跨 ROM 与 Android 版本实机矩阵**：在 Xiaomi 12 Pro（HyperOS 2）以外的 ROM（ColorOS、OriginOS、OneUI、原生 AOSP）上补验相机抢占、传感器首报延迟、应用列表预装系统应用标志、无障碍前台识别与后台冻结策略。
 - [ ] **LSPosed 与 Shizuku 深度异常矩阵**：执行 Sui/Shizuku 服务端进程重启后的超时恢复；在独立选择旧登记的框架上回归 `legacy` 入口；补充旧 `seq` 拒绝与多 ROM 相机隐私指示器降级实测。
 - [ ] **正式签名 Release 实机全量验收**：由 CI 对 `v1.1.6` / `v1.1.7` tag 执行正式签名多 ABI 构建与指纹核对，在真机与 32 位环境补验正式签名包覆盖安装、锁屏/横屏磁贴交互与外接功率计/断开 ADB 的长时续航。

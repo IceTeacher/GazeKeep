@@ -14,7 +14,7 @@
 | **仓库工具、门禁与 Hook**  | [scripts/repo-tools/AGENTS.md](scripts/repo-tools/AGENTS.md)                                                                                                                                                                                  |
 | **产品边界、术语与隐私**   | [产品、术语与隐私](docs/product.md)（领域语言、隐私三句真源、十条安全红线与多 ROM 排障）                                                                                                                                                      |
 | **开发、测试与发布门禁**   | [开发、测试与发布](docs/development.md) · [更新日志](docs/CHANGELOG.md)（[EN](docs/CHANGELOG.en.md)）                                                                                                                                         |
-| **当前实测基线与迭代规划** | [任务清单与实测基线](docs/plans/todo.md) · [v1.1.7 迭代规划](docs/plans/v1.1.7.md)                                                                                                                                                            |
+| **当前实测基线与迭代规划** | [任务清单与实测基线](docs/plans/todo.md) · [v1.1.7 迭代规划](docs/plans/v1.1.7.md) · [v1.1.8 迭代规划](docs/plans/v1.1.8.md)                                                                                                                  |
 | **专项工作流 Skills**      | [testing](.agents/skills/testing/SKILL.md) · [docs-maintenance](.agents/skills/docs-maintenance/SKILL.md) · [commit-message](.agents/skills/commit-message/SKILL.md) · [commit-message-groups](.agents/skills/commit-message-groups/SKILL.md) |
 
 ## 契约与不变量驱动准则
