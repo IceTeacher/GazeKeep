@@ -7,6 +7,7 @@ import android.content.res.Configuration
 import android.os.LocaleList
 import cn.rainafter.app.gazekeep.R
 import cn.rainafter.app.gazekeep.core.engine.Alert
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -24,6 +25,10 @@ class GazeNotifierLocaleTest {
   private val en = localized("en")
   private var current = zh
   private val notifier = GazeNotifier { current }
+
+  @Before fun setUp() {
+    GazeNotifier.resetForTest()
+  }
 
   @Test fun refreshRenamesChannelsAndReplacesShownServiceNotification() {
     notifier.createChannels()

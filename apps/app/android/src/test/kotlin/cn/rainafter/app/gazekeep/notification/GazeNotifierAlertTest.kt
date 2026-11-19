@@ -3,6 +3,7 @@ package cn.rainafter.app.gazekeep.notification
 import android.app.NotificationManager
 import android.content.Context
 import cn.rainafter.app.gazekeep.core.engine.Alert
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -17,6 +18,10 @@ class GazeNotifierAlertTest {
   private val manager = app.getSystemService(NotificationManager::class.java)
   private var nowMs = 1_000L
   private val notifier = GazeNotifier({ app }, { nowMs })
+
+  @Before fun setUp() {
+    GazeNotifier.resetForTest()
+  }
 
   @Test fun cancelAlertRemovesNotificationWhileKeepingRateLimitWithinTenMinutes() {
     notifier.createChannels()
@@ -49,5 +54,29 @@ class GazeNotifierAlertTest {
 
     notifier.clearAllAlerts()
     assertTrue(shadowOf(manager).allNotifications.isEmpty())
+  }
+
+  @Test fun rateLimitPersistsAcrossRecreatedNotifierInstancesAfterServiceReconfigure() {
+    val firstNotifier = GazeNotifier({ app }, { nowMs })
+    firstNotifier.createChannels()
+    firstNotifier.notifyAlert(Alert.BackendUnavailable)
+    assertEquals(1, shadowOf(manager).allNotifications.size)
+
+    // 模拟切换至就绪后端触发 ServiceActivation.reconfigure 重建 GazeService 与 GazeNotifier。
+    val secondNotifier = GazeNotifier({ app }, { nowMs })
+    secondNotifier.cancelAlert(Alert.BackendUnavailable)
+    assertTrue(shadowOf(manager).allNotifications.isEmpty())
+
+    // 8 秒后再次切回不可用后端并重建服务，10 分钟内不应重新弹出同类告警。
+    nowMs += 8_000L
+    val thirdNotifier = GazeNotifier({ app }, { nowMs })
+    thirdNotifier.notifyAlert(Alert.BackendUnavailable)
+    assertTrue(shadowOf(manager).allNotifications.isEmpty())
+
+    // 超过 10 分钟冷却窗口后，新服务实例允许再次提醒。
+    nowMs += 10 * 60 * 1000L
+    val fourthNotifier = GazeNotifier({ app }, { nowMs })
+    fourthNotifier.notifyAlert(Alert.BackendUnavailable)
+    assertEquals(1, shadowOf(manager).allNotifications.size)
   }
 }
