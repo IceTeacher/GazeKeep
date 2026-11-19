@@ -1,3 +1,50 @@
+# v1.1.7
+
+## Changelog
+
+### Added
+
+- Zero-permission local settings export and import: export your preferences and whitelist/blacklist app lists to a local JSON backup or restore them via the system file picker (SAF) for effortless reinstall or device migration, with zero storage or network permissions. Imported files are validated and sanitized (capped at 500 packages per list and 64 KB per file) with an overwrite confirmation when existing lists are non-empty; backups never export or restore the main switch state, self-test completion record, or Shizuku timeout recovery state.
+
+### Improved
+
+- Steady-state single-frame fast path (cont. #14): after two consecutive `Looking` rounds, if the first frame already confirms gaze, GazeKeep finishes immediately and releases the front camera. Any non-`Looking` first frame (such as a quick blink or momentary miss) automatically falls back to the full 3-frame 2-vote rule instead of misclassifying as `Away` under the old 2-of-2 steady-state cap, while sustained closed eyes or head turns still let the screen sleep normally.
+
+  Alternating steady-state comparison between builds (Xiaomi 12 Pro, HyperOS 2 / Android 14, LSPosed backend, `640×480`, ML Kit `FAST` + `ALL`, tested in A-B-B-A order at `15 s` timeout and fixed `120/255` manual brightness):
+
+  | Steady-state metric                    | v1.1.6 (2-frame)      | v1.1.7 (single-frame fast path) | Delta                       |
+  | -------------------------------------- | --------------------- | ------------------------------- | --------------------------- |
+  | Camera active time / round (`elapsed`) | 604 ms                | **454 ms**                      | **−25%** (~150 ms shorter)  |
+  | ML Kit classification / round          | 2 frames (79 ms)      | **1 frame (42 ms)**             | **−50% frames / −48% time** |
+  | App CPU time (47 s / 7 rounds)         | 5.05 s                | **3.60 s**                      | **−29%**                    |
+  | Single-frame blink / miss tolerance    | 2-of-2 prone to sleep | **Falls back to 2-of-3**        | Fewer false screen-offs     |
+
+  Savings primarily reduce app inference CPU time and camera-on duration per round; total device battery power remains dominated by display and system background variance and varies by device and timeout settings.
+
+### Fixed
+
+- Fixed backend switching races: serialized the backend switch queue and commit the new state only after transition completes, quiescing the previous detection round and cancelling in-flight extensions before releasing the old backend; serialized Shizuku `UserService` unbind/rebind under lock isolation.
+- Fixed alert notification freshness and rate-limit boundaries: automatically dismisses stale failure alerts once keep-awake recovers or the service stops, while preserving the 10-minute per-alert rate-limit window across alert dismissal and service reconfiguration.
+
+## Setup
+
+- Root environment: Enable the module in LSPosed, select the System Framework in scope, reboot, then return to the app to confirm the bridge is ready.
+- Non-root environment: Enable the GazeKeep service in system Accessibility settings, or start Shizuku and grant GazeKeep permission, then return to the app to confirm backend readiness. On Android 13 and later, if the Accessibility toggle is grayed out with "Restricted setting", open App Info, tap the top-right menu to allow restricted settings, then return to Accessibility settings.
+- For both environments: grant camera permission, complete the self-test (looking forward shows "Looking at screen"; looking away shows "Not looking"), choose an app scope and select whitelist/blacklist apps in Settings (or restore a backup via "Settings → Import settings"), then turn on the main toggle (or use the Quick Settings tile).
+- Xiaomi / HyperOS: Set the battery saver policy to "No restrictions" under Background operation in Settings. The system force-stops GazeKeep when changing this policy; reopen the app once afterward.
+
+### Tuning Tips
+
+| Setting                     | Default                      | Recommendation                                                                                                       |
+| :-------------------------- | :--------------------------- | :------------------------------------------------------------------------------------------------------------------- |
+| Detection lead time         | 8 s                          | Choose 5 s, 8 s, or custom 0–60 s. Increase on devices with slower camera startup or quick dimming                   |
+| Sensitivity                 | Standard: forward, eyes open | Standard requires facing forward with eyes open; switch to Relaxed if reflective glasses make eye detection unstable |
+| Maximum keep-awake time     | 30 min                       | Recommended as a safeguard if you fall asleep; customizable or set to unlimited                                      |
+| App scope                   | Whitelist only               | Best battery life by checking only selected apps; choose "All apps" for global use (camera apps still skipped)       |
+| Pause in battery saver      | On                           | Automatically yields camera and keep-awake while system Battery Saver is active                                      |
+| Low battery pause threshold | Below 15%                    | Pauses keep-awake while unplugged at or below the threshold; resumes automatically when charging                     |
+| Detailed logs               | Off                          | Enable only while troubleshooting; keeps the last 24 hours and clears immediately when turned off                    |
+
 # v1.1.6
 
 ## Changelog
