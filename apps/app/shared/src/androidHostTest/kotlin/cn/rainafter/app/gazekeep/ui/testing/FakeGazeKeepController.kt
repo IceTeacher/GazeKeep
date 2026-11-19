@@ -1,6 +1,7 @@
 package cn.rainafter.app.gazekeep.ui.testing
 
 import cn.rainafter.app.gazekeep.core.model.ConfigBackupCodec
+import cn.rainafter.app.gazekeep.core.model.ConfigExportResult
 import cn.rainafter.app.gazekeep.core.model.ConfigImportResult
 import cn.rainafter.app.gazekeep.core.model.GazeConfig
 import cn.rainafter.app.gazekeep.ui.contract.ConfigBackupFeedback
@@ -30,7 +31,7 @@ class FakeGazeKeepController(initial: ControllerState, selfTest: SelfTestState =
     if (saveSucceeds) state.value = state.value.copy(config = transform(state.value.config))
   }
 
-  override suspend fun exportConfigJson(): String {
+  override suspend fun exportConfigJson(): ConfigExportResult {
     calls += "exportConfigJson"
     return ConfigBackupCodec.encode(state.value.config)
   }
@@ -77,6 +78,7 @@ class FakeGazeKeepController(initial: ControllerState, selfTest: SelfTestState =
     calls += "reportConfigExportResult:$result"
     when (result) {
       ConfigTransferResult.Saved -> emitBackupFeedback(ConfigBackupFeedback.Exported)
+      ConfigTransferResult.TooLarge -> emitBackupFeedback(ConfigBackupFeedback.ExportTooLarge)
       ConfigTransferResult.Failed -> emitBackupFeedback(ConfigBackupFeedback.ExportFailed)
       ConfigTransferResult.Cancelled -> Unit
     }

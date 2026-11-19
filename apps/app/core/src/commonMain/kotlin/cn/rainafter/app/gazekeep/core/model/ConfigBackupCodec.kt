@@ -1,5 +1,10 @@
 package cn.rainafter.app.gazekeep.core.model
 
+sealed interface ConfigExportResult {
+  data class Success(val json: String) : ConfigExportResult
+  data class PackageListTooLarge(val limit: Int) : ConfigExportResult
+}
+
 sealed interface ConfigImportResult {
   data class Success(val config: GazeConfig) : ConfigImportResult
   data class InvalidFormat(val reason: String) : ConfigImportResult
@@ -21,10 +26,12 @@ object ConfigBackupCodec {
   private const val MAX_LEAD_MILLIS = 60_000L
   private const val MAX_HOLD_MINUTES = 1_440
 
-  fun encode(config: GazeConfig): String {
+  fun encode(config: GazeConfig): ConfigExportResult {
     val whitelist = sanitizePackagesForExport(config.whitelistPackages)
+      ?: return ConfigExportResult.PackageListTooLarge(MAX_PACKAGE_LIST_SIZE)
     val blacklist = sanitizePackagesForExport(config.blacklistPackages)
-    return buildString {
+      ?: return ConfigExportResult.PackageListTooLarge(MAX_PACKAGE_LIST_SIZE)
+    val json = buildString {
       append("{\n")
       appendField("schemaVersion", CURRENT_SCHEMA_VERSION.toString(), trailingComma = true)
       appendField("backendLock", encodeString(config.backendLock.name), trailingComma = true)
@@ -40,10 +47,13 @@ object ConfigBackupCodec {
       appendField("hideCameraIndicator", config.hideCameraIndicator.toString(), trailingComma = false)
       append("}\n")
     }
+    return ConfigExportResult.Success(json)
   }
 
-  private fun sanitizePackagesForExport(packages: Set<String>): List<String> =
-    packages.asSequence().filter(::isValidAndroidPackageName).sorted().take(MAX_PACKAGE_LIST_SIZE).toList()
+  private fun sanitizePackagesForExport(packages: Set<String>): List<String>? {
+    val valid = packages.asSequence().filter(::isValidAndroidPackageName).sorted().toList()
+    return valid.takeIf { it.size <= MAX_PACKAGE_LIST_SIZE }
+  }
 
   fun decode(json: String, current: GazeConfig = GazeConfig()): ConfigImportResult {
     if (json.encodeToByteArray().size > MAX_BACKUP_BYTES) {

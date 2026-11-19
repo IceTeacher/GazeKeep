@@ -7,6 +7,7 @@ import androidx.activity.result.ActivityResultRegistry
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.core.app.ActivityOptionsCompat
 import cn.rainafter.app.gazekeep.core.model.ConfigBackupCodec
+import cn.rainafter.app.gazekeep.core.model.ConfigExportResult
 import cn.rainafter.app.gazekeep.core.model.GazeConfig
 import cn.rainafter.app.gazekeep.ui.contract.ConfigReadResult
 import cn.rainafter.app.gazekeep.ui.contract.ConfigTransferResult
@@ -66,16 +67,21 @@ class ConfigBackupStreamTest {
       }
     }
 
-    val exportedJson = ConfigBackupCodec.encode(GazeConfig(leadMillis = 12_000L, maxHoldMinutes = 45))
+    val exportedJson = assertIs<ConfigExportResult.Success>(
+      ConfigBackupCodec.encode(GazeConfig(leadMillis = 12_000L, maxHoldMinutes = 45)),
+    ).json
     val fakeOutput = ByteArrayOutputStream()
     val importedResults = mutableListOf<ConfigReadResult>()
     val exportResults = mutableListOf<ConfigTransferResult>()
 
-    fun newController() = object : GazeKeepController {
-      override val state = MutableStateFlow(ControllerState())
+    fun newController(
+      initialState: ControllerState = ControllerState(loaded = true),
+      exportResult: ConfigExportResult = ConfigExportResult.Success(exportedJson),
+    ) = object : GazeKeepController {
+      override val state = MutableStateFlow(initialState)
       override val selfTest = MutableStateFlow(SelfTestState())
       override suspend fun updateConfig(transform: (GazeConfig) -> GazeConfig) = Unit
-      override suspend fun exportConfigJson(): String = exportedJson
+      override suspend fun exportConfigJson(): ConfigExportResult = exportResult
       override suspend fun importConfigContent(readResult: ConfigReadResult): Boolean {
         importedResults += readResult
         return readResult is ConfigReadResult.Loaded
@@ -144,5 +150,92 @@ class ConfigBackupStreamTest {
     assertEquals(1, importedResults.size)
     val loaded = assertIs<ConfigReadResult.Loaded>(importedResults.single())
     assertTrue(loaded.content.contains("\"leadMillis\": 12000"))
+  }
+
+  @Test
+  fun safCoordinatorRefusesOversizedExportBeforeAndAfterPicker() {
+    val pendingRequestCodes = ArrayDeque<Int>()
+    val registry = object : ActivityResultRegistry() {
+      override fun <I, O> onLaunch(
+        requestCode: Int,
+        contract: ActivityResultContract<I, O>,
+        input: I,
+        options: ActivityOptionsCompat?,
+      ) {
+        pendingRequestCodes += requestCode
+      }
+    }
+
+    val overLimitPackages = (1..(ConfigBackupCodec.MAX_PACKAGE_LIST_SIZE + 1))
+      .map { "com.example.pkg$it" }
+      .toSet()
+    val exportResults = mutableListOf<ConfigTransferResult>()
+    val deletedUris = mutableListOf<Uri>()
+    var openedOutput = false
+
+    fun controllerFor(loaded: Boolean) = object : GazeKeepController {
+      override val state = MutableStateFlow(
+        ControllerState(loaded = loaded, config = GazeConfig(whitelistPackages = overLimitPackages)),
+      )
+      override val selfTest = MutableStateFlow(SelfTestState())
+      override suspend fun updateConfig(transform: (GazeConfig) -> GazeConfig) = Unit
+      override suspend fun exportConfigJson(): ConfigExportResult = ConfigBackupCodec.encode(state.value.config)
+      override suspend fun importConfigContent(readResult: ConfigReadResult): Boolean = false
+      override fun reportConfigExportResult(result: ConfigTransferResult) {
+        exportResults += result
+      }
+      override fun clearBackupNotice(token: Long) = Unit
+      override suspend fun setEnabled(enabled: Boolean) = Unit
+      override suspend fun beginSelfTest() = Unit
+      override suspend fun captureSelfTest() = Unit
+      override fun cancelSelfTest() = Unit
+      override fun clearLogs() = Unit
+      override fun refreshLogs() = Unit
+      override fun refresh() = Unit
+      override suspend fun loadApps() = Unit
+    }
+
+    // 1) 已加载且名单超限时直接拒绝，不唤起 SAF 创建空文件。
+    val loadedCoordinator = SafConfigBackupCoordinator(
+      registry = registry,
+      scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
+      controller = controllerFor(loaded = true),
+      openOutput = {
+        openedOutput = true
+        ByteArrayOutputStream()
+      },
+      openInput = { null },
+      deleteExportedDocument = { deletedUris += it },
+      ioDispatcher = Dispatchers.Unconfined,
+      mainDispatcher = Dispatchers.Unconfined,
+    )
+    loadedCoordinator.launchExport()
+    assertTrue(pendingRequestCodes.isEmpty(), "picker must not open when loaded list exceeds export limit")
+    assertEquals(listOf<ConfigTransferResult>(ConfigTransferResult.TooLarge), exportResults)
+
+    // 2) 若选择器打开后配置变超限，拒绝写盘并尝试清理空文档，汇报 TooLarge。
+    val unloadedCoordinator = SafConfigBackupCoordinator(
+      registry = registry,
+      scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
+      controller = controllerFor(loaded = false),
+      openOutput = {
+        openedOutput = true
+        ByteArrayOutputStream()
+      },
+      openInput = { null },
+      deleteExportedDocument = { deletedUris += it },
+      ioDispatcher = Dispatchers.Unconfined,
+      mainDispatcher = Dispatchers.Unconfined,
+    )
+    unloadedCoordinator.launchExport()
+    val reqCode = pendingRequestCodes.removeFirst()
+    val targetUri = Uri.parse("content://test/empty.json")
+    registry.dispatchResult(reqCode, Activity.RESULT_OK, Intent().setData(targetUri))
+    assertEquals(false, openedOutput)
+    assertEquals(listOf(targetUri), deletedUris)
+    assertEquals(
+      listOf<ConfigTransferResult>(ConfigTransferResult.TooLarge, ConfigTransferResult.TooLarge),
+      exportResults,
+    )
   }
 }

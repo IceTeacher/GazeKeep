@@ -11,6 +11,7 @@ enum class AppListLoadState { NotLoaded, Loading, Loaded, Failed }
 enum class UiNotice { NeedsCamera, NeedsSelfTest, NeedsBackend, EmptyScope, SaveFailed }
 enum class ConfigBackupFeedback {
   Exported,
+  ExportTooLarge,
   ExportFailed,
   Imported,
   ImportInvalid,

@@ -13,6 +13,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import cn.rainafter.app.gazekeep.core.model.AppFilterMode
 import cn.rainafter.app.gazekeep.core.model.ConfigBackupCodec
+import cn.rainafter.app.gazekeep.core.model.ConfigExportResult
 import cn.rainafter.app.gazekeep.core.model.GazeConfig
 import cn.rainafter.app.gazekeep.core.model.Sensitivity
 import cn.rainafter.app.gazekeep.ui.contract.AppLanguage
@@ -40,6 +41,7 @@ import gazekeep.shared.generated.resources.settings_apps
 import gazekeep.shared.generated.resources.settings_back
 import gazekeep.shared.generated.resources.settings_background_policy
 import gazekeep.shared.generated.resources.settings_blacklist_empty
+import gazekeep.shared.generated.resources.settings_config_export_too_large
 import gazekeep.shared.generated.resources.settings_config_exported
 import gazekeep.shared.generated.resources.settings_config_import_invalid
 import gazekeep.shared.generated.resources.settings_config_import_too_large
@@ -262,14 +264,16 @@ class SettingsUiTest {
 
   @Test
   fun importConfigConfirmsWhenListsExistAndAppliesBackupSafely() {
-    val backupJson = ConfigBackupCodec.encode(
-      GazeConfig(
-        leadMillis = 5_000L,
-        sensitivity = Sensitivity.Loose,
-        whitelistPackages = setOf("com.new.reader"),
-        maxHoldMinutes = 60,
-      ),
-    )
+    val backupJson = (
+      ConfigBackupCodec.encode(
+        GazeConfig(
+          leadMillis = 5_000L,
+          sensitivity = Sensitivity.Loose,
+          whitelistPackages = setOf("com.new.reader"),
+          maxHoldMinutes = 60,
+        ),
+      ) as ConfigExportResult.Success
+      ).json
     val base = readyState()
     val app = rule.launchApp(
       base.copy(
@@ -316,5 +320,21 @@ class SettingsUiTest {
     app.actions.nextConfigImportResult = ConfigReadResult.TooLarge
     app.click(importTitle)
     app.assertShown(text(Res.string.settings_config_import_too_large))
+  }
+
+  @Test
+  fun exportConfigRefusesOversizedAppListAndShowsLimitNotice() {
+    val base = readyState()
+    val overLimit = (1..(ConfigBackupCodec.MAX_PACKAGE_LIST_SIZE + 1))
+      .map { i -> "com.example.app$i" }
+      .toSet()
+    val app = rule.launchApp(base.copy(config = base.config.copy(whitelistPackages = overLimit)))
+    app.openTab(text(Res.string.nav_settings))
+    val exportTitle = text(Res.string.settings_export_config)
+    rule.onNodeWithText(exportTitle).performScrollTo()
+    app.click(exportTitle)
+
+    assertEquals(null, app.actions.exportedConfigJson)
+    app.assertShown(text(Res.string.settings_config_export_too_large))
   }
 }

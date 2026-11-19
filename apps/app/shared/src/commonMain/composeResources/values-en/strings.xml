@@ -185,6 +185,7 @@
   >Importing a backup replaces your preferences and saved app lists without changing self-test status or the main switch.</string>
     <string name="settings_import_confirm_action">Continue</string>
     <string name="settings_config_exported">Settings exported</string>
+    <string name="settings_config_export_too_large">App list exceeds the 500-item backup limit</string>
     <string name="settings_config_export_failed">Failed to export settings</string>
     <string name="settings_config_imported">Settings imported</string>
     <string name="settings_config_import_invalid">Invalid backup file format. Settings unchanged.</string>

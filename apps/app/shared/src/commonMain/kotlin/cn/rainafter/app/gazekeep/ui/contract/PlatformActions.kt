@@ -5,6 +5,7 @@ import androidx.compose.ui.Modifier
 
 sealed interface ConfigTransferResult {
   data object Saved : ConfigTransferResult
+  data object TooLarge : ConfigTransferResult
   data object Cancelled : ConfigTransferResult
   data object Failed : ConfigTransferResult
 }

@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import cn.rainafter.app.gazekeep.core.model.ConfigExportResult
 import cn.rainafter.app.gazekeep.ui.contract.AppLanguage
 import cn.rainafter.app.gazekeep.ui.contract.ConfigReadResult
 import cn.rainafter.app.gazekeep.ui.contract.ConfigTransferResult
@@ -88,10 +89,19 @@ class FakePlatformActions(
   override fun exportConfig() {
     calls += "exportConfig"
     val target = controller ?: return
-    if (nextConfigExportResult == ConfigTransferResult.Saved) {
-      exportedConfigJson = runBlocking { target.exportConfigJson() }
+    when (val encoded = runBlocking { target.exportConfigJson() }) {
+      is ConfigExportResult.PackageListTooLarge -> {
+        exportedConfigJson = null
+        target.reportConfigExportResult(ConfigTransferResult.TooLarge)
+      }
+
+      is ConfigExportResult.Success -> {
+        if (nextConfigExportResult == ConfigTransferResult.Saved) {
+          exportedConfigJson = encoded.json
+        }
+        target.reportConfigExportResult(nextConfigExportResult)
+      }
     }
-    target.reportConfigExportResult(nextConfigExportResult)
   }
 
   override fun importConfig() {

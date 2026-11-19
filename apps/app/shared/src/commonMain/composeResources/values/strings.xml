@@ -147,6 +147,7 @@
   >导入备份会替换当前参数与已保存的应用名单，不会更改自检状态或总开关。</string>
     <string name="settings_import_confirm_action">继续导入</string>
     <string name="settings_config_exported">配置已导出</string>
+    <string name="settings_config_export_too_large">应用名单超过 500 项导出上限，未生成备份</string>
     <string name="settings_config_export_failed">配置导出失败</string>
     <string name="settings_config_imported">配置已导入</string>
     <string name="settings_config_import_invalid">配置文件格式无效，未更改当前设置</string>

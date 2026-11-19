@@ -65,6 +65,7 @@ import gazekeep.shared.generated.resources.settings_background_policy_summary
 import gazekeep.shared.generated.resources.settings_blacklist_count
 import gazekeep.shared.generated.resources.settings_blacklist_empty
 import gazekeep.shared.generated.resources.settings_config_export_failed
+import gazekeep.shared.generated.resources.settings_config_export_too_large
 import gazekeep.shared.generated.resources.settings_config_exported
 import gazekeep.shared.generated.resources.settings_config_import_failed
 import gazekeep.shared.generated.resources.settings_config_import_invalid
@@ -570,6 +571,7 @@ internal fun SettingsTabScreen(
       backupNotice?.let { notice ->
         val messageRes: StringResource = when (notice.feedback) {
           ConfigBackupFeedback.Exported -> Res.string.settings_config_exported
+          ConfigBackupFeedback.ExportTooLarge -> Res.string.settings_config_export_too_large
           ConfigBackupFeedback.ExportFailed -> Res.string.settings_config_export_failed
           ConfigBackupFeedback.Imported -> Res.string.settings_config_imported
           ConfigBackupFeedback.ImportInvalid -> Res.string.settings_config_import_invalid

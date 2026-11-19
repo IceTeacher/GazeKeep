@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.provider.DocumentsContract
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
@@ -38,6 +39,7 @@ import androidx.lifecycle.lifecycleScope
 import cn.rainafter.app.gazekeep.applist.AppIconCache
 import cn.rainafter.app.gazekeep.controller.AndroidGazeKeepController
 import cn.rainafter.app.gazekeep.core.model.ConfigBackupCodec
+import cn.rainafter.app.gazekeep.core.model.ConfigExportResult
 import cn.rainafter.app.gazekeep.ui.contract.AppLanguage
 import cn.rainafter.app.gazekeep.ui.contract.ConfigReadResult
 import cn.rainafter.app.gazekeep.ui.contract.ConfigTransferResult
@@ -79,6 +81,7 @@ internal class SafConfigBackupCoordinator(
   private val controller: GazeKeepController,
   private val openOutput: (Uri) -> OutputStream?,
   private val openInput: (Uri) -> InputStream?,
+  private val deleteExportedDocument: (Uri) -> Unit = {},
   private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
   private val mainDispatcher: CoroutineDispatcher = Dispatchers.Main.immediate,
 ) {
@@ -93,13 +96,19 @@ internal class SafConfigBackupCoordinator(
       }
       scope.launch(ioDispatcher) {
         val result = runCatching {
-          val content = controller.exportConfigJson()
-          val stream = openOutput(uri) ?: error("unable to open output stream")
-          stream.use { it.write(content.toByteArray(Charsets.UTF_8)) }
-        }.fold(
-          onSuccess = { ConfigTransferResult.Saved },
-          onFailure = { ConfigTransferResult.Failed },
-        )
+          when (val encoded = controller.exportConfigJson()) {
+            is ConfigExportResult.PackageListTooLarge -> {
+              runCatching { deleteExportedDocument(uri) }
+              ConfigTransferResult.TooLarge
+            }
+
+            is ConfigExportResult.Success -> {
+              val stream = openOutput(uri) ?: error("unable to open output stream")
+              stream.use { it.write(encoded.json.toByteArray(Charsets.UTF_8)) }
+              ConfigTransferResult.Saved
+            }
+          }
+        }.getOrElse { ConfigTransferResult.Failed }
         withContext(mainDispatcher) { controller.reportConfigExportResult(result) }
       }
     }
@@ -120,6 +129,13 @@ internal class SafConfigBackupCoordinator(
     }
 
   fun launchExport() {
+    val currentState = controller.state.value
+    if (currentState.loaded &&
+      ConfigBackupCodec.encode(currentState.config) is ConfigExportResult.PackageListTooLarge
+    ) {
+      controller.reportConfigExportResult(ConfigTransferResult.TooLarge)
+      return
+    }
     runCatching {
       exportLauncher.launch(DEFAULT_CONFIG_FILE_NAME)
     }.onFailure {
@@ -176,6 +192,9 @@ class AndroidPlatformActions(
         ?: activity.contentResolver.openOutputStream(uri)
     },
     openInput = { uri -> activity.contentResolver.openInputStream(uri) },
+    deleteExportedDocument = { uri ->
+      runCatching { DocumentsContract.deleteDocument(activity.contentResolver, uri) }
+    },
   )
 
   override fun requestCameraPermission() =

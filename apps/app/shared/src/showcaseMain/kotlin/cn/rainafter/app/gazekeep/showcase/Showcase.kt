@@ -33,6 +33,7 @@ import cn.rainafter.app.gazekeep.core.model.AppFilterMode
 import cn.rainafter.app.gazekeep.core.model.Attention
 import cn.rainafter.app.gazekeep.core.model.BackendId
 import cn.rainafter.app.gazekeep.core.model.BackendLock
+import cn.rainafter.app.gazekeep.core.model.ConfigExportResult
 import cn.rainafter.app.gazekeep.core.model.GazeConfig
 import cn.rainafter.app.gazekeep.core.model.Readiness
 import cn.rainafter.app.gazekeep.core.model.Sensitivity
@@ -149,7 +150,7 @@ private object DemoController : GazeKeepController {
     state.value =
       state.value.copy(config = transform(state.value.config))
   }
-  override suspend fun exportConfigJson(): String = ""
+  override suspend fun exportConfigJson(): ConfigExportResult = ConfigExportResult.Success("")
   override suspend fun importConfigContent(readResult: ConfigReadResult): Boolean = false
   override fun reportConfigExportResult(result: ConfigTransferResult) {}
   override fun clearBackupNotice(token: Long) {}

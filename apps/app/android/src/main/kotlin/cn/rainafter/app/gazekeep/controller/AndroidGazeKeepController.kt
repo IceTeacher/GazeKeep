@@ -12,6 +12,7 @@ import cn.rainafter.app.gazekeep.applist.LaunchableAppsRepository
 import cn.rainafter.app.gazekeep.backend.a11y.GazeA11yService
 import cn.rainafter.app.gazekeep.core.model.AppFilterMode
 import cn.rainafter.app.gazekeep.core.model.ConfigBackupCodec
+import cn.rainafter.app.gazekeep.core.model.ConfigExportResult
 import cn.rainafter.app.gazekeep.core.model.ConfigImportResult
 import cn.rainafter.app.gazekeep.core.model.GazeConfig
 import cn.rainafter.app.gazekeep.core.model.Readiness
@@ -219,7 +220,7 @@ class AndroidGazeKeepController(
     }
   }
 
-  override suspend fun exportConfigJson(): String = ConfigBackupCodec.encode(store.settings.first().config)
+  override suspend fun exportConfigJson(): ConfigExportResult = ConfigBackupCodec.encode(store.settings.first().config)
 
   override suspend fun importConfigContent(readResult: ConfigReadResult): Boolean = when (readResult) {
     ConfigReadResult.Cancelled -> false
@@ -275,6 +276,7 @@ class AndroidGazeKeepController(
   override fun reportConfigExportResult(result: ConfigTransferResult) {
     when (result) {
       ConfigTransferResult.Saved -> emitBackupFeedback(ConfigBackupFeedback.Exported)
+      ConfigTransferResult.TooLarge -> emitBackupFeedback(ConfigBackupFeedback.ExportTooLarge)
       ConfigTransferResult.Failed -> emitBackupFeedback(ConfigBackupFeedback.ExportFailed)
       ConfigTransferResult.Cancelled -> Unit
     }

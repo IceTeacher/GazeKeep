@@ -24,7 +24,7 @@ class ConfigBackupCodecTest {
       hideCameraIndicator = true,
     )
 
-    val json = ConfigBackupCodec.encode(source)
+    val json = assertIs<ConfigExportResult.Success>(ConfigBackupCodec.encode(source)).json
     assertFalse(json.contains("\"enabled\""), "backup must never export enabled")
     assertFalse(json.contains("self_test"), "backup must never export self_test_passed_at")
     assertFalse(json.contains("selfTest"), "backup must never export selfTestPassedAt")
@@ -134,14 +134,16 @@ class ConfigBackupCodecTest {
   @Test
   fun encodeMaxCapacityListsStaysWithinImportByteLimitAndRoundTrips() {
     val maxSegment = "a".repeat(240)
-    val maxWhitelist = (1..520).map { i -> "com.wl$i.$maxSegment".take(ConfigBackupCodec.MAX_PACKAGE_NAME_LENGTH) }
-    val maxBlacklist = (1..520).map { i -> "com.bl$i.$maxSegment".take(ConfigBackupCodec.MAX_PACKAGE_NAME_LENGTH) }
+    val maxWhitelist = (1..ConfigBackupCodec.MAX_PACKAGE_LIST_SIZE)
+      .map { i -> "com.wl$i.$maxSegment".take(ConfigBackupCodec.MAX_PACKAGE_NAME_LENGTH) }
+    val maxBlacklist = (1..ConfigBackupCodec.MAX_PACKAGE_LIST_SIZE)
+      .map { i -> "com.bl$i.$maxSegment".take(ConfigBackupCodec.MAX_PACKAGE_NAME_LENGTH) }
     val source = GazeConfig(
       whitelistPackages = (maxWhitelist + listOf("invalid pkg")).toSet(),
       blacklistPackages = (maxBlacklist + listOf("singleword")).toSet(),
     )
 
-    val json = ConfigBackupCodec.encode(source)
+    val json = assertIs<ConfigExportResult.Success>(ConfigBackupCodec.encode(source)).json
     assertTrue(
       json.encodeToByteArray().size <= ConfigBackupCodec.MAX_BACKUP_BYTES,
       "encoded backup (${json.encodeToByteArray().size} B) exceeded MAX_BACKUP_BYTES (${ConfigBackupCodec.MAX_BACKUP_BYTES} B)",
@@ -150,13 +152,24 @@ class ConfigBackupCodecTest {
     val decoded = assertIs<ConfigImportResult.Success>(ConfigBackupCodec.decode(json, GazeConfig()))
     assertEquals(ConfigBackupCodec.MAX_PACKAGE_LIST_SIZE, decoded.config.whitelistPackages.size)
     assertEquals(ConfigBackupCodec.MAX_PACKAGE_LIST_SIZE, decoded.config.blacklistPackages.size)
-    assertEquals(
-      maxWhitelist.sorted().take(ConfigBackupCodec.MAX_PACKAGE_LIST_SIZE).toSet(),
-      decoded.config.whitelistPackages,
+    assertEquals(maxWhitelist.toSet(), decoded.config.whitelistPackages)
+    assertEquals(maxBlacklist.toSet(), decoded.config.blacklistPackages)
+  }
+
+  @Test
+  fun encodeRefusesLossyExportWhenValidPackageListExceedsLimit() {
+    val overLimit = (1..(ConfigBackupCodec.MAX_PACKAGE_LIST_SIZE + 1))
+      .map { i -> "com.example.app$i" }
+      .toSet()
+
+    val wlResult = assertIs<ConfigExportResult.PackageListTooLarge>(
+      ConfigBackupCodec.encode(GazeConfig(whitelistPackages = overLimit)),
     )
-    assertEquals(
-      maxBlacklist.sorted().take(ConfigBackupCodec.MAX_PACKAGE_LIST_SIZE).toSet(),
-      decoded.config.blacklistPackages,
+    assertEquals(ConfigBackupCodec.MAX_PACKAGE_LIST_SIZE, wlResult.limit)
+
+    val blResult = assertIs<ConfigExportResult.PackageListTooLarge>(
+      ConfigBackupCodec.encode(GazeConfig(blacklistPackages = overLimit)),
     )
+    assertEquals(ConfigBackupCodec.MAX_PACKAGE_LIST_SIZE, blResult.limit)
   }
 }
