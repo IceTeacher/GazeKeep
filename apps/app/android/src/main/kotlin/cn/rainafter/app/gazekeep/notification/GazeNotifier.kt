@@ -14,17 +14,22 @@ import cn.rainafter.app.gazekeep.R
 import cn.rainafter.app.gazekeep.core.engine.Alert
 
 /** 文案每次按当前应用语言解析：运行中切换语言时，服务不会重建本对象。 */
-class GazeNotifier internal constructor(private val localized: () -> Context, private val elapsedClock: () -> Long) {
-  constructor(localized: () -> Context) : this(localized, SystemClock::elapsedRealtime)
+class GazeNotifier internal constructor(
+  private val localized: () -> Context,
+  private val elapsedClock: () -> Long = SystemClock::elapsedRealtime,
+  private val lastAlerts: MutableMap<Alert, Long> = sharedLastAlerts,
+) {
+  constructor(localized: () -> Context) : this(localized, SystemClock::elapsedRealtime, sharedLastAlerts)
 
   private val context get() = localized()
-  private val lastAlerts = mutableMapOf<Alert, Long>()
 
-  @Synchronized fun notifyAlert(alert: Alert) {
-    val now = elapsedClock()
-    val previous = lastAlerts[alert]
-    if (previous != null && now - previous < ALERT_SUPPRESSION_MS) return
-    lastAlerts[alert] = now
+  fun notifyAlert(alert: Alert) {
+    synchronized(lastAlerts) {
+      val now = elapsedClock()
+      val previous = lastAlerts[alert]
+      if (previous != null && now >= previous && now - previous < ALERT_SUPPRESSION_MS) return
+      lastAlerts[alert] = now
+    }
     val message = when (alert) {
       Alert.BackendUnavailable -> context.getString(R.string.alert_backend_unavailable)
       Alert.CameraPermissionLost -> context.getString(R.string.alert_camera_permission_lost)
@@ -51,7 +56,7 @@ class GazeNotifier internal constructor(private val localized: () -> Context, pr
     )
   }
 
-  @Synchronized fun cancelAlert(alert: Alert) {
+  fun cancelAlert(alert: Alert) {
     context.getSystemService(NotificationManager::class.java).cancel(ALERT_NOTIFICATION_ID + alert.ordinal)
   }
 
@@ -112,5 +117,14 @@ class GazeNotifier internal constructor(private val localized: () -> Context, pr
     private const val ALERT_GROUP = "gazekeep_alerts"
     private const val ALERT_NOTIFICATION_ID = 2001
     private const val ALERT_SUPPRESSION_MS = 10 * 60 * 1000L
+
+    // 服务重配会重建 GazeService 与 GazeNotifier，限频表需保持进程级共享以遵守同类 10 分钟最多一条约束。
+    private val sharedLastAlerts = mutableMapOf<Alert, Long>()
+
+    internal fun resetForTest() {
+      synchronized(sharedLastAlerts) {
+        sharedLastAlerts.clear()
+      }
+    }
   }
 }
