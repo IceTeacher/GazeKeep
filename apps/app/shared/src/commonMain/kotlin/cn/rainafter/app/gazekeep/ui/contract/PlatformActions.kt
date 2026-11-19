@@ -31,8 +31,8 @@ interface PlatformActions {
 
   /** 是否支持通过系统 SAF 导出与导入本地配置；官网演示返回 false。 */
   fun supportsConfigBackup(): Boolean
-  fun exportConfig(json: String, onResult: (ConfigTransferResult) -> Unit)
-  fun importConfig(onResult: (ConfigReadResult) -> Unit)
+  fun exportConfig()
+  fun importConfig()
 
   /** 当前应用内语言；返回 null 表示语言由宿主控制（如官网演示），设置页不提供切换。 */
   fun appLanguage(): AppLanguage?

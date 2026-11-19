@@ -14,7 +14,9 @@ import androidx.compose.ui.platform.testTag
 import cn.rainafter.app.gazekeep.ui.contract.AppLanguage
 import cn.rainafter.app.gazekeep.ui.contract.ConfigReadResult
 import cn.rainafter.app.gazekeep.ui.contract.ConfigTransferResult
+import cn.rainafter.app.gazekeep.ui.contract.GazeKeepController
 import cn.rainafter.app.gazekeep.ui.contract.PlatformActions
+import kotlinx.coroutines.runBlocking
 
 /** 平台能力的测试实现：返回键走真实 BackHandler，自检预览与应用图标用无内容的占位块，截图不含相机画面。 */
 class FakePlatformActions(
@@ -22,6 +24,7 @@ class FakePlatformActions(
   private val romBackgroundPolicy: Boolean = false,
   private var showSystemApps: Boolean = false,
   private val configBackupSupported: Boolean = true,
+  private val controller: GazeKeepController? = null,
 ) : PlatformActions {
   val calls = mutableListOf<String>()
   private var language by mutableStateOf(language)
@@ -82,15 +85,19 @@ class FakePlatformActions(
 
   override fun supportsConfigBackup(): Boolean = configBackupSupported
 
-  override fun exportConfig(json: String, onResult: (ConfigTransferResult) -> Unit) {
+  override fun exportConfig() {
     calls += "exportConfig"
-    exportedConfigJson = json
-    onResult(nextConfigExportResult)
+    val target = controller ?: return
+    if (nextConfigExportResult == ConfigTransferResult.Saved) {
+      exportedConfigJson = runBlocking { target.exportConfigJson() }
+    }
+    target.reportConfigExportResult(nextConfigExportResult)
   }
 
-  override fun importConfig(onResult: (ConfigReadResult) -> Unit) {
+  override fun importConfig() {
     calls += "importConfig"
-    onResult(nextConfigImportResult)
+    val target = controller ?: return
+    runBlocking { target.importConfigContent(nextConfigImportResult) }
   }
 
   override fun appLanguage(): AppLanguage? = language

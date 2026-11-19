@@ -149,10 +149,10 @@ private object DemoController : GazeKeepController {
     state.value =
       state.value.copy(config = transform(state.value.config))
   }
-  override suspend fun importConfig(config: GazeConfig): Boolean {
-    updateConfig { config.copy(enabled = it.enabled) }
-    return true
-  }
+  override suspend fun exportConfigJson(): String = ""
+  override suspend fun importConfigContent(readResult: ConfigReadResult): Boolean = false
+  override fun reportConfigExportResult(result: ConfigTransferResult) {}
+  override fun clearBackupNotice(token: Long) {}
   override suspend fun setEnabled(enabled: Boolean) {
     updateConfig { it.copy(enabled = enabled) }
   }
@@ -176,9 +176,8 @@ private object DemoActions : PlatformActions {
   override fun exportLogs(text: String) {}
   override fun formatLogTimestamp(epochMillis: Long) = ""
   override fun supportsConfigBackup(): Boolean = false
-  override fun exportConfig(json: String, onResult: (ConfigTransferResult) -> Unit) =
-    onResult(ConfigTransferResult.Cancelled)
-  override fun importConfig(onResult: (ConfigReadResult) -> Unit) = onResult(ConfigReadResult.Cancelled)
+  override fun exportConfig() {}
+  override fun importConfig() {}
 
   // 演示语言由官网桥接控制，设置页不显示应用内语言切换。
   override fun appLanguage(): AppLanguage? = null

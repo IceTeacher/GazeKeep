@@ -11,6 +11,8 @@ import androidx.camera.core.Preview
 import cn.rainafter.app.gazekeep.applist.LaunchableAppsRepository
 import cn.rainafter.app.gazekeep.backend.a11y.GazeA11yService
 import cn.rainafter.app.gazekeep.core.model.AppFilterMode
+import cn.rainafter.app.gazekeep.core.model.ConfigBackupCodec
+import cn.rainafter.app.gazekeep.core.model.ConfigImportResult
 import cn.rainafter.app.gazekeep.core.model.GazeConfig
 import cn.rainafter.app.gazekeep.core.model.Readiness
 import cn.rainafter.app.gazekeep.core.policy.EnableRequirement
@@ -23,6 +25,10 @@ import cn.rainafter.app.gazekeep.runtime.RuntimeStatusStore
 import cn.rainafter.app.gazekeep.runtime.ServiceActivation
 import cn.rainafter.app.gazekeep.selftest.SelfTestCoordinator
 import cn.rainafter.app.gazekeep.service.GazeQuickTileService
+import cn.rainafter.app.gazekeep.ui.contract.ConfigBackupFeedback
+import cn.rainafter.app.gazekeep.ui.contract.ConfigBackupNotice
+import cn.rainafter.app.gazekeep.ui.contract.ConfigReadResult
+import cn.rainafter.app.gazekeep.ui.contract.ConfigTransferResult
 import cn.rainafter.app.gazekeep.ui.contract.ControllerState
 import cn.rainafter.app.gazekeep.ui.contract.GazeKeepController
 import cn.rainafter.app.gazekeep.ui.contract.UiNotice
@@ -41,6 +47,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import rikka.shizuku.Shizuku
+import java.util.concurrent.atomic.AtomicLong
 
 class AndroidGazeKeepController(
   context: Context,
@@ -157,6 +164,11 @@ class AndroidGazeKeepController(
       }
     }
     scope.launch { GazeA11yService.connected.collect { refresh() } }
+    scope.launch {
+      backupNoticeFlow.collect { notice ->
+        mutableState.update { it.copy(backupNotice = notice) }
+      }
+    }
   }
 
   private fun applyReadiness(readiness: BackendReadinessSnapshot) {
@@ -207,29 +219,73 @@ class AndroidGazeKeepController(
     }
   }
 
-  override suspend fun importConfig(config: GazeConfig): Boolean = mutex.withLock {
-    try {
-      val saved = store.importConfig(config)
-      mutableState.update {
-        it.copy(
-          config = saved.config,
-          selfTestPassed = saved.selfTestPassedAt != null,
-          notice = null,
-        )
-      }
-      syncIndicatorState()
-      if (saved.selfTestPassedAt != null && (saved.config.enabled || RuntimeStatusStore.status.value.running)) {
-        reconfigureEngine()
-      }
-      GazeQuickTileService.requestRefresh(context)
-      true
-    } catch (error: CancellationException) {
-      throw error
-    } catch (_: Exception) {
-      mutableState.update { it.copy(notice = UiNotice.SaveFailed) }
-      stopEngine()
+  override suspend fun exportConfigJson(): String = ConfigBackupCodec.encode(store.settings.first().config)
+
+  override suspend fun importConfigContent(readResult: ConfigReadResult): Boolean = when (readResult) {
+    ConfigReadResult.Cancelled -> false
+
+    ConfigReadResult.TooLarge -> {
+      emitBackupFeedback(ConfigBackupFeedback.ImportTooLarge)
       false
     }
+
+    ConfigReadResult.Failed -> {
+      emitBackupFeedback(ConfigBackupFeedback.ImportFailed)
+      false
+    }
+
+    is ConfigReadResult.Loaded -> mutex.withLock {
+      try {
+        val current = store.settings.first().config
+        when (val decoded = ConfigBackupCodec.decode(readResult.content, current)) {
+          is ConfigImportResult.InvalidFormat -> {
+            emitBackupFeedback(ConfigBackupFeedback.ImportInvalid)
+            false
+          }
+
+          is ConfigImportResult.Success -> {
+            val saved = store.importConfig(decoded.config)
+            mutableState.update {
+              it.copy(
+                config = saved.config,
+                selfTestPassed = saved.selfTestPassedAt != null,
+                notice = null,
+              )
+            }
+            syncIndicatorState()
+            if (saved.selfTestPassedAt != null && (saved.config.enabled || RuntimeStatusStore.status.value.running)) {
+              reconfigureEngine()
+            }
+            GazeQuickTileService.requestRefresh(context)
+            emitBackupFeedback(ConfigBackupFeedback.Imported)
+            true
+          }
+        }
+      } catch (error: CancellationException) {
+        throw error
+      } catch (_: Exception) {
+        mutableState.update { it.copy(notice = UiNotice.SaveFailed) }
+        stopEngine()
+        emitBackupFeedback(ConfigBackupFeedback.ImportFailed)
+        false
+      }
+    }
+  }
+
+  override fun reportConfigExportResult(result: ConfigTransferResult) {
+    when (result) {
+      ConfigTransferResult.Saved -> emitBackupFeedback(ConfigBackupFeedback.Exported)
+      ConfigTransferResult.Failed -> emitBackupFeedback(ConfigBackupFeedback.ExportFailed)
+      ConfigTransferResult.Cancelled -> Unit
+    }
+  }
+
+  override fun clearBackupNotice(token: Long) {
+    backupNoticeFlow.update { if (it?.token == token) null else it }
+  }
+
+  private fun emitBackupFeedback(feedback: ConfigBackupFeedback) {
+    backupNoticeFlow.value = ConfigBackupNotice(feedback, backupNoticeTokens.incrementAndGet())
   }
 
   private fun syncIndicatorState() {
@@ -337,5 +393,11 @@ class AndroidGazeKeepController(
     Shizuku.removeBinderReceivedListener(binderReceived)
     Shizuku.removeBinderDeadListener(binderDead)
     scope.cancel()
+  }
+
+  private companion object {
+    // 进程级备份反馈：Activity 在 SAF 文件选择器期间因旋转重建后，新界面仍能展示导出/导入结果。
+    val backupNoticeFlow = MutableStateFlow<ConfigBackupNotice?>(null)
+    val backupNoticeTokens = AtomicLong(0L)
   }
 }

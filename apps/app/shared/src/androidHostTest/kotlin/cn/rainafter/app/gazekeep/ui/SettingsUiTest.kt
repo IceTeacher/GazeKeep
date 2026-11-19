@@ -311,7 +311,7 @@ class SettingsUiTest {
     app.actions.nextConfigImportResult = ConfigReadResult.Loaded("""{"schemaVersion": 99}""")
     app.click(importTitle)
     app.assertShown(text(Res.string.settings_config_import_invalid))
-    assertTrue("importConfig" !in app.controller.calls)
+    assertEquals(readyState().config, app.controller.state.value.config)
 
     app.actions.nextConfigImportResult = ConfigReadResult.TooLarge
     app.click(importTitle)

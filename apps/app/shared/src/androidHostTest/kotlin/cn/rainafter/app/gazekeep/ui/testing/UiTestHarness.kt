@@ -99,7 +99,7 @@ fun ActivityComposeRule.launchApp(
   showSystemApps: Boolean = false,
 ): UiTestSession {
   val controller = FakeGazeKeepController(state, selfTest)
-  val actions = FakePlatformActions(language, romBackgroundPolicy, showSystemApps)
+  val actions = FakePlatformActions(language, romBackgroundPolicy, showSystemApps, controller = controller)
   setContent { App(controller, actions) }
   waitForIdle()
   return UiTestSession(this, controller, actions)

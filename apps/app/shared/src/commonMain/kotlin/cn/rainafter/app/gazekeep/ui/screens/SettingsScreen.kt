@@ -18,9 +18,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -32,8 +30,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import cn.rainafter.app.gazekeep.core.model.AppFilterMode
-import cn.rainafter.app.gazekeep.core.model.ConfigBackupCodec
-import cn.rainafter.app.gazekeep.core.model.ConfigImportResult
 import cn.rainafter.app.gazekeep.core.model.GazeConfig
 import cn.rainafter.app.gazekeep.core.model.Sensitivity
 import cn.rainafter.app.gazekeep.core.model.scopedPackages
@@ -41,8 +37,7 @@ import cn.rainafter.app.gazekeep.core.policy.canConfigureHideCameraIndicator
 import cn.rainafter.app.gazekeep.ui.components.AppScaffold
 import cn.rainafter.app.gazekeep.ui.components.ExperimentalSwitchPreference
 import cn.rainafter.app.gazekeep.ui.contract.AppLanguage
-import cn.rainafter.app.gazekeep.ui.contract.ConfigReadResult
-import cn.rainafter.app.gazekeep.ui.contract.ConfigTransferResult
+import cn.rainafter.app.gazekeep.ui.contract.ConfigBackupFeedback
 import cn.rainafter.app.gazekeep.ui.contract.ControllerState
 import cn.rainafter.app.gazekeep.ui.contract.GazeKeepController
 import cn.rainafter.app.gazekeep.ui.contract.PlatformActions
@@ -233,44 +228,12 @@ internal fun SettingsTabScreen(
   var showHoldCustomDialog by rememberSaveable { mutableStateOf(false) }
   var holdCustomInput by rememberSaveable { mutableStateOf("") }
   var showImportConfirmDialog by rememberSaveable { mutableStateOf(false) }
-  var backupBannerRes by remember { mutableStateOf<StringResource?>(null) }
-  var backupBannerToken by remember { mutableIntStateOf(0) }
+  val backupNotice = state.backupNotice
 
-  LaunchedEffect(backupBannerToken) {
-    if (backupBannerToken > 0) {
-      delay(2_400L)
-      backupBannerRes = null
-    }
-  }
-
-  fun showBackupBanner(message: StringResource) {
-    backupBannerRes = message
-    backupBannerToken++
-  }
-
-  fun launchConfigImport() {
-    actions.importConfig { result ->
-      when (result) {
-        ConfigReadResult.Cancelled -> Unit
-
-        ConfigReadResult.TooLarge -> showBackupBanner(Res.string.settings_config_import_too_large)
-
-        ConfigReadResult.Failed -> showBackupBanner(Res.string.settings_config_import_failed)
-
-        is ConfigReadResult.Loaded -> {
-          when (val decoded = ConfigBackupCodec.decode(result.content, state.config)) {
-            is ConfigImportResult.InvalidFormat -> showBackupBanner(Res.string.settings_config_import_invalid)
-
-            is ConfigImportResult.Success -> scope.launch {
-              val saved = controller.importConfig(decoded.config)
-              showBackupBanner(
-                if (saved) Res.string.settings_config_imported else Res.string.settings_config_import_failed,
-              )
-            }
-          }
-        }
-      }
-    }
+  LaunchedEffect(backupNotice?.token) {
+    val notice = backupNotice ?: return@LaunchedEffect
+    delay(2_400L)
+    controller.clearBackupNotice(notice.token)
   }
 
   val leadSeconds = (state.config.leadMillis / 1_000L).toInt()
@@ -577,16 +540,7 @@ internal fun SettingsTabScreen(
               title = stringResource(Res.string.settings_export_config),
               summary = stringResource(Res.string.settings_export_config_summary),
               startAction = { StartSettingIcon(MiuixIcons.Backup) },
-              onClick = {
-                val payload = ConfigBackupCodec.encode(state.config)
-                actions.exportConfig(payload) { result ->
-                  when (result) {
-                    ConfigTransferResult.Saved -> showBackupBanner(Res.string.settings_config_exported)
-                    ConfigTransferResult.Failed -> showBackupBanner(Res.string.settings_config_export_failed)
-                    ConfigTransferResult.Cancelled -> Unit
-                  }
-                }
-              },
+              onClick = actions::exportConfig,
             )
             ArrowPreference(
               title = stringResource(Res.string.settings_import_config),
@@ -598,7 +552,7 @@ internal fun SettingsTabScreen(
                 if (hasSavedLists) {
                   showImportConfirmDialog = true
                 } else {
-                  launchConfigImport()
+                  actions.importConfig()
                 }
               },
             )
@@ -613,7 +567,15 @@ internal fun SettingsTabScreen(
 
         Spacer(Modifier.height(16.dp))
       }
-      backupBannerRes?.let { messageRes ->
+      backupNotice?.let { notice ->
+        val messageRes: StringResource = when (notice.feedback) {
+          ConfigBackupFeedback.Exported -> Res.string.settings_config_exported
+          ConfigBackupFeedback.ExportFailed -> Res.string.settings_config_export_failed
+          ConfigBackupFeedback.Imported -> Res.string.settings_config_imported
+          ConfigBackupFeedback.ImportInvalid -> Res.string.settings_config_import_invalid
+          ConfigBackupFeedback.ImportTooLarge -> Res.string.settings_config_import_too_large
+          ConfigBackupFeedback.ImportFailed -> Res.string.settings_config_import_failed
+        }
         Text(
           text = stringResource(messageRes),
           style = MiuixTheme.textStyles.footnote1,
@@ -648,7 +610,7 @@ internal fun SettingsTabScreen(
         Button(
           onClick = {
             showImportConfirmDialog = false
-            launchConfigImport()
+            actions.importConfig()
           },
           colors = ButtonDefaults.buttonColorsPrimary(),
           modifier = Modifier.weight(1f),

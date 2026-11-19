@@ -10,6 +10,7 @@ import android.os.Build
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.ActivityResultRegistry
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Image
@@ -40,7 +41,10 @@ import cn.rainafter.app.gazekeep.core.model.ConfigBackupCodec
 import cn.rainafter.app.gazekeep.ui.contract.AppLanguage
 import cn.rainafter.app.gazekeep.ui.contract.ConfigReadResult
 import cn.rainafter.app.gazekeep.ui.contract.ConfigTransferResult
+import cn.rainafter.app.gazekeep.ui.contract.GazeKeepController
 import cn.rainafter.app.gazekeep.ui.contract.PlatformActions
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -48,6 +52,7 @@ import rikka.shizuku.Shizuku
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
+import java.io.OutputStream
 
 internal fun readBoundedUtf8(input: InputStream, maxBytes: Int = ConfigBackupCodec.MAX_BACKUP_BYTES): ConfigReadResult {
   val buffer = ByteArray(4_096)
@@ -63,17 +68,87 @@ internal fun readBoundedUtf8(input: InputStream, maxBytes: Int = ConfigBackupCod
   return ConfigReadResult.Loaded(out.toByteArray().decodeToString())
 }
 
+/**
+ * 无易失回调状态的 SAF 配置备份协调器：
+ * 即使在系统文件选择器打开期间 Activity 旋转或重建，新实例按固定 key 重新注册 launcher 后，
+ * 仍可直接从 [controller] 实时编码导出或将读取内容合入配置并发布跨重建反馈。
+ */
+internal class SafConfigBackupCoordinator(
+  registry: ActivityResultRegistry,
+  private val scope: CoroutineScope,
+  private val controller: GazeKeepController,
+  private val openOutput: (Uri) -> OutputStream?,
+  private val openInput: (Uri) -> InputStream?,
+  private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+  private val mainDispatcher: CoroutineDispatcher = Dispatchers.Main.immediate,
+) {
+  private val exportLauncher: ActivityResultLauncher<String> =
+    registry.register(
+      EXPORT_KEY,
+      ActivityResultContracts.CreateDocument(CONFIG_MIME_TYPE),
+    ) { uri ->
+      if (uri == null) {
+        controller.reportConfigExportResult(ConfigTransferResult.Cancelled)
+        return@register
+      }
+      scope.launch(ioDispatcher) {
+        val result = runCatching {
+          val content = controller.exportConfigJson()
+          val stream = openOutput(uri) ?: error("unable to open output stream")
+          stream.use { it.write(content.toByteArray(Charsets.UTF_8)) }
+        }.fold(
+          onSuccess = { ConfigTransferResult.Saved },
+          onFailure = { ConfigTransferResult.Failed },
+        )
+        withContext(mainDispatcher) { controller.reportConfigExportResult(result) }
+      }
+    }
+
+  private val importLauncher: ActivityResultLauncher<Array<String>> =
+    registry.register(
+      IMPORT_KEY,
+      ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+      if (uri == null) return@register
+      scope.launch(ioDispatcher) {
+        val readResult = runCatching {
+          val stream = openInput(uri) ?: error("unable to open input stream")
+          stream.use { readBoundedUtf8(it, ConfigBackupCodec.MAX_BACKUP_BYTES) }
+        }.getOrElse { ConfigReadResult.Failed }
+        withContext(mainDispatcher) { controller.importConfigContent(readResult) }
+      }
+    }
+
+  fun launchExport() {
+    runCatching {
+      exportLauncher.launch(DEFAULT_CONFIG_FILE_NAME)
+    }.onFailure {
+      controller.reportConfigExportResult(ConfigTransferResult.Failed)
+    }
+  }
+
+  fun launchImport() {
+    runCatching {
+      importLauncher.launch(IMPORT_CONFIG_MIME_TYPES)
+    }.onFailure {
+      scope.launch(mainDispatcher) { controller.importConfigContent(ConfigReadResult.Failed) }
+    }
+  }
+
+  companion object {
+    const val EXPORT_KEY = "gazekeep_export_config"
+    const val IMPORT_KEY = "gazekeep_import_config"
+    const val CONFIG_MIME_TYPE = "application/json"
+    const val DEFAULT_CONFIG_FILE_NAME = "gazekeep-config.json"
+    val IMPORT_CONFIG_MIME_TYPES = arrayOf("application/json", "text/plain", "*/*")
+  }
+}
+
 class AndroidPlatformActions(
   private val activity: ComponentActivity,
   private val controller: AndroidGazeKeepController,
 ) : PlatformActions {
   @Volatile private var pendingExportText: String = ""
-
-  @Volatile private var pendingConfigExportText: String = ""
-
-  @Volatile private var pendingConfigExportCallback: ((ConfigTransferResult) -> Unit)? = null
-
-  @Volatile private var pendingConfigImportCallback: ((ConfigReadResult) -> Unit)? = null
 
   // 界面显示偏好与 GazeConfig 分开保存：不参与门控、配置迁移与诊断转储。
   private val uiPrefs = activity.getSharedPreferences(UI_PREFS, Context.MODE_PRIVATE)
@@ -92,55 +167,16 @@ class AndroidPlatformActions(
       }
     }
 
-  private val configExportLauncher: ActivityResultLauncher<String> =
-    activity.activityResultRegistry.register(
-      "gazekeep_export_config",
-      ActivityResultContracts.CreateDocument(CONFIG_MIME_TYPE),
-    ) { uri ->
-      val content = pendingConfigExportText
-      val callback = pendingConfigExportCallback
-      pendingConfigExportText = ""
-      pendingConfigExportCallback = null
-      if (callback == null) return@register
-      if (uri == null) {
-        callback(ConfigTransferResult.Cancelled)
-        return@register
-      }
-      activity.lifecycleScope.launch(Dispatchers.IO) {
-        val result = runCatching {
-          val stream = runCatching { activity.contentResolver.openOutputStream(uri, "wt") }.getOrNull()
-            ?: activity.contentResolver.openOutputStream(uri)
-            ?: error("unable to open output stream")
-          stream.use { it.write(content.toByteArray(Charsets.UTF_8)) }
-        }.fold(
-          onSuccess = { ConfigTransferResult.Saved },
-          onFailure = { ConfigTransferResult.Failed },
-        )
-        withContext(Dispatchers.Main.immediate) { callback(result) }
-      }
-    }
-
-  private val configImportLauncher: ActivityResultLauncher<Array<String>> =
-    activity.activityResultRegistry.register(
-      "gazekeep_import_config",
-      ActivityResultContracts.OpenDocument(),
-    ) { uri ->
-      val callback = pendingConfigImportCallback
-      pendingConfigImportCallback = null
-      if (callback == null) return@register
-      if (uri == null) {
-        callback(ConfigReadResult.Cancelled)
-        return@register
-      }
-      activity.lifecycleScope.launch(Dispatchers.IO) {
-        val result = runCatching {
-          val stream = activity.contentResolver.openInputStream(uri)
-            ?: error("unable to open input stream")
-          stream.use { readBoundedUtf8(it, ConfigBackupCodec.MAX_BACKUP_BYTES) }
-        }.getOrElse { ConfigReadResult.Failed }
-        withContext(Dispatchers.Main.immediate) { callback(result) }
-      }
-    }
+  private val configBackupCoordinator = SafConfigBackupCoordinator(
+    registry = activity.activityResultRegistry,
+    scope = activity.lifecycleScope,
+    controller = controller,
+    openOutput = { uri ->
+      runCatching { activity.contentResolver.openOutputStream(uri, "wt") }.getOrNull()
+        ?: activity.contentResolver.openOutputStream(uri)
+    },
+    openInput = { uri -> activity.contentResolver.openInputStream(uri) },
+  )
 
   override fun requestCameraPermission() =
     ActivityCompat.requestPermissions(activity, arrayOf(Manifest.permission.CAMERA), 1001)
@@ -230,27 +266,9 @@ class AndroidPlatformActions(
 
   override fun supportsConfigBackup(): Boolean = true
 
-  override fun exportConfig(json: String, onResult: (ConfigTransferResult) -> Unit) {
-    pendingConfigExportText = json
-    pendingConfigExportCallback = onResult
-    runCatching {
-      configExportLauncher.launch(DEFAULT_CONFIG_FILE_NAME)
-    }.onFailure {
-      pendingConfigExportText = ""
-      pendingConfigExportCallback = null
-      onResult(ConfigTransferResult.Failed)
-    }
-  }
+  override fun exportConfig() = configBackupCoordinator.launchExport()
 
-  override fun importConfig(onResult: (ConfigReadResult) -> Unit) {
-    pendingConfigImportCallback = onResult
-    runCatching {
-      configImportLauncher.launch(IMPORT_CONFIG_MIME_TYPES)
-    }.onFailure {
-      pendingConfigImportCallback = null
-      onResult(ConfigReadResult.Failed)
-    }
-  }
+  override fun importConfig() = configBackupCoordinator.launchImport()
 
   @Composable override fun HandleBack(enabled: Boolean, onBack: () -> Unit) {
     androidx.activity.compose.BackHandler(enabled, onBack)
@@ -310,8 +328,5 @@ class AndroidPlatformActions(
   private companion object {
     const val UI_PREFS = "gazekeep_ui_prefs"
     const val KEY_SHOW_SYSTEM_APPS = "show_system_apps"
-    const val CONFIG_MIME_TYPE = "application/json"
-    const val DEFAULT_CONFIG_FILE_NAME = "gazekeep-config.json"
-    val IMPORT_CONFIG_MIME_TYPES = arrayOf("application/json", "text/plain", "*/*")
   }
 }

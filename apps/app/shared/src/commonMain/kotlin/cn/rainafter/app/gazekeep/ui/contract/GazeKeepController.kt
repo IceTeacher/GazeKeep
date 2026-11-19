@@ -7,7 +7,10 @@ interface GazeKeepController {
   val state: StateFlow<ControllerState>
   val selfTest: StateFlow<SelfTestState>
   suspend fun updateConfig(transform: (GazeConfig) -> GazeConfig)
-  suspend fun importConfig(config: GazeConfig): Boolean
+  suspend fun exportConfigJson(): String
+  suspend fun importConfigContent(readResult: ConfigReadResult): Boolean
+  fun reportConfigExportResult(result: ConfigTransferResult)
+  fun clearBackupNotice(token: Long)
   suspend fun setEnabled(enabled: Boolean)
   suspend fun beginSelfTest()
   suspend fun captureSelfTest()
