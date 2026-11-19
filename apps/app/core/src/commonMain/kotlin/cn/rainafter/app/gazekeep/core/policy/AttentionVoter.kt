@@ -3,8 +3,15 @@ package cn.rainafter.app.gazekeep.core.policy
 import cn.rainafter.app.gazekeep.core.model.Attention
 import cn.rainafter.app.gazekeep.core.model.FrameVerdict
 
-/** 最多三帧，默认两帧一致就结束；未形成可信多数时保持 Unknown。 */
-class AttentionVoter(private val maxFrames: Int = 3, private val need: Int = 2) {
+/**
+ * 最多三帧，默认两帧一致就结束；未形成可信多数时保持 Unknown。
+ * 连续注视稳态开启 [fastFirstFrame] 时，仅第 1 帧为 Looking 可直接通过，否则回退标准多帧投票。
+ */
+class AttentionVoter(
+  private val maxFrames: Int = 3,
+  private val need: Int = 2,
+  private val fastFirstFrame: Boolean = false,
+) {
   init {
     require(maxFrames > 0)
     require(need in 1..maxFrames)
@@ -21,10 +28,14 @@ class AttentionVoter(private val maxFrames: Int = 3, private val need: Int = 2) 
     return decide()
   }
 
-  /** 相机中止或超时后调用；少于两帧永远不能产生 Looking/Away。 */
+  /** 相机中止或超时后调用；非首帧快判通过时，少于两帧永远不能产生 Looking/Away。 */
   fun finish(): VoteState = decide(force = true)
 
   private fun decide(force: Boolean = false): VoteState {
+    if (fastFirstFrame && verdicts.firstOrNull() === FrameVerdict.Looking) {
+      return VoteState.Decided(Attention.Looking)
+    }
+
     val looking = verdicts.count { it === FrameVerdict.Looking }
     if (looking >= need) return VoteState.Decided(Attention.Looking)
 

@@ -37,7 +37,7 @@ class AttentionCaptureSession(
 ) {
   suspend fun capture(plan: CapturePlan): AttentionCaptureResult {
     val started = clock()
-    val voter = AttentionVoter(maxFrames = plan.maxFrames, need = 2)
+    val voter = AttentionVoter(maxFrames = plan.maxFrames, need = 2, fastFirstFrame = plan.fastFirstFrame)
     var firstFrameAt: Long? = null
     var lastClassifiedAt: Long? = null
     val classifyMs = mutableListOf<Long>()

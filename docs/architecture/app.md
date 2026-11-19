@@ -34,7 +34,7 @@ android → xposed（唯一 APK 打包）
 
 - **唯一决策入口**：`EngineReducer` 接收显式 `uptime` 与 `EngineEvent`，纯函数输出 `EngineSnapshot` 与 `EngineEffect` 列表。`DefaultEngineEffectRunner` 串行执行门控、采集与 `Extend` 副作用并将结果回灌 reducer；其他组件（含 `RuntimeStatusStore`）严禁绕过 reducer 直接触发保亮。
 - **轮次与令牌隔离**：采集与 `Extend` 结果携带本轮 `token`，门控结果携带 `deadline`；会话取消或进入新轮次后，迟到回调即使忽略协程取消返回成功，也会在回灌前被拦截丢弃。`Extend`、`Release` 与 `ForceRelease` 通过互斥锁串行执行。
-- **唤醒窗口与退避**：`TimeoutDeadline` 优先按 `dim - 有效 lead`（未知 `dim` 时按 `off - lead`）调度，唤醒时刻不晚于 `off - 2500 ms`，单次采集绝对截止为 `min(off - 200 ms, now + 1600 ms)`。默认最多 3 帧、2 票 `Looking` 通过；连续两轮 `Looking` 后进入稳态退避，提前量缩短 `3000 ms`（下限 `4000 ms` 且不超过用户设定值）。
+- **唤醒窗口与退避**：`TimeoutDeadline` 优先按 `dim - 有效 lead`（未知 `dim` 时按 `off - lead`）调度，唤醒时刻不晚于 `off - 2500 ms`，单次采集绝对截止为 `min(off - 200 ms, now + 1600 ms)`。默认最多 3 帧、2 票 `Looking` 通过；连续两轮 `Looking` 后进入稳态退避，提前量缩短 `3000 ms`（下限 `4000 ms` 且不超过用户设定值）并开启单帧快判（仅首帧即 `Looking` 时提前结束，首帧非 `Looking` 自动回退标准 3 帧 2 票）。
 - **单次保亮上限（`MaxHold`）**：当 `maxHoldMinutes > 0` 时，首次成功 `Extend` 记录 `holdStartUptime` 并调度带起点的独立定时；到点发出 `ForceRelease` 解除后端保亮并锁定 `MaxHold`，后续轮次一律跳过，直到 `ScreenOff` 或外部真实用户活动重置。
 
 ### 门控顺序与暗光累计
