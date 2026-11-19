@@ -118,11 +118,21 @@ class AndroidGazeKeepController(
         store.settings.collect { settings ->
           val firstLoad = !state.value.loaded
           mutableState.update {
+            val clearNotice = it.notice == UiNotice.SaveFailed ||
+              (
+                it.notice == UiNotice.EmptyScope &&
+                  !(
+                    settings.config.enabled &&
+                      settings.config.appFilterMode == AppFilterMode.Whitelist &&
+                      settings.config.whitelistPackages.isEmpty()
+                    )
+                )
             it.copy(
               loaded = true,
               config = settings.config,
               selfTestPassed =
               settings.selfTestPassedAt != null,
+              notice = if (clearNotice) null else it.notice,
             )
           }
           syncIndicatorState()

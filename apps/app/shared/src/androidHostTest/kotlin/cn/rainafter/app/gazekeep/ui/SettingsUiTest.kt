@@ -1,6 +1,8 @@
 package cn.rainafter.app.gazekeep.ui
 
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasClickAction
@@ -336,5 +338,36 @@ class SettingsUiTest {
 
     assertEquals(null, app.actions.exportedConfigJson)
     app.assertShown(text(Res.string.settings_config_export_too_large))
+  }
+
+  @Test
+  fun importAndExportWaitUntilConfigLoadedSoConfirmationIsNotBypassed() {
+    val unloaded = readyState().copy(
+      loaded = false,
+      config = GazeConfig(whitelistPackages = emptySet()),
+    )
+    val app = rule.launchApp(unloaded)
+    app.openTab(text(Res.string.nav_settings))
+    val exportTitle = text(Res.string.settings_export_config)
+    val importTitle = text(Res.string.settings_import_config)
+    rule.onNodeWithText(exportTitle).performScrollTo().assertHasNoClickAction()
+    rule.onNodeWithText(importTitle).performScrollTo().assertHasNoClickAction()
+    rule.waitForIdle()
+
+    // 配置尚未从 DataStore 加载完成时，导出与导入入口均不可点击，不得提前触发或跳过覆盖确认。
+    assertTrue("exportConfig" !in app.actions.calls)
+    assertTrue("importConfig" !in app.actions.calls)
+
+    // 加载完成后暴露真实已存名单，入口恢复可点击且点击导入必须弹出覆盖确认弹窗。
+    app.controller.state.value = unloaded.copy(
+      loaded = true,
+      config = unloaded.config.copy(whitelistPackages = setOf("com.saved.reader")),
+    )
+    rule.waitForIdle()
+    rule.onNodeWithText(exportTitle).performScrollTo().assertHasClickAction()
+    rule.onNodeWithText(importTitle).performScrollTo().assertHasClickAction()
+    app.click(importTitle)
+    app.assertShown(text(Res.string.settings_import_confirm_title))
+    assertTrue("importConfig" !in app.actions.calls)
   }
 }

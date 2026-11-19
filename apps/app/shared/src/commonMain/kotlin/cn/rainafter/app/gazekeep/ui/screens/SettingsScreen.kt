@@ -541,13 +541,19 @@ internal fun SettingsTabScreen(
               title = stringResource(Res.string.settings_export_config),
               summary = stringResource(Res.string.settings_export_config_summary),
               startAction = { StartSettingIcon(MiuixIcons.Backup) },
-              onClick = actions::exportConfig,
+              enabled = state.loaded,
+              onClick = {
+                if (!state.loaded) return@ArrowPreference
+                actions.exportConfig()
+              },
             )
             ArrowPreference(
               title = stringResource(Res.string.settings_import_config),
               summary = stringResource(Res.string.settings_import_config_summary),
               startAction = { StartSettingIcon(MiuixIcons.Import) },
+              enabled = state.loaded,
               onClick = {
+                if (!state.loaded) return@ArrowPreference
                 val hasSavedLists = state.config.whitelistPackages.isNotEmpty() ||
                   state.config.blacklistPackages.isNotEmpty()
                 if (hasSavedLists) {
