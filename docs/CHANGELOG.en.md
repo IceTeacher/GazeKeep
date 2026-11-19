@@ -4,7 +4,7 @@
 
 ### Added
 
-- Zero-permission local settings export and import: export your preferences and whitelist/blacklist app lists to a local JSON backup or restore them via the system file picker (SAF) for effortless reinstall or device migration, with zero storage or network permissions. Imported files are validated and sanitized (capped at 500 packages per list and 64 KB per file) with an overwrite confirmation when existing lists are non-empty; backups never export or restore the main switch state, self-test completion record, or Shizuku timeout recovery state.
+- Zero-permission local settings export and import: export your preferences and whitelist/blacklist app lists to a local JSON backup or restore them via the system file picker (SAF) for effortless reinstall or device migration, with zero storage or network permissions. Imported files are validated and sanitized (capped at 500 packages per list and 512 KB per file) with an overwrite confirmation when existing lists are non-empty; backups never export or restore the main switch state, self-test completion record, or Shizuku timeout recovery state.
 
 ### Improved
 

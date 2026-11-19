@@ -150,7 +150,7 @@
     <string name="settings_config_export_failed">配置导出失败</string>
     <string name="settings_config_imported">配置已导入</string>
     <string name="settings_config_import_invalid">配置文件格式无效，未更改当前设置</string>
-    <string name="settings_config_import_too_large">配置文件过大（上限 64 KB）</string>
+    <string name="settings_config_import_too_large">配置文件过大（上限 512 KB）</string>
     <string name="settings_config_import_failed">配置导入失败</string>
     <string name="logs_title">日志</string>
     <string name="logs_search_placeholder">搜索</string>

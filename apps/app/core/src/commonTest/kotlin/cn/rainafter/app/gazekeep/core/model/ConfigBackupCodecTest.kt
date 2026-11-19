@@ -130,4 +130,33 @@ class ConfigBackupCodecTest {
     val oversized = """{"schemaVersion": 1, "padding": "${"a".repeat(ConfigBackupCodec.MAX_BACKUP_BYTES)}"}"""
     assertIs<ConfigImportResult.InvalidFormat>(ConfigBackupCodec.decode(oversized, GazeConfig()))
   }
+
+  @Test
+  fun encodeMaxCapacityListsStaysWithinImportByteLimitAndRoundTrips() {
+    val maxSegment = "a".repeat(240)
+    val maxWhitelist = (1..520).map { i -> "com.wl$i.$maxSegment".take(ConfigBackupCodec.MAX_PACKAGE_NAME_LENGTH) }
+    val maxBlacklist = (1..520).map { i -> "com.bl$i.$maxSegment".take(ConfigBackupCodec.MAX_PACKAGE_NAME_LENGTH) }
+    val source = GazeConfig(
+      whitelistPackages = (maxWhitelist + listOf("invalid pkg")).toSet(),
+      blacklistPackages = (maxBlacklist + listOf("singleword")).toSet(),
+    )
+
+    val json = ConfigBackupCodec.encode(source)
+    assertTrue(
+      json.encodeToByteArray().size <= ConfigBackupCodec.MAX_BACKUP_BYTES,
+      "encoded backup (${json.encodeToByteArray().size} B) exceeded MAX_BACKUP_BYTES (${ConfigBackupCodec.MAX_BACKUP_BYTES} B)",
+    )
+
+    val decoded = assertIs<ConfigImportResult.Success>(ConfigBackupCodec.decode(json, GazeConfig()))
+    assertEquals(ConfigBackupCodec.MAX_PACKAGE_LIST_SIZE, decoded.config.whitelistPackages.size)
+    assertEquals(ConfigBackupCodec.MAX_PACKAGE_LIST_SIZE, decoded.config.blacklistPackages.size)
+    assertEquals(
+      maxWhitelist.sorted().take(ConfigBackupCodec.MAX_PACKAGE_LIST_SIZE).toSet(),
+      decoded.config.whitelistPackages,
+    )
+    assertEquals(
+      maxBlacklist.sorted().take(ConfigBackupCodec.MAX_PACKAGE_LIST_SIZE).toSet(),
+      decoded.config.blacklistPackages,
+    )
+  }
 }
