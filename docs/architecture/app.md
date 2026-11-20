@@ -34,7 +34,7 @@ android → xposed（唯一 APK 打包）
 
 - **唯一决策入口**：`EngineReducer` 接收显式 `uptime` 与 `EngineEvent`，纯函数输出 `EngineSnapshot` 与 `EngineEffect` 列表。`DefaultEngineEffectRunner` 串行执行门控、采集与 `Extend` 副作用并将结果回灌 reducer；其他组件（含 `RuntimeStatusStore`）严禁绕过 reducer 直接触发保亮。
 - **轮次与令牌隔离**：采集与 `Extend` 结果携带本轮 `token`，门控结果携带 `deadline`；会话取消或进入新轮次后，迟到回调即使忽略协程取消返回成功，也会在回灌前被拦截丢弃。`Extend`、`Release` 与 `ForceRelease` 通过互斥锁串行执行。
-- **唤醒窗口与退避**：`TimeoutDeadline` 优先按 `dim - 有效 lead`（未知 `dim` 时按 `off - lead`）调度，唤醒时刻不晚于 `off - 2500 ms`，单次采集绝对截止为 `min(off - 200 ms, now + 1600 ms)`。默认最多 3 帧、2 票 `Looking` 通过；连续两轮 `Looking` 后进入稳态退避，提前量缩短 `3000 ms`（下限 `4000 ms` 且不超过用户设定值）。
+- **唤醒窗口与退避**：`TimeoutDeadline` 优先按 `dim - 有效 lead`（未知 `dim` 时按 `off - lead`）调度，唤醒时刻不晚于 `off - 2500 ms`，单次采集绝对截止为 `min(off - 200 ms, now + 1600 ms)`。默认最多 3 帧、2 票 `Looking` 通过；连续两轮 `Looking` 后进入稳态退避，提前量缩短 `3000 ms`（下限 `4000 ms` 且不超过用户设定值）并开启单帧快判（仅首帧即 `Looking` 时提前结束，首帧非 `Looking` 自动回退标准 3 帧 2 票）。
 - **单次保亮上限（`MaxHold`）**：当 `maxHoldMinutes > 0` 时，首次成功 `Extend` 记录 `holdStartUptime` 并调度带起点的独立定时；到点发出 `ForceRelease` 解除后端保亮并锁定 `MaxHold`，后续轮次一律跳过，直到 `ScreenOff` 或外部真实用户活动重置。
 
 ### 门控顺序与暗光累计
@@ -67,8 +67,9 @@ android → xposed（唯一 APK 打包）
 
 - **装配与会话边界**：`AppGraph` 为进程装配根；`AndroidGazeKeepController` 管理 UI 订阅、自检与应用列表，Activity 销毁关闭 controller 时不取消已保存的后台启停任务。`GazeService` 持有 `BackendSession`；息屏期间保持 `camera` 类型前台服务空转（仅释放检测与传感器资源），避免因 Android 14+ 后台广播无法重新拉起 `camera` FGS 而失效。相机权限在 `onCreate` 与每次 `onStartCommand` 提升前校验，缺失时清理会话、发通知、`stopSelf` 并返回 `START_NOT_STICKY`；权限恢复且回到前台时由 controller 自动重配恢复。
 - **快捷设置磁贴（`GazeQuickTileService`）**：通过 `TileService` 同步开关与运行状态；未授权或未自检时点击拉起 `MainActivity` 引导，绝不静默越权开启；Android 14+ 从关闭态点击开启时经 `PendingIntent` 拉起 `MainActivity`（等待配置与后端就绪加载后启动服务）以满足前台相机服务限制，关闭态可在后台直接停止服务。
-- **配置持久化与降级兼容**：
+- **配置持久化、SAF 备份与降级兼容**：
   - `ConfigStore` 经单例 DataStore 维护 `gazekeep_settings`。写入生效范围时主动删除旧键 `whitelist_enabled`：若旧键存在（说明刚从旧版升级或降级后由旧版写入）则优先按旧键推导，否则读取 `app_filter_mode`，确保版本升降级时白名单与黑名单分离且不意外扩大为全局保亮。
+  - **零权限 SAF 配置备份（`ConfigBackupCodec`）**：`core` 层纯函数读写 `schemaVersion = 1` JSON，仅包含可迁移参数与清洗后名单（导出遇有效包名超 500 条直接拒绝 `PackageListTooLarge` 而不静默截断，导入单份名单上限 500 条），读取强制限制 512 KB（严格覆盖双名单满额最坏体积 ~257 KB）且忽略未知顶层字段；严禁导出或恢复 `enabled`、`self_test_passed_at`、`pendingTimeoutRestore`，导入经 `ConfigStore.importConfig` 原子合入并强制维持未自检设备 `enabled = false`；SAF 协调器无易失实例状态且在进程级作用域执行读写与持久化，支持选择器打开期间及返回后发生 Activity 旋转重建时继续完成传输与反馈。
   - 应用列表「显示系统应用」偏好存于独立 `gazekeep_ui_prefs`；Shizuku 超时恢复记录存于独立 `gazekeep_timeout_restore`（同步 `commit`）。
 - **应用内语言（`AppLocales`）**：不引入 AppCompat；Android 13+ 读写系统 `LocaleManager`（`localeConfig` 声明 `zh-CN` 与 `en`），Android 12 及以下持久化至 `gazekeep_app_locale` 并在 `attachBaseContext` 与进程默认 `LocaleList` 同步。语言切换时 `GazeService` 实时刷新通知渠道名与在展常驻通知；系统无障碍设置与 LSPosed 管理器中的模块描述由宿主系统按系统语言读取。
 - **诊断日志（`DecisionLogs`）**：进程单例通过无界 IO 队列串行处理读写与清理，事件时间戳取调用时刻而非写盘时刻，写入后增量插入内存列表头部；存储于 `noBackupFilesDir/decisions`，启动、读取及每分钟自动清理超 24 小时文件，支持 `.txt` 导出。

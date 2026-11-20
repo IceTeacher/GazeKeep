@@ -249,6 +249,57 @@ class ConfigStoreTest {
     }
   }
 
+  @Test fun importConfigPreservesSelfTestAndEnforcesEnableGate() = runBlocking {
+    val directory = Files.createTempDirectory("gazekeep-config-test").toFile()
+    val job = SupervisorJob()
+    val store = ConfigStore(
+      PreferenceDataStoreFactory.create(scope = CoroutineScope(job + Dispatchers.IO)) {
+        directory.resolve("settings.preferences_pb")
+      },
+    )
+    try {
+      val imported = GazeConfig(
+        enabled = true,
+        backendLock = BackendLock.Shizuku,
+        leadMillis = 5_000L,
+        sensitivity = Sensitivity.Loose,
+        appFilterMode = AppFilterMode.Blacklist,
+        whitelistPackages = setOf("com.example.reader"),
+        blacklistPackages = setOf("com.example.video"),
+        maxHoldMinutes = 60,
+        pauseOnPowerSave = false,
+        lowBatteryThreshold = 10,
+        debugLogEnabled = true,
+        hideCameraIndicator = true,
+      )
+
+      // 未通过自检的设备绝不能因导入而变为 enabled = true。
+      val beforeSelfTest = store.importConfig(imported)
+      assertNull(beforeSelfTest.selfTestPassedAt)
+      assertFalse(beforeSelfTest.config.enabled)
+      assertEquals(imported.copy(enabled = false), store.settings.first().config)
+
+      // 已自检但当前未开启服务：导入仍保持关闭且保留 selfTestPassedAt。
+      store.completeSelfTest()
+      val passedAt = assertNotNull(store.settings.first().selfTestPassedAt)
+      val afterSelfTestClosed = store.importConfig(imported.copy(leadMillis = 10_000L))
+      assertEquals(passedAt, afterSelfTestClosed.selfTestPassedAt)
+      assertFalse(afterSelfTestClosed.config.enabled)
+      assertEquals(10_000L, store.settings.first().config.leadMillis)
+
+      // 已自检且当前已开启服务：导入保留开启状态与 selfTestPassedAt。
+      store.update { it.copy(enabled = true) }
+      val afterSelfTestOpen = store.importConfig(imported.copy(enabled = false, maxHoldMinutes = 15))
+      assertEquals(passedAt, afterSelfTestOpen.selfTestPassedAt)
+      assertTrue(afterSelfTestOpen.config.enabled)
+      assertEquals(15, store.settings.first().config.maxHoldMinutes)
+      assertTrue(store.settings.first().config.enabled)
+    } finally {
+      job.cancelAndJoin()
+      directory.deleteRecursively()
+    }
+  }
+
   private companion object {
     val LEGACY_WHITELIST = booleanPreferencesKey("whitelist_enabled")
     val FILTER_MODE = stringPreferencesKey("app_filter_mode")

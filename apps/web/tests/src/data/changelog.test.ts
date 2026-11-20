@@ -74,13 +74,15 @@ describe("changelog", () => {
   test("中英文全量加载全部已发布版本并包含表格与启用步骤", () => {
     const zh = loadChangelog("zh");
     const en = loadChangelog("en");
-    expect(zh.map((r) => r.version)).toEqual(["v1.1.6", "v1.1.5", "v1.1.4", "v1.1.3", "v1.1.2"]);
+    expect(zh.map((r) => r.version)).toEqual(["v1.1.7", "v1.1.6", "v1.1.5", "v1.1.4", "v1.1.3", "v1.1.2"]);
     expect(en.map((r) => r.version)).toEqual(zh.map((r) => r.version));
     expect(en.every((r) => !r.isFallback)).toBe(true);
     for (const entry of [...zh, ...en]) {
       expect(entry.groups.length).toBeGreaterThan(0);
       expect(entry.setupHtml).not.toBe("");
     }
+    const v117 = zh.find((r) => r.version === "v1.1.7")!;
+    expect(v117.groups.some((g) => g.html.includes("<table>"))).toBe(true);
     const v115 = zh.find((r) => r.version === "v1.1.5")!;
     expect(v115.groups.some((g) => g.html.includes("<table>"))).toBe(true);
     const v116 = en.find((r) => r.version === "v1.1.6")!;
@@ -89,6 +91,7 @@ describe("changelog", () => {
     const fromDist = findReleasesDir(path.resolve(process.cwd(), "dist/chunks"));
     expect(fromDist).toBeTruthy();
     expect(loadChangelog("zh", fromDist!).map((r) => r.version)).toEqual([
+      "v1.1.7",
       "v1.1.6",
       "v1.1.5",
       "v1.1.4",

@@ -70,4 +70,63 @@ class AttentionCaptureSessionTest {
     assertEquals(CaptureTimings(firstFrameMs = 300L, classifyMs = listOf(40L, 40L), tailMs = 50L), result.timings)
     assertEquals(540L, result.elapsedMs)
   }
+
+  @Test fun fastFirstFrameStopsAfterSingleLookingFrame() = runBlocking {
+    val image = Proxy.newProxyInstance(ImageProxy::class.java.classLoader, arrayOf(ImageProxy::class.java)) { _, _, _ ->
+      null
+    } as ImageProxy
+    var delivered = 0
+    val source = object : FrameSource {
+      override suspend fun capture(plan: CapturePlan, onFrame: (ImageProxy) -> Boolean): CaptureOutcome {
+        while (delivered < plan.maxFrames) {
+          delivered++
+          if (!onFrame(image)) break
+        }
+        return CaptureOutcome.Completed
+      }
+      override fun close() = Unit
+    }
+    val classifier = object : FrameClassifier {
+      override suspend fun classify(image: ImageProxy, sensitivity: Sensitivity): FrameVerdict = FrameVerdict.Looking
+      override fun close() = Unit
+    }
+    val result = AttentionCaptureSession(source, classifier) { 1_000L }
+      .capture(CapturePlan(3, 150L, 9_000L, Sensitivity.Standard, fastFirstFrame = true))
+    assertEquals(Attention.Looking, result.attention)
+    assertEquals(1, delivered)
+    assertEquals(listOf(FrameVerdict.Looking), result.frames)
+  }
+
+  @Test fun fastFirstFrameFallsBackToThreeFramesAfterBlink() = runBlocking {
+    val image = Proxy.newProxyInstance(ImageProxy::class.java.classLoader, arrayOf(ImageProxy::class.java)) { _, _, _ ->
+      null
+    } as ImageProxy
+    val verdicts = ArrayDeque(
+      listOf(
+        FrameVerdict.NotLooking(FrameVerdict.Reason.EyesClosed),
+        FrameVerdict.Looking,
+        FrameVerdict.Looking,
+      ),
+    )
+    var delivered = 0
+    val source = object : FrameSource {
+      override suspend fun capture(plan: CapturePlan, onFrame: (ImageProxy) -> Boolean): CaptureOutcome {
+        while (delivered < plan.maxFrames) {
+          delivered++
+          if (!onFrame(image)) break
+        }
+        return CaptureOutcome.Completed
+      }
+      override fun close() = Unit
+    }
+    val classifier = object : FrameClassifier {
+      override suspend fun classify(image: ImageProxy, sensitivity: Sensitivity): FrameVerdict = verdicts.removeFirst()
+      override fun close() = Unit
+    }
+    val result = AttentionCaptureSession(source, classifier) { 1_000L }
+      .capture(CapturePlan(3, 150L, 9_000L, Sensitivity.Standard, fastFirstFrame = true))
+    assertEquals(Attention.Looking, result.attention)
+    assertEquals(3, delivered)
+    assertEquals(3, result.frames.size)
+  }
 }

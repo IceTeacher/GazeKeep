@@ -297,7 +297,13 @@ object EngineReducer {
       snapshot.context.lookingStreak,
     )
     val abortAt = minOf(state.deadline.screenOffAtUptime - 200L, now + 1_600L)
-    val plan = CapturePlan(settings.maxFrames, 150L, abortAt, snapshot.config.sensitivity)
+    val plan = CapturePlan(
+      maxFrames = settings.maxFrames,
+      frameIntervalMs = 150L,
+      abortAtUptime = abortAt,
+      sensitivity = snapshot.config.sensitivity,
+      fastFirstFrame = settings.fastFirstFrame,
+    )
     return Transition(
       snapshot.copy(state = EngineState.Capturing(state.deadline, abortAt)),
       listOf(EngineEffect.StartCapture(plan)),

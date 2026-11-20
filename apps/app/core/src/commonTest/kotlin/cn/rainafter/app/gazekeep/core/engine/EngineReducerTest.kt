@@ -215,7 +215,7 @@ class EngineReducerTest {
   }
 
   @Test
-  fun backoffUsesTwoFramesAndTheEffectiveLead() {
+  fun backoffEnablesFastFirstFrameWithThreeFramesAndEffectiveLead() {
     val start = ready(context = EngineContext(lookingStreak = 2))
     val armed = EngineReducer.reduce(start, EngineEvent.DeadlineUpdated(deadline), 0L).snapshot
     assertEquals(15_000L, assertIs<EngineState.Armed>(armed.state).wakeAt)
@@ -225,7 +225,9 @@ class EngineReducerTest {
       15_000L,
     ).snapshot
     val captured = EngineReducer.reduce(gating, EngineEvent.GateResult(GateDecision.Proceed), 15_000L)
-    assertEquals(2, captured.effects.filterIsInstance<EngineEffect.StartCapture>().single().plan.maxFrames)
+    val plan = captured.effects.filterIsInstance<EngineEffect.StartCapture>().single().plan
+    assertEquals(3, plan.maxFrames)
+    assertTrue(plan.fastFirstFrame)
   }
 
   @Test

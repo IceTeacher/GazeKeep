@@ -102,23 +102,36 @@ class DeviceSession {
 
   fun require(text: String): UiObject2 = checkNotNull(find(text)) { "未找到文本：$text" }
 
-  /** 文本可能位于列表下方或被底部悬浮导航栏遮挡，先向下滚动到视口安全区后再返回。 */
+  /** 文本可能位于顶部导航栏或底部悬浮导航栏遮挡区，按需小步滚入视口安全区后再返回。 */
   fun scrollToText(text: String): UiObject2 {
+    val safeTop = device.displayHeight / 5
     val safeBottom = device.displayHeight * 3 / 4
     var lastBounds: android.graphics.Rect? = null
-    repeat(6) {
-      device.findObject(By.text(text))?.let { obj ->
+    repeat(10) {
+      val obj = device.findObject(By.text(text))
+      if (obj != null) {
         val bounds = obj.visibleBounds
-        if (bounds.height() > 0 && bounds.centerY() < safeBottom) return obj
+        if (bounds.height() > 0 && bounds.centerY() in safeTop..safeBottom) return obj
         if (bounds == lastBounds) return obj
         lastBounds = bounds
+        if (bounds.centerY() < safeTop) {
+          device.swipe(
+            device.displayWidth / 2,
+            device.displayHeight / 3,
+            device.displayWidth / 2,
+            device.displayHeight * 2 / 3,
+            40,
+          )
+          device.waitForIdle()
+          return@repeat
+        }
       }
       device.swipe(
         device.displayWidth / 2,
-        device.displayHeight * 3 / 4,
+        device.displayHeight * 2 / 3,
         device.displayWidth / 2,
-        device.displayHeight / 4,
-        20,
+        device.displayHeight / 3,
+        40,
       )
       device.waitForIdle()
     }

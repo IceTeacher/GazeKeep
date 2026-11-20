@@ -33,12 +33,15 @@ import cn.rainafter.app.gazekeep.core.model.AppFilterMode
 import cn.rainafter.app.gazekeep.core.model.Attention
 import cn.rainafter.app.gazekeep.core.model.BackendId
 import cn.rainafter.app.gazekeep.core.model.BackendLock
+import cn.rainafter.app.gazekeep.core.model.ConfigExportResult
 import cn.rainafter.app.gazekeep.core.model.GazeConfig
 import cn.rainafter.app.gazekeep.core.model.Readiness
 import cn.rainafter.app.gazekeep.core.model.Sensitivity
 import cn.rainafter.app.gazekeep.ui.contract.AppEntry
 import cn.rainafter.app.gazekeep.ui.contract.AppLanguage
 import cn.rainafter.app.gazekeep.ui.contract.AppListLoadState
+import cn.rainafter.app.gazekeep.ui.contract.ConfigReadResult
+import cn.rainafter.app.gazekeep.ui.contract.ConfigTransferResult
 import cn.rainafter.app.gazekeep.ui.contract.ControllerState
 import cn.rainafter.app.gazekeep.ui.contract.GazeKeepController
 import cn.rainafter.app.gazekeep.ui.contract.PlatformActions
@@ -147,6 +150,10 @@ private object DemoController : GazeKeepController {
     state.value =
       state.value.copy(config = transform(state.value.config))
   }
+  override suspend fun exportConfigJson(): ConfigExportResult = ConfigExportResult.Success("")
+  override suspend fun importConfigContent(readResult: ConfigReadResult): Boolean = false
+  override fun reportConfigExportResult(result: ConfigTransferResult) {}
+  override fun clearBackupNotice(token: Long) {}
   override suspend fun setEnabled(enabled: Boolean) {
     updateConfig { it.copy(enabled = enabled) }
   }
@@ -169,6 +176,9 @@ private object DemoActions : PlatformActions {
   override fun shareLogs(text: String) {}
   override fun exportLogs(text: String) {}
   override fun formatLogTimestamp(epochMillis: Long) = ""
+  override fun supportsConfigBackup(): Boolean = false
+  override fun exportConfig() {}
+  override fun importConfig() {}
 
   // 演示语言由官网桥接控制，设置页不显示应用内语言切换。
   override fun appLanguage(): AppLanguage? = null

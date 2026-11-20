@@ -7,9 +7,11 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.provider.DocumentsContract
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.ActivityResultRegistry
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Image
@@ -33,14 +35,160 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.edit
+import cn.rainafter.app.gazekeep.app.AppGraph
 import cn.rainafter.app.gazekeep.applist.AppIconCache
 import cn.rainafter.app.gazekeep.controller.AndroidGazeKeepController
+import cn.rainafter.app.gazekeep.core.model.ConfigBackupCodec
+import cn.rainafter.app.gazekeep.core.model.ConfigExportResult
+import cn.rainafter.app.gazekeep.engine.config.ConfigStore
 import cn.rainafter.app.gazekeep.ui.contract.AppLanguage
+import cn.rainafter.app.gazekeep.ui.contract.ConfigReadResult
+import cn.rainafter.app.gazekeep.ui.contract.ConfigTransferResult
+import cn.rainafter.app.gazekeep.ui.contract.ControllerState
 import cn.rainafter.app.gazekeep.ui.contract.PlatformActions
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import rikka.shizuku.Shizuku
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
+import java.io.OutputStream
+
+internal fun readBoundedUtf8(input: InputStream, maxBytes: Int = ConfigBackupCodec.MAX_BACKUP_BYTES): ConfigReadResult {
+  val buffer = ByteArray(4_096)
+  val out = ByteArrayOutputStream()
+  var total = 0
+  while (true) {
+    val read = input.read(buffer)
+    if (read < 0) break
+    total += read
+    if (total > maxBytes) return ConfigReadResult.TooLarge
+    out.write(buffer, 0, read)
+  }
+  return ConfigReadResult.Loaded(out.toByteArray().decodeToString())
+}
+
+/**
+ * 无易失回调状态的 SAF 配置备份协调器：
+ * 即使在系统文件选择器打开期间或返回 URI 后发生 Activity 旋转/重建，
+ * 固定 key launcher 与进程级传输作用域可保证读写与持久化落盘不被中断并向新界面发布反馈。
+ */
+internal class SafConfigBackupCoordinator(
+  registry: ActivityResultRegistry,
+  private val scope: CoroutineScope,
+  private val canExportNow: () -> Boolean,
+  private val exportConfig: suspend () -> ConfigExportResult,
+  private val importConfig: suspend (ConfigReadResult) -> Boolean,
+  private val reportExportResult: (ConfigTransferResult) -> Unit,
+  private val openOutput: (Uri) -> OutputStream?,
+  private val openInput: (Uri) -> InputStream?,
+  private val deleteExportedDocument: (Uri) -> Unit = {},
+  private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+  private val mainDispatcher: CoroutineDispatcher = Dispatchers.Main.immediate,
+) {
+  private val exportLauncher: ActivityResultLauncher<String> =
+    registry.register(
+      EXPORT_KEY,
+      ActivityResultContracts.CreateDocument(CONFIG_MIME_TYPE),
+    ) { uri ->
+      if (uri == null) {
+        reportExportResult(ConfigTransferResult.Cancelled)
+        return@register
+      }
+      scope.launch(ioDispatcher) {
+        val result = runCatching {
+          when (val encoded = exportConfig()) {
+            is ConfigExportResult.PackageListTooLarge -> {
+              runCatching { deleteExportedDocument(uri) }
+              ConfigTransferResult.TooLarge
+            }
+
+            is ConfigExportResult.Success -> {
+              val stream = openOutput(uri) ?: error("unable to open output stream")
+              stream.use { it.write(encoded.json.toByteArray(Charsets.UTF_8)) }
+              ConfigTransferResult.Saved
+            }
+          }
+        }.getOrElse { ConfigTransferResult.Failed }
+        withContext(mainDispatcher) { reportExportResult(result) }
+      }
+    }
+
+  private val importLauncher: ActivityResultLauncher<Array<String>> =
+    registry.register(
+      IMPORT_KEY,
+      ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+      if (uri == null) return@register
+      scope.launch(ioDispatcher) {
+        val readResult = runCatching {
+          val stream = openInput(uri) ?: error("unable to open input stream")
+          stream.use { readBoundedUtf8(it, ConfigBackupCodec.MAX_BACKUP_BYTES) }
+        }.getOrElse { ConfigReadResult.Failed }
+        withContext(mainDispatcher) { importConfig(readResult) }
+      }
+    }
+
+  fun launchExport() {
+    if (!canExportNow()) {
+      reportExportResult(ConfigTransferResult.TooLarge)
+      return
+    }
+    runCatching {
+      exportLauncher.launch(DEFAULT_CONFIG_FILE_NAME)
+    }.onFailure {
+      reportExportResult(ConfigTransferResult.Failed)
+    }
+  }
+
+  fun launchImport() {
+    runCatching {
+      importLauncher.launch(IMPORT_CONFIG_MIME_TYPES)
+    }.onFailure {
+      scope.launch(mainDispatcher) { importConfig(ConfigReadResult.Failed) }
+    }
+  }
+
+  companion object {
+    const val EXPORT_KEY = "gazekeep_export_config"
+    const val IMPORT_KEY = "gazekeep_import_config"
+    const val CONFIG_MIME_TYPE = "application/json"
+    const val DEFAULT_CONFIG_FILE_NAME = "gazekeep-config.json"
+    val IMPORT_CONFIG_MIME_TYPES = arrayOf("application/json", "text/plain", "*/*")
+    val retainedTransferScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+  }
+}
+
+internal fun createAndroidConfigBackupCoordinator(
+  activity: ComponentActivity,
+  currentState: () -> ControllerState,
+  store: ConfigStore = AppGraph(activity.applicationContext).settings,
+): SafConfigBackupCoordinator {
+  val appContext = activity.applicationContext
+  return SafConfigBackupCoordinator(
+    registry = activity.activityResultRegistry,
+    scope = SafConfigBackupCoordinator.retainedTransferScope,
+    canExportNow = {
+      val state = currentState()
+      !state.loaded || ConfigBackupCodec.encode(state.config) is ConfigExportResult.Success
+    },
+    exportConfig = { AndroidGazeKeepController.exportConfigJson(store) },
+    importConfig = { readResult -> AndroidGazeKeepController.importConfigContent(appContext, store, readResult) },
+    reportExportResult = AndroidGazeKeepController::reportConfigExportResult,
+    openOutput = { uri ->
+      runCatching { appContext.contentResolver.openOutputStream(uri, "wt") }.getOrNull()
+        ?: appContext.contentResolver.openOutputStream(uri)
+    },
+    openInput = { uri -> appContext.contentResolver.openInputStream(uri) },
+    deleteExportedDocument = { uri ->
+      runCatching { DocumentsContract.deleteDocument(appContext.contentResolver, uri) }
+    },
+  )
+}
 
 class AndroidPlatformActions(
   private val activity: ComponentActivity,
@@ -64,6 +212,11 @@ class AndroidPlatformActions(
         }
       }
     }
+
+  private val configBackupCoordinator = createAndroidConfigBackupCoordinator(
+    activity = activity,
+    currentState = { controller.state.value },
+  )
 
   override fun requestCameraPermission() =
     ActivityCompat.requestPermissions(activity, arrayOf(Manifest.permission.CAMERA), 1001)
@@ -150,6 +303,12 @@ class AndroidPlatformActions(
       exportLauncher.launch("gazekeep-logs-${System.currentTimeMillis()}.txt")
     }
   }
+
+  override fun supportsConfigBackup(): Boolean = true
+
+  override fun exportConfig() = configBackupCoordinator.launchExport()
+
+  override fun importConfig() = configBackupCoordinator.launchImport()
 
   @Composable override fun HandleBack(enabled: Boolean, onBack: () -> Unit) {
     androidx.activity.compose.BackHandler(enabled, onBack)

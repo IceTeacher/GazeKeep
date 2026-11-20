@@ -11,14 +11,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import cn.rainafter.app.gazekeep.core.model.ConfigExportResult
 import cn.rainafter.app.gazekeep.ui.contract.AppLanguage
+import cn.rainafter.app.gazekeep.ui.contract.ConfigReadResult
+import cn.rainafter.app.gazekeep.ui.contract.ConfigTransferResult
+import cn.rainafter.app.gazekeep.ui.contract.GazeKeepController
 import cn.rainafter.app.gazekeep.ui.contract.PlatformActions
+import kotlinx.coroutines.runBlocking
 
 /** 平台能力的测试实现：返回键走真实 BackHandler，自检预览与应用图标用无内容的占位块，截图不含相机画面。 */
 class FakePlatformActions(
   language: AppLanguage? = AppLanguage.System,
   private val romBackgroundPolicy: Boolean = false,
   private var showSystemApps: Boolean = false,
+  private val configBackupSupported: Boolean = true,
+  private val controller: GazeKeepController? = null,
 ) : PlatformActions {
   val calls = mutableListOf<String>()
   private var language by mutableStateOf(language)
@@ -70,6 +77,37 @@ class FakePlatformActions(
   override fun exportLogs(text: String) {
     calls += "exportLogs"
     exportedText = text
+  }
+
+  /** 最近一次导出的配置 JSON，供设置页备份测试核对内容。 */
+  var exportedConfigJson: String? = null
+  var nextConfigExportResult: ConfigTransferResult = ConfigTransferResult.Saved
+  var nextConfigImportResult: ConfigReadResult = ConfigReadResult.Cancelled
+
+  override fun supportsConfigBackup(): Boolean = configBackupSupported
+
+  override fun exportConfig() {
+    calls += "exportConfig"
+    val target = controller ?: return
+    when (val encoded = runBlocking { target.exportConfigJson() }) {
+      is ConfigExportResult.PackageListTooLarge -> {
+        exportedConfigJson = null
+        target.reportConfigExportResult(ConfigTransferResult.TooLarge)
+      }
+
+      is ConfigExportResult.Success -> {
+        if (nextConfigExportResult == ConfigTransferResult.Saved) {
+          exportedConfigJson = encoded.json
+        }
+        target.reportConfigExportResult(nextConfigExportResult)
+      }
+    }
+  }
+
+  override fun importConfig() {
+    calls += "importConfig"
+    val target = controller ?: return
+    runBlocking { target.importConfigContent(nextConfigImportResult) }
   }
 
   override fun appLanguage(): AppLanguage? = language

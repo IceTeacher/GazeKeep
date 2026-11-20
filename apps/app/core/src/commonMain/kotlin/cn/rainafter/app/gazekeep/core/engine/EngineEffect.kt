@@ -9,6 +9,7 @@ data class CapturePlan(
   val frameIntervalMs: Long = 150L,
   val abortAtUptime: Long,
   val sensitivity: Sensitivity,
+  val fastFirstFrame: Boolean = false,
 )
 
 sealed interface EngineEffect {

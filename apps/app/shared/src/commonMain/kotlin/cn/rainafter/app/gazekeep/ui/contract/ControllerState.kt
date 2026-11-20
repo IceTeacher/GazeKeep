@@ -9,6 +9,16 @@ import cn.rainafter.app.gazekeep.core.model.Readiness
 enum class AppListLoadState { NotLoaded, Loading, Loaded, Failed }
 
 enum class UiNotice { NeedsCamera, NeedsSelfTest, NeedsBackend, EmptyScope, SaveFailed }
+enum class ConfigBackupFeedback {
+  Exported,
+  ExportTooLarge,
+  ExportFailed,
+  Imported,
+  ImportInvalid,
+  ImportTooLarge,
+  ImportFailed,
+}
+data class ConfigBackupNotice(val feedback: ConfigBackupFeedback, val token: Long)
 enum class SelfTestStep { Looking, Away, Complete }
 enum class LogLevel(val badge: String, val priority: Int) {
   Verbose("V", 2),
@@ -56,6 +66,7 @@ data class ControllerState(
   val lastDecision: Attention? = null,
   val lastOutcome: LastOutcome? = null,
   val notice: UiNotice? = null,
+  val backupNotice: ConfigBackupNotice? = null,
   val apps: List<AppEntry> = emptyList(),
   val appsLoadState: AppListLoadState = AppListLoadState.NotLoaded,
   val logs: List<LogEntry> = emptyList(),

@@ -3,6 +3,20 @@ package cn.rainafter.app.gazekeep.ui.contract
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 
+sealed interface ConfigTransferResult {
+  data object Saved : ConfigTransferResult
+  data object TooLarge : ConfigTransferResult
+  data object Cancelled : ConfigTransferResult
+  data object Failed : ConfigTransferResult
+}
+
+sealed interface ConfigReadResult {
+  data class Loaded(val content: String) : ConfigReadResult
+  data object Cancelled : ConfigReadResult
+  data object TooLarge : ConfigReadResult
+  data object Failed : ConfigReadResult
+}
+
 interface PlatformActions {
   fun requestCameraPermission()
   fun requestNotificationPermission()
@@ -15,6 +29,11 @@ interface PlatformActions {
   fun shareLogs(text: String)
   fun exportLogs(text: String)
   fun formatLogTimestamp(epochMillis: Long): String
+
+  /** 是否支持通过系统 SAF 导出与导入本地配置；官网演示返回 false。 */
+  fun supportsConfigBackup(): Boolean
+  fun exportConfig()
+  fun importConfig()
 
   /** 当前应用内语言；返回 null 表示语言由宿主控制（如官网演示），设置页不提供切换。 */
   fun appLanguage(): AppLanguage?
