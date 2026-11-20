@@ -27,6 +27,8 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: Set up workspace
+        uses: ./.github/actions/setup
       - name: Verify tag, versionName and release notes
         run: |
           set -euo pipefail
