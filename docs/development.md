@@ -98,9 +98,9 @@
    - `changes`（`ci-changes.ts`）：零外部依赖快速分析受影响范围，按 [android-modules.ts](../scripts/repo-tools/scripts/android-modules.ts) 模块依赖反向闭包生成精确 `app_tasks`，拆分官网静态/KMP/浏览器触发标记，并检测同一 Git tree 是否已由成功的 `push` 运行验证（`verified=true` 时跳过门禁构建；`main` 仍构建官网供生产发布）。
    - **五路并行门禁**（均仅依赖 `changes`）：
      - `repo`：并行执行 Hook、文档、Agent 资产、架构、LSPosed 元数据、`repo-tools` 单测（含 Turborepo 与 `ktlint` 缓存）、并行 `format:check` 及提交区间 `commitlint` + `git diff --check`。
-     - `app`：仅执行受影响模块的 Gradle 构建、lint 与并行宿主测试，不拉起 JS/Wasm 工具链；仅改动 `:core` 或 KMP 构建配置时追加 `core-web-test`。
+     - `app`：仅执行受影响模块的 Gradle 构建、lint 与并行宿主测试，不拉起 JS/Wasm 工具链；改动 `:core` 或 KMP 构建配置时，将 `core-web-test`（`:core:jsBrowserTest` 与 `:core:wasmJsBrowserTest`）直接并入同一次 Gradle 调用并发执行。
      - `web-quality`：启用 Turborepo 缓存并行执行官网 `lint`、`check` 与 `test:unit`，不依赖 JDK/Gradle。
-     - `web-browser`：在锁定 Playwright Docker 容器中按 2 路 `shard` 并行运行浏览器与截图基线测试，不依赖 KMP 产物。
+     - `web-browser`：在锁定 Playwright Docker 容器中独立与上游构建并行运行全部浏览器与截图基线测试，不依赖 KMP 产物。
      - `web-build`：按输入哈希精确恢复 `public/kmp-showcase` 缓存；命中时跳过 JDK/Gradle/Kotlin-JS 直接由 Turborepo 缓存增量构建 `dist` 并上传 `web-dist`（仅 `dev`/`main` 推送写入共享缓存）。
    - `web-preview` / `web-production`：待以上全部门禁通过后下载 `web-dist`，经 `package:edgeone` 隔离环境变量打包后通过 `edgeone makers deploy` 直传（含最多 3 次重试）并执行 `check-web-deploy.ts` 线上冒烟。
 2. **`release.yml`**（仅 `v*.*.*` tag 触发）：

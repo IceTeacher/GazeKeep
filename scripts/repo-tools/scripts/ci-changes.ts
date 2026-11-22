@@ -1,5 +1,5 @@
 import { appendFileSync } from "node:fs";
-import { ANDROID_FULL_VERIFY_TASKS, selectAndroidVerifyTasks } from "./android-modules.ts";
+import { ANDROID_FULL_VERIFY_TASKS, CORE_WEB_TEST_TASKS, selectAndroidVerifyTasks } from "./android-modules.ts";
 import { cli, context, isMain, run } from "./common.ts";
 
 export interface ChangeSet {
@@ -66,10 +66,10 @@ export function classifyChanges(files: readonly string[] | null): ChangeSet {
       webBrowser: true,
       coreWebTest: true,
       full: true,
-      appTasks: [...ANDROID_FULL_VERIFY_TASKS],
+      appTasks: [...ANDROID_FULL_VERIFY_TASKS, ...CORE_WEB_TEST_TASKS],
     };
   }
-  const appTasks = selectAndroidVerifyTasks(files, false);
+  const androidTasks = selectAndroidVerifyTasks(files, false);
   const webKmp = files.some(
     (path) =>
       WEB_KMP_PREFIXES.some((prefix) => path.startsWith(prefix)) || WEB_KMP_FILES.has(path) || isAppRootBuildFile(path),
@@ -81,6 +81,8 @@ export function classifyChanges(files: readonly string[] | null): ChangeSet {
   const coreWebTest = files.some(
     (path) => CORE_WEB_TEST_PREFIXES.some((prefix) => path.startsWith(prefix)) || isAppRootBuildFile(path),
   );
+  // 与 Android 构建、lint、宿主测试并入同一 app_tasks，在单次 Gradle 调用中共享配置并并发执行。
+  const appTasks = coreWebTest ? [...androidTasks, ...CORE_WEB_TEST_TASKS] : androidTasks;
   return {
     app: appTasks.length > 0,
     web,

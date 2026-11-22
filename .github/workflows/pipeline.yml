@@ -145,7 +145,8 @@ jobs:
           java: "true"
           gradle: "true"
           kotlin-js: ${{ needs.changes.outputs.core_web_test == 'true' && 'true' || 'false' }}
-      # 仅执行受改动与依赖闭包影响的 Debug 构建、lint、主机测试与实机套件编译；实机运行不进入 CI。
+      # 仅执行受改动与依赖闭包影响的 Debug 构建、lint、主机测试与实机套件编译；
+      # 涉及 :core 或 KMP 构建配置时 app_tasks 已并入 JS/Wasm 浏览器测试，在单次 Gradle 调用内并行完成。实机运行不进入 CI。
       - name: Verify affected Android modules
         env:
           APP_TASKS: ${{ needs.changes.outputs.app_tasks }}
@@ -153,9 +154,6 @@ jobs:
           set -euo pipefail
           read -r -a tasks <<<"$APP_TASKS"
           node scripts/repo-tools/scripts/android-task.ts tasks "${tasks[@]}"
-      - name: Run core JS and Wasm tests
-        if: needs.changes.outputs.core_web_test == 'true'
-        run: node scripts/repo-tools/scripts/android-task.ts core-web-test
       # Gradle 默认不输出 Yarn 日志；失败时保留 Kotlin/JS 安装目录的 Yarn 错误日志供排查。
       - name: Collect Yarn error logs
         if: failure() && needs.changes.outputs.core_web_test == 'true'
@@ -196,17 +194,13 @@ jobs:
         run: pnpm exec turbo run lint check test:unit --filter=web
 
   web-browser:
-    name: Website browser tests (${{ matrix.shard }}/2)
+    name: Website browser tests
     needs: changes
     if: >-
       !cancelled() && needs.changes.result == 'success' &&
       needs.changes.outputs.web_browser == 'true' && needs.changes.outputs.verified != 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2]
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -214,12 +208,9 @@ jobs:
           persist-credentials: false
       - name: Set up workspace
         uses: ./.github/actions/setup
-      # 浏览器与截图测试不依赖 KMP 产物，在锁定版本的 Playwright 容器中按 2 路分片与上游并行运行。
+      # 浏览器与截图测试不依赖 KMP 产物，在锁定版本的单 Playwright 容器中独立与上游构建并行运行。
       - name: Run browser tests in Playwright container
-        run: |
-          set -euo pipefail
-          pnpm --filter web exec node scripts/sync-kmp-strings.ts
-          pnpm --filter web exec node scripts/test-browser-docker.ts --shard=${{ matrix.shard }}/2
+        run: pnpm --filter web test:browser:docker
 
   web-build:
     name: Website build

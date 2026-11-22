@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test, { type TestContext } from "node:test";
 import { classifyChanges, verifiedSource } from "../scripts/ci-changes.ts";
-import { ANDROID_FULL_VERIFY_TASKS } from "../scripts/android-modules.ts";
+import { ANDROID_FULL_VERIFY_TASKS, CORE_WEB_TEST_TASKS } from "../scripts/android-modules.ts";
 import { run } from "../scripts/common.ts";
 import { checkWebDeploy } from "../scripts/check-web-deploy.ts";
 
@@ -119,6 +119,7 @@ test("改动范围按工程与模块依赖闭包归类，不再对无关工作�
       ":backend:lsposed:testDebugUnitTest",
       ":android:testDebugUnitTest",
       ":shared:testAndroidHostTest",
+      ...CORE_WEB_TEST_TASKS,
     ],
   });
 
@@ -182,7 +183,7 @@ test("改动范围按工程与模块依赖闭包归类，不再对无关工作�
         webBrowser: false,
         coreWebTest: true,
         full: false,
-        appTasks: [...ANDROID_FULL_VERIFY_TASKS],
+        appTasks: [...ANDROID_FULL_VERIFY_TASKS, ...CORE_WEB_TEST_TASKS],
       },
       path,
     );
@@ -207,7 +208,7 @@ test("根配置、锁文件、主流水线或未知基线触发全量回归", ()
     webBrowser: true,
     coreWebTest: true,
     full: true,
-    appTasks: [...ANDROID_FULL_VERIFY_TASKS],
+    appTasks: [...ANDROID_FULL_VERIFY_TASKS, ...CORE_WEB_TEST_TASKS],
   };
   for (const path of [
     "package.json",
