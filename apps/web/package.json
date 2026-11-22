@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "node scripts/sync-kmp-strings.ts && astro dev --host",
     "build": "node scripts/build.ts",
+    "build:kmp": "node scripts/build-kmp.ts",
     "package:edgeone": "node scripts/package-edgeone.ts",
     "deploy": "pnpm run build && pnpm run package:edgeone && edgeone makers deploy .edgeone -n gazekeep -e production",
     "preview": "astro preview --host 127.0.0.1",
