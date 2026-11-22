@@ -1,9 +1,9 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { spawnSync } from "node:child_process";
+import { inflateRawSync } from "node:zlib";
 import { XMLParser } from "fast-xml-parser";
 import { pngPixelHash } from "./png-pixels.ts";
-import { cli, context, isMain, report, run, walk } from "./common.ts";
+import { cli, context, isMain, report, runAsync, walk } from "./common.ts";
 
 const PREFIX = "cn.rainafter.app.gazekeep.xposed.entry.";
 const FAULT_INJECTION = "cn.rainafter.app.gazekeep.backend.shizuku.UserActivityFaultInjection";
@@ -36,6 +36,14 @@ export interface ApkExpectation {
   description: string;
   abis: readonly string[];
 }
+export interface ZipEntryInfo {
+  name: string;
+  compressed: boolean;
+  method: number;
+  compressedSize: number;
+  uncompressedSize: number;
+  localHeaderOffset: number;
+}
 const list = (value: XmlNode): XmlNode[] => (value == null ? [] : Array.isArray(value) ? value : [value]);
 const lines = (value: string | undefined) =>
   (value ?? "")
@@ -56,8 +64,8 @@ export function resourceTable(dump: string) {
   return resources;
 }
 
-// apkanalyzer 不输出条目的压缩方式，直接读 ZIP 中央目录；APK 远小于 4 GiB，不处理 ZIP64。
-export function zipCompression(zip: Buffer) {
+// 直接解析 ZIP 中央目录与本地文件头；APK 远小于 4 GiB，不处理 ZIP64。
+export function zipEntries(zip: Buffer) {
   let end = -1;
   for (let at = zip.length - 22; at >= Math.max(0, zip.length - 22 - 0xffff); at--) {
     if (zip.readUInt32LE(at) === 0x06054b50) {
@@ -66,16 +74,50 @@ export function zipCompression(zip: Buffer) {
     }
   }
   if (end < 0) throw new Error("APK 缺少 ZIP 目录尾记录");
-  const entries = new Map<string, boolean>();
+  const entries = new Map<string, ZipEntryInfo>();
   let at = zip.readUInt32LE(end + 16);
   for (let index = zip.readUInt16LE(end + 10); index > 0; index--) {
     if (zip.readUInt32LE(at) !== 0x02014b50) throw new Error("APK 中央目录损坏");
+    const method = zip.readUInt16LE(at + 10);
+    const compressedSize = zip.readUInt32LE(at + 20);
+    const uncompressedSize = zip.readUInt32LE(at + 24);
     const nameLength = zip.readUInt16LE(at + 28);
+    const extraLength = zip.readUInt16LE(at + 30);
+    const commentLength = zip.readUInt16LE(at + 32);
+    const localHeaderOffset = zip.readUInt32LE(at + 42);
     const name = zip.toString("utf8", at + 46, at + 46 + nameLength);
-    entries.set(name, zip.readUInt16LE(at + 10) !== 0);
-    at += 46 + nameLength + zip.readUInt16LE(at + 30) + zip.readUInt16LE(at + 32);
+    entries.set(name, {
+      name,
+      compressed: method !== 0,
+      method,
+      compressedSize,
+      uncompressedSize,
+      localHeaderOffset,
+    });
+    at += 46 + nameLength + extraLength + commentLength;
   }
   return entries;
+}
+
+// apkanalyzer 不输出条目的压缩方式，保留基于中央目录的压缩标记映射供测试与调用。
+export function zipCompression(zip: Buffer) {
+  return new Map([...zipEntries(zip)].map(([name, info]) => [name, info.compressed]));
+}
+
+export function readZipEntry(zip: Buffer, entry: ZipEntryInfo): Buffer {
+  const offset = entry.localHeaderOffset;
+  if (offset + 30 > zip.length || zip.readUInt32LE(offset) !== 0x04034b50) {
+    throw new Error(`APK 本地文件头损坏：${entry.name}`);
+  }
+  const nameLength = zip.readUInt16LE(offset + 26);
+  const extraLength = zip.readUInt16LE(offset + 28);
+  const dataStart = offset + 30 + nameLength + extraLength;
+  const dataEnd = dataStart + entry.compressedSize;
+  if (dataEnd > zip.length) throw new Error(`APK 条目数据越界：${entry.name}`);
+  const payload = zip.subarray(dataStart, dataEnd);
+  if (entry.method === 0) return Buffer.from(payload);
+  if (entry.method === 8) return inflateRawSync(payload);
+  throw new Error(`不支持的 ZIP 压缩方式 ${entry.method}：${entry.name}`);
 }
 
 export function validateApk(snapshot: ApkSnapshot, expected: ApkExpectation) {
@@ -210,7 +252,7 @@ export function validateApk(snapshot: ApkSnapshot, expected: ApkExpectation) {
   return errors;
 }
 
-export function inspectApk(root: string, apk: string): ApkSnapshot {
+export async function inspectApk(root: string, apk: string): Promise<ApkSnapshot> {
   if (!existsSync(apk)) throw new Error(`APK 不存在：${apk}`);
   const sdk = process.env.ANDROID_HOME ?? process.env.ANDROID_SDK_ROOT;
   if (!sdk) throw new Error("verify:apk 需要 ANDROID_HOME 或 ANDROID_SDK_ROOT 与 SDK apkanalyzer");
@@ -219,9 +261,10 @@ export function inspectApk(root: string, apk: string): ApkSnapshot {
     .filter((name) => /^\d+\.\d+\.\d+$/.test(name) && existsSync(join(tools, name, "aapt2")))
     .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))[0];
   if (!version) throw new Error("SDK 缺少可用的稳定 build-tools/aapt2");
-  const analyze = (args: string[]) =>
-    run("apkanalyzer", [...args, apk], { capture: true, maxBuffer: 128 * 1024 * 1024 }).stdout;
-  const files = lines(analyze(["files", "list"])).map((name) => name.replace(/^\//, ""));
+
+  const zip = readFileSync(apk);
+  const allEntries = zipEntries(zip);
+  const files = [...allEntries.keys()];
   const entries: Record<string, string> = {};
   for (const name of [
     "META-INF/xposed/java_init.list",
@@ -229,47 +272,49 @@ export function inspectApk(root: string, apk: string): ApkSnapshot {
     "META-INF/xposed/scope.list",
     "assets/xposed_init",
   ]) {
-    if (files.includes(name)) entries[name] = analyze(["files", "cat", "--file", name]);
+    const info = allEntries.get(name);
+    if (info) entries[name] = readZipEntry(zip, info).toString("utf8");
   }
-  const resources = run(join(tools, version, "aapt2"), ["dump", "resources", apk], { capture: true }).stdout;
+
+  const analyze = async (args: string[]) =>
+    (await runAsync("apkanalyzer", [...args, apk], { capture: true, maxBuffer: 128 * 1024 * 1024 })).stdout;
+  const [resources, manifest, dex] = await Promise.all([
+    runAsync(join(tools, version, "aapt2"), ["dump", "resources", apk], { capture: true }).then((r) => r.stdout),
+    analyze(["manifest", "print"]),
+    analyze(["dex", "packages", "--defined-only"]),
+  ]);
+
   const table = resourceTable(resources);
-  const hash = pngPixelHash;
   const sourceHashes = new Set(
     walk(join(root, "apps/app/android/src/main/res"))
       .filter((name) => /\/mipmap-[^/]+\/ic_launcher(?:_foreground|_round)?\.png$/.test(name))
-      .map((name) => hash(readFileSync(name))),
+      .map((name) => pngPixelHash(readFileSync(name))),
   );
-  const iconXml: Record<string, string> = {};
+  const xmlPaths: string[] = [];
   const brandedBitmaps: Record<string, boolean> = {};
   for (const name of ["mipmap/ic_launcher", "mipmap/ic_launcher_round", "mipmap/ic_launcher_foreground"]) {
     for (const [, path, type] of (table.get(name)?.body ?? "").matchAll(/\(file\) (\S+) type=(PNG|XML)/g)) {
-      if (!files.includes(path)) continue;
-      if (type === "XML") iconXml[path] = analyze(["resources", "xml", "--file", path]);
-      else {
-        const result = spawnSync("apkanalyzer", ["files", "cat", "--file", path, apk], { maxBuffer: 32 * 1024 * 1024 });
-        if (result.error) throw result.error;
-        if (result.status !== 0) throw new Error(`读取 APK 图标失败：${path}`);
-        brandedBitmaps[path] = sourceHashes.has(hash(result.stdout));
-      }
+      const info = allEntries.get(path);
+      if (!info) continue;
+      if (type === "XML") xmlPaths.push(path);
+      else brandedBitmaps[path] = sourceHashes.has(pngPixelHash(readZipEntry(zip, info)));
     }
   }
-  const nativeLibs = Object.fromEntries(
-    [...zipCompression(readFileSync(apk))].filter(([name]) => /^lib\/[^/]+\/[^/]+\.so$/.test(name)),
+  const iconXml = Object.fromEntries(
+    await Promise.all(
+      [...new Set(xmlPaths)].map(async (path) => [path, await analyze(["resources", "xml", "--file", path])]),
+    ),
   );
-  return {
-    manifest: analyze(["manifest", "print"]),
-    dex: analyze(["dex", "packages", "--defined-only"]),
-    resources,
-    entries,
-    files,
-    iconXml,
-    brandedBitmaps,
-    nativeLibs,
-  };
+  const nativeLibs = Object.fromEntries(
+    [...allEntries]
+      .filter(([name]) => /^lib\/[^/]+\/[^/]+\.so$/.test(name))
+      .map(([name, info]) => [name, info.compressed]),
+  );
+  return { manifest, dex, resources, entries, files, iconXml, brandedBitmaps, nativeLibs };
 }
 
 if (isMain(import.meta.url))
-  await cli(() => {
+  await cli(async () => {
     const { root, values } = context({ apk: { type: "string" }, abi: { type: "string", multiple: true } });
     if (!values.apk || !values.abi?.length)
       throw new Error("用法：verify:apk --apk <APK路径> --abi <ABI> [--abi <ABI>...] [--root <仓库路径>]");
@@ -282,7 +327,7 @@ if (isMain(import.meta.url))
     const versionCode = build.match(/versionCode\s*=\s*(\d+)/)?.[1];
     if (!versionName || !versionCode || !description) throw new Error("无法读取当前版本与简介配置");
     report(
-      validateApk(inspectApk(root, apk), { versionName, versionCode, description, abis: values.abi }),
+      validateApk(await inspectApk(root, apk), { versionName, versionCode, description, abis: values.abi }),
       `APK 门禁通过：${apk}（静态产物检查，不代表实机通过）`,
     );
   });

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { type ApkSnapshot, validateApk, zipCompression } from "../scripts/check-apk.ts";
+import { deflateRawSync } from "node:zlib";
+import { type ApkSnapshot, readZipEntry, validateApk, zipCompression, zipEntries } from "../scripts/check-apk.ts";
 
 const PREFIX = "cn.rainafter.app.gazekeep.xposed.entry.";
 const CORE = "cn.rainafter.app.gazekeep.core.";
@@ -240,4 +241,58 @@ test("从 ZIP 中央目录读取各条目的压缩方式", () => {
     "classes.dex": true,
   });
   assert.throws(() => zipCompression(Buffer.alloc(30)), /ZIP 目录尾/);
+});
+
+function buildZip(files: { name: string; content: Buffer; method: 0 | 8 }[]) {
+  const parts: Buffer[] = [];
+  const records: Buffer[] = [];
+  let offset = 0;
+  for (const file of files) {
+    const nameBytes = Buffer.from(file.name, "utf8");
+    const payload = file.method === 8 ? deflateRawSync(file.content) : file.content;
+    const local = Buffer.alloc(30 + nameBytes.length);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(file.method, 8);
+    local.writeUInt32LE(payload.length, 18);
+    local.writeUInt32LE(file.content.length, 22);
+    local.writeUInt16LE(nameBytes.length, 26);
+    nameBytes.copy(local, 30);
+    parts.push(local, payload);
+
+    const central = Buffer.alloc(46 + nameBytes.length);
+    central.writeUInt32LE(0x02014b50, 0);
+    central.writeUInt16LE(file.method, 10);
+    central.writeUInt32LE(payload.length, 20);
+    central.writeUInt32LE(file.content.length, 24);
+    central.writeUInt16LE(nameBytes.length, 28);
+    central.writeUInt32LE(offset, 42);
+    nameBytes.copy(central, 46);
+    records.push(central);
+    offset += local.length + payload.length;
+  }
+  const directory = Buffer.concat(records);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(files.length, 8);
+  end.writeUInt16LE(files.length, 10);
+  end.writeUInt32LE(directory.length, 12);
+  end.writeUInt32LE(offset, 16);
+  return Buffer.concat([...parts, directory, end]);
+}
+
+test("原生 ZIP 解析支持读取 Stored 与 Deflate 条目并拒绝损坏头", () => {
+  const pngBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4]);
+  const textBytes = Buffer.from("cn.rainafter.app.gazekeep.xposed.entry.ModernEntry\n", "utf8");
+  const zip = buildZip([
+    { name: "META-INF/xposed/java_init.list", content: textBytes, method: 8 },
+    { name: "res/icon.png", content: pngBytes, method: 0 },
+  ]);
+  const entries = zipEntries(zip);
+  assert.deepEqual([...entries.keys()], ["META-INF/xposed/java_init.list", "res/icon.png"]);
+  assert.deepEqual(readZipEntry(zip, entries.get("META-INF/xposed/java_init.list")!), textBytes);
+  assert.deepEqual(readZipEntry(zip, entries.get("res/icon.png")!), pngBytes);
+
+  const corrupted = Buffer.from(zip);
+  corrupted.writeUInt32LE(0xdeadbeef, 0);
+  assert.throws(() => readZipEntry(corrupted, entries.get("META-INF/xposed/java_init.list")!), /本地文件头/);
 });
