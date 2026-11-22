@@ -27,8 +27,10 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Set up workspace
-        uses: ./.github/actions/setup
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
       - name: Verify tag, versionName and release notes
         run: |
           set -euo pipefail
@@ -139,40 +141,57 @@ jobs:
           expected="$(tr -d ':[:space:]' <<<"$SIGNING_CERT_SHA256" | tr '[:upper:]' '[:lower:]')"
           dist="$RUNNER_TEMP/dist"
           mkdir -p "$dist"
-          rows=()
           test "$(jq '.elements | length' "$out/output-metadata.json")" -eq $((${#abis[@]} + 1))
-          for variant in "${abis[@]}" universal; do
-            if [ "$variant" = universal ]; then
-              file="$(jq -er '.elements[] | select(.type == "UNIVERSAL") | .outputFile' "$out/output-metadata.json")"
-              args=()
-              for abi in "${abis[@]}"; do args+=(--abi "$abi"); done
-            else
-              file="$(jq -er --arg abi "$variant" \
-                '.elements[] | select(any(.filters[]; .filterType == "ABI" and .value == $abi)) | .outputFile' \
-                "$out/output-metadata.json")"
-              args=(--abi "$variant")
-            fi
-            src="$out/$file"
-            PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH" pnpm verify:apk --apk "$src" "${args[@]}"
-            "$build_tools/apksigner" verify "$src"
-            # WHY：核对证书指纹，防止 secret 被换成其他密钥后发布出无法覆盖升级的 APK。
-            # 不同 build-tools 版本的输出前缀不同（"Signer #1" 或 "V2 Signer:"），只取摘要并要求唯一。
-            mapfile -t certs < <("$build_tools/apksigner" verify --print-certs "$src" |
-              sed -nE 's/^.*[Ss]igner.* certificate SHA-256 digest: ([0-9a-f]+)$/\1/p' | sort -u)
-            if [ "${#certs[@]}" -ne 1 ]; then
-              echo "$file 应恰有一个签名证书，实际 ${#certs[@]} 个" >&2
-              exit 1
-            fi
-            if [ "${certs[0]}" != "$expected" ]; then
-              echo "$file 签名证书指纹不一致：${certs[0]}" >&2
-              exit 1
-            fi
-            apk="$dist/gazekeep-$VERSION-$variant.apk"
-            cp "$src" "$apk"
-            sha="$(sha256sum "$apk" | cut -d' ' -f1)"
-            echo "$sha  $(basename "$apk")" >"$apk.sha256"
-            size="$(numfmt --to=iec-i --suffix=B --format='%.1f' "$(stat -c %s "$apk")")"
-            rows+=("| \`$(basename "$apk")\` | $variant | $size | \`$sha\` |")
+          variants=("${abis[@]}" universal)
+          pids=()
+          for variant in "${variants[@]}"; do
+            (
+              set -euo pipefail
+              if [ "$variant" = universal ]; then
+                file="$(jq -er '.elements[] | select(.type == "UNIVERSAL") | .outputFile' "$out/output-metadata.json")"
+                args=()
+                for abi in "${abis[@]}"; do args+=(--abi "$abi"); done
+              else
+                file="$(jq -er --arg abi "$variant" \
+                  '.elements[] | select(any(.filters[]; .filterType == "ABI" and .value == $abi)) | .outputFile' \
+                  "$out/output-metadata.json")"
+                args=(--abi "$variant")
+              fi
+              src="$out/$file"
+              PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH" node scripts/repo-tools/scripts/check-apk.ts --apk "$src" "${args[@]}"
+              "$build_tools/apksigner" verify "$src"
+              # WHY：核对证书指纹，防止 secret 被换成其他密钥后发布出无法覆盖升级的 APK。
+              # 不同 build-tools 版本的输出前缀不同（"Signer #1" 或 "V2 Signer:"），只取摘要并要求唯一。
+              mapfile -t certs < <("$build_tools/apksigner" verify --print-certs "$src" |
+                sed -nE 's/^.*[Ss]igner.* certificate SHA-256 digest: ([0-9a-f]+)$/\1/p' | sort -u)
+              if [ "${#certs[@]}" -ne 1 ]; then
+                echo "$file 应恰有一个签名证书，实际 ${#certs[@]} 个" >&2
+                exit 1
+              fi
+              if [ "${certs[0]}" != "$expected" ]; then
+                echo "$file 签名证书指纹不一致：${certs[0]}" >&2
+                exit 1
+              fi
+              apk="$dist/gazekeep-$VERSION-$variant.apk"
+              cp "$src" "$apk"
+              sha="$(sha256sum "$apk" | cut -d' ' -f1)"
+              echo "$sha  $(basename "$apk")" >"$apk.sha256"
+              size="$(numfmt --to=iec-i --suffix=B --format='%.1f' "$(stat -c %s "$apk")")"
+              printf '%s\n' "| \`$(basename "$apk")\` | $variant | $size | \`$sha\` |" >"$RUNNER_TEMP/row-$variant.txt"
+            ) &
+            pids+=("$!")
+          done
+          failed=0
+          for pid in "${pids[@]}"; do
+            if ! wait "$pid"; then failed=1; fi
+          done
+          if [ "$failed" -ne 0 ]; then
+            echo "APK 校验失败" >&2
+            exit 1
+          fi
+          rows=()
+          for variant in "${variants[@]}"; do
+            rows+=("$(cat "$RUNNER_TEMP/row-$variant.txt")")
           done
           table="$RUNNER_TEMP/apk-table.md"
           {

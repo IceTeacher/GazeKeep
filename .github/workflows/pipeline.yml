@@ -30,7 +30,11 @@ jobs:
       actions: read
     outputs:
       app: ${{ steps.detect.outputs.app }}
+      app_tasks: ${{ steps.detect.outputs.app_tasks }}
+      core_web_test: ${{ steps.detect.outputs.core_web_test }}
       web: ${{ steps.detect.outputs.web }}
+      web_kmp: ${{ steps.detect.outputs.web_kmp }}
+      web_browser: ${{ steps.detect.outputs.web_browser }}
       full: ${{ steps.detect.outputs.full }}
       verified: ${{ steps.detect.outputs.verified }}
     steps:
@@ -39,8 +43,10 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Set up workspace
-        uses: ./.github/actions/setup
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
       - name: Detect affected areas
         id: detect
         env:
@@ -58,16 +64,17 @@ jobs:
           fi
           # WHY：手动触发用于主动全量回归，不复用历史结果；空 base 由脚本按全量回归处理。
           # verified=true 表示同一棵树已有成功的 push 运行（dev 推送后开 PR、合并到 main、合并后同步 dev），
-          # 此时跳过 Android 与官网测试，main 仍构建官网用于生产发布。
+          # 此时跳过门禁构建，main 仍构建官网用于生产发布。
           node scripts/repo-tools/scripts/ci-changes.ts --base "$base" --head "$head" "${reuse[@]}" --output "$GITHUB_OUTPUT"
 
+  # 门禁并行启动（repo 与 app / web-* 同级并发）；最终预览与生产部署仍要求全部门禁通过。
   repo:
     name: Repository checks
     needs: changes
     # PR 仍按 main 基线核对提交区间；其余已验证的树在原运行中检查过同样的提交。
     if: needs.changes.outputs.verified != 'true' || github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -78,25 +85,20 @@ jobs:
         uses: ./.github/actions/setup
         with:
           java: "true"
+          ktlint: "true"
+          turbo: "true"
       - name: Install tools and Git hooks
         run: |
           set -euo pipefail
           pnpm tools:setup
           pnpm hooks:install
           pnpm verify:hooks
-      - name: Verify docs, agent assets architecture and LSPosed metadata
-        run: |
-          set -euo pipefail
-          pnpm verify:docs
-          pnpm verify:agent-assets
-          pnpm verify:architecture
-          pnpm verify:lsposed-repo
-      - name: Check formatting, lint and tool tests
-        run: |
-          set -euo pipefail
-          pnpm format:check
-          pnpm --filter @gazekeep/repo-tools lint
-          pnpm test:tools
+      - name: Verify docs, agent assets, architecture, LSPosed metadata and tool tests
+        run: >-
+          pnpm exec turbo run verify:docs verify:agent-assets verify:architecture verify:lsposed-repo lint test
+          --filter=@gazekeep/repo-tools
+      - name: Check formatting and lint
+        run: pnpm format:check
       - name: Check commit messages and whitespace
         env:
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -124,57 +126,12 @@ jobs:
           pnpm verify:commits --from "$from" --to "$to"
           git diff --check "$from" "$to"
 
-  # WHY：仓库门禁先行，失败时不再消耗 Android 与官网的长构建；repo 因复用而跳过时视为通过。
   app:
     name: Android app
-    needs: [changes, repo]
+    needs: changes
     if: >-
       !cancelled() && needs.changes.result == 'success' &&
-      (needs.repo.result == 'success' || needs.repo.result == 'skipped') &&
       needs.changes.outputs.app == 'true' && needs.changes.outputs.verified != 'true'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Set up workspace
-        uses: ./.github/actions/setup
-        with:
-          java: "true"
-          gradle: "true"
-          kotlin-js: "true"
-      # 主机门禁含 Debug 构建、lint、主机测试与实机套件编译；实机运行不进入 CI。
-      - name: Verify Android app
-        run: pnpm --filter @gazekeep/app verify
-      # Gradle 默认不输出 Yarn 日志；失败时保留 Kotlin/JS 安装目录的 Yarn 错误日志供排查。
-      - name: Collect Yarn error logs
-        if: failure()
-        run: |
-          set -euo pipefail
-          dest="$RUNNER_TEMP/yarn-logs"
-          mkdir -p "$dest"
-          find "$HOME/.kotlin/kotlin-npm-tooling" apps/app/build/js apps/app/build/wasm -maxdepth 3 \
-            \( -name yarn-error.log -o -name package.json -o -name yarn.lock \) -not -path '*/node_modules/*' \
-            -exec cp --parents {} "$dest" \; 2>/dev/null || true
-      - name: Upload Yarn error logs
-        if: failure()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: app-yarn-logs
-          path: ${{ runner.temp }}/yarn-logs
-          if-no-files-found: ignore
-          retention-days: 7
-
-  web:
-    name: Website
-    needs: [changes, repo]
-    # 已验证的树只在 main 上重新构建，供生产发布使用。
-    if: >-
-      !cancelled() && needs.changes.result == 'success' &&
-      (needs.repo.result == 'success' || needs.repo.result == 'skipped') && needs.changes.outputs.web == 'true' &&
-      (needs.changes.outputs.verified != 'true' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -187,23 +144,129 @@ jobs:
         with:
           java: "true"
           gradle: "true"
-          kotlin-js: "true"
-      # 完整构建先生成 KMP Showcase，再执行依赖其产物的测试与检查。
-      # 浏览器与截图测试在锁定版本的 Playwright 镜像中运行，与本地录制基线的字体和 Chromium 一致。
-      - name: Build website
-        run: pnpm --filter web build
-      - name: Run unit tests
-        if: needs.changes.outputs.verified != 'true'
-        run: pnpm --filter web test:unit
+          kotlin-js: ${{ needs.changes.outputs.core_web_test == 'true' && 'true' || 'false' }}
+      # 仅执行受改动与依赖闭包影响的 Debug 构建、lint、主机测试与实机套件编译；实机运行不进入 CI。
+      - name: Verify affected Android modules
+        env:
+          APP_TASKS: ${{ needs.changes.outputs.app_tasks }}
+        run: |
+          set -euo pipefail
+          read -r -a tasks <<<"$APP_TASKS"
+          node scripts/repo-tools/scripts/android-task.ts tasks "${tasks[@]}"
+      - name: Run core JS and Wasm tests
+        if: needs.changes.outputs.core_web_test == 'true'
+        run: node scripts/repo-tools/scripts/android-task.ts core-web-test
+      # Gradle 默认不输出 Yarn 日志；失败时保留 Kotlin/JS 安装目录的 Yarn 错误日志供排查。
+      - name: Collect Yarn error logs
+        if: failure() && needs.changes.outputs.core_web_test == 'true'
+        run: |
+          set -euo pipefail
+          dest="$RUNNER_TEMP/yarn-logs"
+          mkdir -p "$dest"
+          find "$HOME/.kotlin/kotlin-npm-tooling" apps/app/build/js apps/app/build/wasm -maxdepth 3 \
+            \( -name yarn-error.log -o -name package.json -o -name yarn.lock \) -not -path '*/node_modules/*' \
+            -exec cp --parents {} "$dest" \; 2>/dev/null || true
+      - name: Upload Yarn error logs
+        if: failure() && needs.changes.outputs.core_web_test == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: app-yarn-logs
+          path: ${{ runner.temp }}/yarn-logs
+          if-no-files-found: ignore
+          retention-days: 7
+
+  web-quality:
+    name: Website checks
+    needs: changes
+    if: >-
+      !cancelled() && needs.changes.result == 'success' &&
+      needs.changes.outputs.web == 'true' && needs.changes.outputs.verified != 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up workspace
+        uses: ./.github/actions/setup
+        with:
+          turbo: "true"
+      - name: Lint, type-check and unit test website
+        run: pnpm exec turbo run lint check test:unit --filter=web
+
+  web-browser:
+    name: Website browser tests (${{ matrix.shard }}/2)
+    needs: changes
+    if: >-
+      !cancelled() && needs.changes.result == 'success' &&
+      needs.changes.outputs.web_browser == 'true' && needs.changes.outputs.verified != 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up workspace
+        uses: ./.github/actions/setup
+      # 浏览器与截图测试不依赖 KMP 产物，在锁定版本的 Playwright 容器中按 2 路分片与上游并行运行。
       - name: Run browser tests in Playwright container
-        if: needs.changes.outputs.verified != 'true'
-        run: pnpm --filter web test:browser:docker
-      - name: Lint website
-        if: needs.changes.outputs.verified != 'true'
-        run: pnpm --filter web lint
-      - name: Type-check website
-        if: needs.changes.outputs.verified != 'true'
-        run: pnpm --filter web check
+        run: |
+          set -euo pipefail
+          pnpm --filter web exec node scripts/sync-kmp-strings.ts
+          pnpm --filter web exec node scripts/test-browser-docker.ts --shard=${{ matrix.shard }}/2
+
+  web-build:
+    name: Website build
+    needs: changes
+    # 已验证的树只在 main 上重新构建，供生产发布使用。
+    if: >-
+      !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.web == 'true' &&
+      (needs.changes.outputs.verified != 'true' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # 精确按 KMP Showcase 全部输入哈希恢复预编译产物；命中时无需准备 JDK、Gradle 与 Kotlin/JS。
+      - name: Restore KMP Showcase cache
+        id: kmp-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: apps/web/public/kmp-showcase
+          key: >-
+            kmp-showcase-${{ runner.os }}-${{ hashFiles('apps/app/core/**', '!apps/app/core/build/**',
+            'apps/app/shared/**', '!apps/app/shared/build/**', 'apps/app/android/build.gradle.kts',
+            'apps/app/gradle/**', 'apps/app/kotlin-js-store/**', 'apps/app/build.gradle.kts',
+            'apps/app/settings.gradle.kts', 'apps/app/gradle.properties', 'apps/app/gradlew',
+            'apps/web/scripts/build-kmp.ts', 'apps/web/scripts/kmp-preload.ts', 'apps/web/scripts/kmp-showcase.ts') }}
+      - name: Set up workspace
+        uses: ./.github/actions/setup
+        with:
+          java: ${{ steps.kmp-cache.outputs.cache-hit != 'true' && 'true' || 'false' }}
+          gradle: ${{ steps.kmp-cache.outputs.cache-hit != 'true' && 'true' || 'false' }}
+          kotlin-js: ${{ steps.kmp-cache.outputs.cache-hit != 'true' && 'true' || 'false' }}
+          turbo: "true"
+      - name: Build KMP Showcase
+        if: steps.kmp-cache.outputs.cache-hit != 'true'
+        run: pnpm --filter web run build:kmp
+      - name: Save KMP Showcase cache
+        if: >-
+          steps.kmp-cache.outputs.cache-hit != 'true' &&
+          github.event_name == 'push' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: apps/web/public/kmp-showcase
+          key: ${{ steps.kmp-cache.outputs.cache-primary-key }}
+      - name: Build static site
+        run: pnpm exec turbo run build:site --filter=web
       - name: Upload website build
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -214,12 +277,14 @@ jobs:
 
   web-preview:
     name: Deploy website preview
-    needs: [app, web]
-    # WHY：fork PR 拿不到 secret，只跑门禁；所有门禁通过（Android 未触发视为通过）才发布预览。
-    # app 与 web 都依赖 repo，web 成功即说明仓库门禁已通过，或该树已由成功的运行验证。
+    needs: [repo, app, web-quality, web-browser, web-build]
+    # WHY：fork PR 拿不到 secret，只跑门禁；所有门禁通过（未触发视为通过）才发布预览。
     if: >-
-      !cancelled() && needs.web.result == 'success' &&
+      !cancelled() && needs.web-build.result == 'success' &&
+      (needs.repo.result == 'success' || needs.repo.result == 'skipped') &&
       (needs.app.result == 'success' || needs.app.result == 'skipped') &&
+      (needs.web-quality.result == 'success' || needs.web-quality.result == 'skipped') &&
+      (needs.web-browser.result == 'success' || needs.web-browser.result == 'skipped') &&
       ((github.event_name == 'push' && github.ref == 'refs/heads/dev') ||
       (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))
     runs-on: ubuntu-24.04
@@ -240,6 +305,8 @@ jobs:
           persist-credentials: false
       - name: Set up workspace
         uses: ./.github/actions/setup
+        with:
+          pnpm-filter: web
       - name: Download website build
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -318,10 +385,13 @@ jobs:
 
   web-production:
     name: Deploy website production
-    needs: [app, web]
+    needs: [repo, app, web-quality, web-browser, web-build]
     if: >-
-      !cancelled() && needs.web.result == 'success' &&
+      !cancelled() && needs.web-build.result == 'success' &&
+      (needs.repo.result == 'success' || needs.repo.result == 'skipped') &&
       (needs.app.result == 'success' || needs.app.result == 'skipped') &&
+      (needs.web-quality.result == 'success' || needs.web-quality.result == 'skipped') &&
+      (needs.web-browser.result == 'success' || needs.web-browser.result == 'skipped') &&
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -338,6 +408,8 @@ jobs:
           persist-credentials: false
       - name: Set up workspace
         uses: ./.github/actions/setup
+        with:
+          pnpm-filter: web
       - name: Download website build
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:

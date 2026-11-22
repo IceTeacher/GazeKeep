@@ -1,13 +1,18 @@
 {
   "$schema": "https://turborepo.dev/schema.json",
   "remoteCache": { "enabled": false },
+  "cacheDir": ".turbo/cache",
+  "cacheMaxAge": "7d",
+  "cacheMaxSize": "512MB",
   "globalPassThroughEnv": [
     "JAVA_HOME",
     "ANDROID_HOME",
     "ANDROID_SDK_ROOT",
     "GRADLE_USER_HOME",
     "JAVA_OPTS",
-    "GRADLE_OPTS"
+    "GRADLE_OPTS",
+    "SKIP_YARN_COREPACK_CHECK",
+    "CI"
   ],
   "tasks": {
     "build": { "cache": false },
@@ -16,6 +21,145 @@
     "verify": { "cache": false },
     "verify:docs": { "cache": false },
     "verify:agent-assets": { "cache": false },
-    "verify:architecture": { "cache": false }
+    "verify:architecture": { "cache": false },
+    "verify:lsposed-repo": { "cache": false },
+    "@gazekeep/repo-tools#verify:docs": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/**/*.md",
+        "!$TURBO_ROOT$/node_modules/**",
+        "!$TURBO_ROOT$/apps/**/node_modules/**",
+        "!$TURBO_ROOT$/apps/**/build/**",
+        "!$TURBO_ROOT$/apps/**/dist/**"
+      ],
+      "outputs": []
+    },
+    "@gazekeep/repo-tools#verify:agent-assets": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/AGENTS.md",
+        "$TURBO_ROOT$/apps/*/AGENTS.md",
+        "$TURBO_ROOT$/scripts/*/AGENTS.md",
+        "$TURBO_ROOT$/.agents/**",
+        "$TURBO_ROOT$/.claude/**"
+      ],
+      "outputs": []
+    },
+    "@gazekeep/repo-tools#verify:architecture": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/apps/app/settings.gradle.kts",
+        "$TURBO_ROOT$/apps/app/**/build.gradle.kts",
+        "$TURBO_ROOT$/apps/app/**/src/**/*.kt"
+      ],
+      "outputs": []
+    },
+    "@gazekeep/repo-tools#verify:lsposed-repo": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/apps/app/distribution/lsposed/**",
+        "$TURBO_ROOT$/apps/app/android/build.gradle.kts",
+        "$TURBO_ROOT$/apps/app/android/src/main/resources/META-INF/xposed/scope.list",
+        "$TURBO_ROOT$/docs/product.md",
+        "$TURBO_ROOT$/README.md"
+      ],
+      "outputs": []
+    },
+    "@gazekeep/repo-tools#lint": {
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/.oxlintrc.json"],
+      "outputs": []
+    },
+    "@gazekeep/repo-tools#test": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/lefthook.yml",
+        "$TURBO_ROOT$/.oxfmtrc.json",
+        "$TURBO_ROOT$/.oxlintrc.json",
+        "$TURBO_ROOT$/.editorconfig",
+        "$TURBO_ROOT$/apps/web/src/styles/tailwind.css",
+        "$TURBO_ROOT$/apps/app/settings.gradle.kts",
+        "$TURBO_ROOT$/apps/app/gradle/libs.versions.toml",
+        "$TURBO_ROOT$/apps/app/shared/src/commonMain/composeResources/values/strings.xml",
+        "$TURBO_ROOT$/docs/product.md",
+        "$TURBO_ROOT$/apps/app/distribution/lsposed/**",
+        "$TURBO_ROOT$/apps/app/android/build.gradle.kts",
+        "$TURBO_ROOT$/apps/app/android/src/main/resources/META-INF/xposed/scope.list",
+        "$TURBO_ROOT$/README.md"
+      ],
+      "outputs": []
+    },
+    "web#build:kmp": {
+      "inputs": [
+        "scripts/build-kmp.ts",
+        "scripts/kmp-preload.ts",
+        "scripts/kmp-showcase.ts",
+        "$TURBO_ROOT$/apps/app/core/**",
+        "!$TURBO_ROOT$/apps/app/core/build/**",
+        "$TURBO_ROOT$/apps/app/shared/**",
+        "!$TURBO_ROOT$/apps/app/shared/build/**",
+        "$TURBO_ROOT$/apps/app/android/build.gradle.kts",
+        "$TURBO_ROOT$/apps/app/gradle/**",
+        "$TURBO_ROOT$/apps/app/kotlin-js-store/**",
+        "$TURBO_ROOT$/apps/app/build.gradle.kts",
+        "$TURBO_ROOT$/apps/app/settings.gradle.kts",
+        "$TURBO_ROOT$/apps/app/gradle.properties",
+        "$TURBO_ROOT$/apps/app/gradlew"
+      ],
+      "outputs": ["public/kmp-showcase/**"]
+    },
+    "web#build:site": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "!dist/**",
+        "!.astro/**",
+        "!.edgeone/**",
+        "!public/kmp-showcase/**",
+        "!tests/**",
+        "$TURBO_ROOT$/apps/app/shared/src/commonMain/composeResources/values/strings.xml",
+        "$TURBO_ROOT$/apps/app/shared/src/commonMain/composeResources/values-en/strings.xml",
+        "$TURBO_ROOT$/docs/product.md",
+        "$TURBO_ROOT$/docs/CHANGELOG.md",
+        "$TURBO_ROOT$/docs/CHANGELOG.en.md",
+        {
+          "mode": "jit",
+          "globs": ["public/kmp-showcase/**"]
+        }
+      ],
+      "outputs": ["dist/**", "src/data/privacy.generated.json"]
+    },
+    "web#lint": {
+      "inputs": ["$TURBO_DEFAULT$", "!dist/**", "!.astro/**", "!public/kmp-showcase/**", "$TURBO_ROOT$/.oxlintrc.json"],
+      "outputs": []
+    },
+    "web#check": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "!dist/**",
+        "!.astro/**",
+        "!public/kmp-showcase/**",
+        "!tests/**",
+        "$TURBO_ROOT$/apps/app/shared/src/commonMain/composeResources/values/strings.xml",
+        "$TURBO_ROOT$/apps/app/shared/src/commonMain/composeResources/values-en/strings.xml",
+        "$TURBO_ROOT$/docs/product.md",
+        "$TURBO_ROOT$/docs/CHANGELOG.md",
+        "$TURBO_ROOT$/docs/CHANGELOG.en.md"
+      ],
+      "outputs": ["src/data/privacy.generated.json"]
+    },
+    "web#test:unit": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "!dist/**",
+        "!.astro/**",
+        "!public/kmp-showcase/**",
+        "$TURBO_ROOT$/apps/app/shared/src/showcaseMain/resources/index.html",
+        "$TURBO_ROOT$/apps/app/shared/src/commonMain/composeResources/values/strings.xml",
+        "$TURBO_ROOT$/apps/app/shared/src/commonMain/composeResources/values-en/strings.xml",
+        "$TURBO_ROOT$/docs/product.md",
+        "$TURBO_ROOT$/docs/CHANGELOG.md",
+        "$TURBO_ROOT$/docs/CHANGELOG.en.md"
+      ],
+      "outputs": []
+    }
   }
 }

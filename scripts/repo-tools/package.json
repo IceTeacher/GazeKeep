@@ -6,6 +6,7 @@
     "verify:docs": "node scripts/check-docs.ts",
     "verify:agent-assets": "node scripts/check-agent-assets.ts",
     "verify:architecture": "node scripts/check-architecture.ts",
+    "verify:lsposed-repo": "node scripts/lsposed-repo.ts",
     "test": "node --test tests/*.test.ts",
     "lint": "oxlint --config ../../.oxlintrc.json --deny-warnings . && tsc -p tsconfig.json",
     "verify": "node scripts/verify.ts"

@@ -95,13 +95,17 @@
 ### 流水线拓扑（`.github/workflows/`）
 
 1. **`pipeline.yml`**（PR、`dev`/`main` 推送，固定 `ubuntu-24.04`）：
-   - `changes`（`ci-changes.ts`）：按文件差异判断 `app`/`web` 受影响范围，并检测同一 Git tree 是否已由成功的 `push` 运行验证（`verified=true` 时复用结果，避免 `dev` 开 PR 与合入 `main` 重复跑长构建）。
-   - `repo`：执行 Hook、文档、Agent 资产、架构、LSPosed 元数据、格式、repo-tools 单测与提交区间 `commitlint` + `git diff --check`。
-   - `app` / `web`：受影响且未复用时分别运行 `pnpm --filter @gazekeep/app verify` 与官网完整构建 + 单测 + Docker Chromium 截图测试。
-   - `web-preview` / `web-production`：下载 `web-dist` 产物，经 `package:edgeone` 隔离环境变量打包后通过 `edgeone makers deploy` 直传（含最多 3 次重试）并执行 `check-web-deploy.ts` 线上冒烟。
+   - `changes`（`ci-changes.ts`）：零外部依赖快速分析受影响范围，按 [android-modules.ts](../scripts/repo-tools/scripts/android-modules.ts) 模块依赖反向闭包生成精确 `app_tasks`，拆分官网静态/KMP/浏览器触发标记，并检测同一 Git tree 是否已由成功的 `push` 运行验证（`verified=true` 时跳过门禁构建；`main` 仍构建官网供生产发布）。
+   - **五路并行门禁**（均仅依赖 `changes`）：
+     - `repo`：并行执行 Hook、文档、Agent 资产、架构、LSPosed 元数据、`repo-tools` 单测（含 Turborepo 与 `ktlint` 缓存）、并行 `format:check` 及提交区间 `commitlint` + `git diff --check`。
+     - `app`：仅执行受影响模块的 Gradle 构建、lint 与并行宿主测试，不拉起 JS/Wasm 工具链；仅改动 `:core` 或 KMP 构建配置时追加 `core-web-test`。
+     - `web-quality`：启用 Turborepo 缓存并行执行官网 `lint`、`check` 与 `test:unit`，不依赖 JDK/Gradle。
+     - `web-browser`：在锁定 Playwright Docker 容器中按 2 路 `shard` 并行运行浏览器与截图基线测试，不依赖 KMP 产物。
+     - `web-build`：按输入哈希精确恢复 `public/kmp-showcase` 缓存；命中时跳过 JDK/Gradle/Kotlin-JS 直接由 Turborepo 缓存增量构建 `dist` 并上传 `web-dist`（仅 `dev`/`main` 推送写入共享缓存）。
+   - `web-preview` / `web-production`：待以上全部门禁通过后下载 `web-dist`，经 `package:edgeone` 隔离环境变量打包后通过 `edgeone makers deploy` 直传（含最多 3 次重试）并执行 `check-web-deploy.ts` 线上冒烟。
 2. **`release.yml`**（仅 `v*.*.*` tag 触发）：
-   - `gate`：校验 `tag == v<versionName>`、提交位于 `main`、`docs/CHANGELOG.md` 与 `docs/CHANGELOG.en.md` 包含该版本非空章节，并等待 `main` 上同一提交的 `pipeline.yml` 成功。
-   - `release-apk`：在受保护的 `release` 环境中注入正式签名密钥库（RSA 4096 `CN=GazeKeep`，SHA-256 指纹 `bbf8c24ed81ccf9856f290598a328e6046eff3a31c934423b4f51fe47514d94f`），构建 R8 压缩的四架构 Release APK（`arm64-v8a`、`armeabi-v7a`、`x86_64`、`universal`），逐包运行 `verify:apk` 与 `apksigner` 指纹校验，提取 `docs/CHANGELOG.md` 对应版本章节并追加生成的「`## 安装包`」表格，发布为 GitHub Pre-release。
+   - `gate`：无安装直跑校验 `tag == v<versionName>`、提交位于 `main`、`docs/CHANGELOG.md` 与 `docs/CHANGELOG.en.md` 包含该版本非空章节，并等待 `main` 上同一提交的 `pipeline.yml` 成功。
+   - `release-apk`：在受保护的 `release` 环境中注入正式签名密钥库（RSA 4096 `CN=GazeKeep`，SHA-256 指纹 `bbf8c24ed81ccf9856f290598a328e6046eff3a31c934423b4f51fe47514d94f`），构建 R8 压缩的四架构 Release APK（`arm64-v8a`、`armeabi-v7a`、`x86_64`、`universal`），并发执行各包原生 ZIP 解析 `verify:apk` 与 `apksigner` 指纹校验，提取 `docs/CHANGELOG.md` 对应版本章节并追加生成的「`## 安装包`」表格，发布为 GitHub Pre-release。
 3. **`lsposed-repo.yml`**（GitHub Release 转为正式版 `released` 或手动指定正式版 tag 触发）：
    - 下载四个 APK 重新核对 SHA-256 与签名指纹，将 `apps/app/distribution/lsposed/{SCOPE,SOURCE_URL,SUMMARY}` 与由根 `README.md` 转换绝对链接生成的 `README.md` 推送至 `Xposed-Modules-Repo/cn.rainafter.app.gazekeep`，并以 `<versionCode>-<versionName>` 创建模块 Release（显式 `--draft=false` 触发官方 bot 索引）。
 
