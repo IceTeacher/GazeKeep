@@ -1,5 +1,5 @@
 name: 准备工作区
-description: 安装锁定版本的 Node、pnpm 与依赖；按需准备 JDK 21、Gradle 缓存与 Kotlin/JS 依赖缓存。
+description: 安装锁定版本的 Node、pnpm 与依赖；按需准备 JDK 21、Gradle 缓存、Kotlin/JS 缓存、ktlint 缓存与 Turborepo 缓存。
 inputs:
   java:
     description: 是否准备 JDK 21（ktlint、Gradle 与 KMP 构建需要）
@@ -10,6 +10,15 @@ inputs:
   kotlin-js:
     description: 是否缓存 Kotlin/JS 与 Kotlin/Wasm 的 Yarn 依赖与测试工具
     default: "false"
+  ktlint:
+    description: 是否缓存 ktlint 二进制
+    default: "false"
+  turbo:
+    description: 是否恢复/保存 Turborepo 本地缓存
+    default: "false"
+  pnpm-filter:
+    description: 可选 pnpm install --filter 目标，留空时安装全仓依赖
+    default: ""
 runs:
   using: composite
   steps:
@@ -75,6 +84,7 @@ runs:
       uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
       with:
         cache-read-only: ${{ !(github.event_name == 'push' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')) }}
+        cache-cleanup: on-success
     # Kotlin/JS 工具目录与 Yarn 下载缓存不在 Gradle User Home 内；按锁文件与版本目录缓存，
     # 冷缓存时 Yarn 安装约 1.5 分钟。缓存只在 job 成功时保存，不会固化安装失败留下的残缺目录。
     - name: Cache Kotlin/JS dependencies
@@ -86,6 +96,50 @@ runs:
           ~/.cache/yarn
         key: kotlin-js-${{ runner.os }}-${{ hashFiles('apps/app/kotlin-js-store/**/yarn.lock', 'apps/app/gradle/libs.versions.toml') }}
         restore-keys: kotlin-js-${{ runner.os }}-
+    - name: Resolve ktlint version
+      id: ktlint
+      if: inputs.ktlint == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        node --input-type=module -e '
+          import { appendFileSync } from "node:fs";
+          import { ktlintVersion } from "./scripts/repo-tools/scripts/common.ts";
+          appendFileSync(process.env.GITHUB_OUTPUT, `version=${ktlintVersion("apps/app")}\n`);
+        '
+    - name: Cache ktlint
+      if: inputs.ktlint == 'true'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: .cache/dev-tools
+        key: ktlint-${{ runner.os }}-${{ steps.ktlint.outputs.version }}
+    # Turborepo 缓存同样只在 dev/main 推送写入，PR 只读复用，避免分支构建挤占 10GB 缓存配额。
+    - name: Cache Turborepo (read-write)
+      if: inputs.turbo == 'true' && github.event_name == 'push' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: .turbo/cache
+        key: turbo-${{ runner.os }}-${{ github.job }}-${{ github.sha }}
+        restore-keys: |
+          turbo-${{ runner.os }}-${{ github.job }}-
+          turbo-${{ runner.os }}-
+    - name: Restore Turborepo cache (read-only)
+      if: inputs.turbo == 'true' && !(github.event_name == 'push' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main'))
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: .turbo/cache
+        key: turbo-${{ runner.os }}-${{ github.job }}-${{ github.sha }}
+        restore-keys: |
+          turbo-${{ runner.os }}-${{ github.job }}-
+          turbo-${{ runner.os }}-
     - name: Install dependencies
       shell: bash
-      run: pnpm install --frozen-lockfile
+      env:
+        PNPM_FILTER: ${{ inputs.pnpm-filter }}
+      run: |
+        set -euo pipefail
+        if [ -n "$PNPM_FILTER" ]; then
+          pnpm install --frozen-lockfile --filter "$PNPM_FILTER"
+        else
+          pnpm install --frozen-lockfile
+        fi

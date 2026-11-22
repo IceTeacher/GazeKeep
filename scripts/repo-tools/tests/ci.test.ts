@@ -4,42 +4,235 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test, { type TestContext } from "node:test";
 import { classifyChanges, verifiedSource } from "../scripts/ci-changes.ts";
+import { ANDROID_FULL_VERIFY_TASKS, CORE_WEB_TEST_TASKS } from "../scripts/android-modules.ts";
 import { run } from "../scripts/common.ts";
 import { checkWebDeploy } from "../scripts/check-web-deploy.ts";
 
-test("改动范围按工程归类，官网随 shared 与 Gradle 根配置重建", () => {
-  assert.deepEqual(classifyChanges(["docs/index.md", "scripts/repo-tools/scripts/check-docs.ts"]), {
+test("改动范围按工程与模块依赖闭包归类，不再对无关工作流或工具误触全量回归", () => {
+  const empty = {
     app: false,
     web: false,
+    webKmp: false,
+    webBrowser: false,
+    coreWebTest: false,
     full: false,
-  });
-  assert.deepEqual(classifyChanges(["apps/app/engine/src/main/kotlin/A.kt"]), { app: true, web: false, full: false });
-  assert.deepEqual(classifyChanges(["scripts/repo-tools/scripts/check-apk.ts"]), {
+    appTasks: [],
+  };
+  for (const path of [
+    "docs/index.md",
+    "scripts/repo-tools/scripts/check-docs.ts",
+    "scripts/repo-tools/scripts/check-apk.ts",
+    ".github/workflows/release.yml",
+    ".github/workflows/lsposed-repo.yml",
+    ".github/ISSUE_TEMPLATE/bug.yml",
+  ]) {
+    assert.deepEqual(classifyChanges([path]), empty, path);
+  }
+
+  assert.deepEqual(classifyChanges(["apps/app/xposed/src/main/kotlin/A.kt"]), {
     app: true,
     web: false,
+    webKmp: false,
+    webBrowser: false,
+    coreWebTest: false,
     full: false,
+    appTasks: [
+      ":android:assembleDebug",
+      ":android:lintDebug",
+      ":xposed:testDebugUnitTest",
+      ":android:testDebugUnitTest",
+    ],
   });
-  assert.deepEqual(classifyChanges(["apps/web/src/pages/zh/index.astro"]), { app: false, web: true, full: false });
+
+  assert.deepEqual(classifyChanges(["apps/app/backend/shizuku/src/main/kotlin/A.kt"]), {
+    app: true,
+    web: false,
+    webKmp: false,
+    webBrowser: false,
+    coreWebTest: false,
+    full: false,
+    appTasks: [
+      ":android:assembleDebug",
+      ":android:lintDebug",
+      ":backend:shizuku:testDebugUnitTest",
+      ":android:testDebugUnitTest",
+    ],
+  });
+
+  assert.deepEqual(classifyChanges(["apps/app/e2e/src/main/kotlin/A.kt"]), {
+    app: true,
+    web: false,
+    webKmp: false,
+    webBrowser: false,
+    coreWebTest: false,
+    full: false,
+    appTasks: [":e2e:assembleDebug"],
+  });
+
+  assert.deepEqual(classifyChanges(["apps/app/shared/src/commonMain/kotlin/A.kt"]), {
+    app: true,
+    web: true,
+    webKmp: true,
+    webBrowser: false,
+    coreWebTest: false,
+    full: false,
+    appTasks: [
+      ":android:assembleDebug",
+      ":android:lintDebug",
+      ":e2e:assembleDebug",
+      ":android:testDebugUnitTest",
+      ":shared:testAndroidHostTest",
+    ],
+  });
+
+  assert.deepEqual(classifyChanges(["apps/app/shared/src/commonMain/composeResources/values/strings.xml"]), {
+    app: true,
+    web: true,
+    webKmp: true,
+    webBrowser: true,
+    coreWebTest: false,
+    full: false,
+    appTasks: [
+      ":android:assembleDebug",
+      ":android:lintDebug",
+      ":e2e:assembleDebug",
+      ":android:testDebugUnitTest",
+      ":shared:testAndroidHostTest",
+    ],
+  });
+
+  assert.deepEqual(classifyChanges(["apps/app/core/src/commonMain/kotlin/A.kt"]), {
+    app: true,
+    web: true,
+    webKmp: true,
+    webBrowser: false,
+    coreWebTest: true,
+    full: false,
+    appTasks: [
+      ":android:assembleDebug",
+      ":android:lintDebug",
+      ":e2e:assembleDebug",
+      ":core:testAndroidHostTest",
+      ":engine:testDebugUnitTest",
+      ":backend:a11y:testDebugUnitTest",
+      ":backend:shizuku:testDebugUnitTest",
+      ":backend:lsposed:testDebugUnitTest",
+      ":android:testDebugUnitTest",
+      ":shared:testAndroidHostTest",
+      ...CORE_WEB_TEST_TASKS,
+    ],
+  });
+
+  assert.deepEqual(classifyChanges(["apps/app/android/build.gradle.kts"]), {
+    app: true,
+    web: true,
+    webKmp: true,
+    webBrowser: false,
+    coreWebTest: false,
+    full: false,
+    appTasks: [":android:assembleDebug", ":android:lintDebug", ":e2e:assembleDebug", ":android:testDebugUnitTest"],
+  });
+
+  assert.deepEqual(classifyChanges(["apps/web/src/pages/zh/index.astro"]), {
+    app: false,
+    web: true,
+    webKmp: false,
+    webBrowser: true,
+    coreWebTest: false,
+    full: false,
+    appTasks: [],
+  });
+
+  assert.deepEqual(classifyChanges(["apps/web/edge-functions/stats/[[path]].ts"]), {
+    app: false,
+    web: true,
+    webKmp: false,
+    webBrowser: false,
+    coreWebTest: false,
+    full: false,
+    appTasks: [],
+  });
+
+  for (const docPath of ["docs/CHANGELOG.md", "docs/CHANGELOG.en.md", "docs/product.md"]) {
+    assert.deepEqual(
+      classifyChanges([docPath]),
+      {
+        app: false,
+        web: true,
+        webKmp: false,
+        webBrowser: true,
+        coreWebTest: false,
+        full: false,
+        appTasks: [],
+      },
+      docPath,
+    );
+  }
+
   for (const path of [
-    "apps/app/shared/src/commonMain/kotlin/A.kt",
     "apps/app/gradle/libs.versions.toml",
     "apps/app/kotlin-js-store/yarn.lock",
     "apps/app/settings.gradle.kts",
-  ])
-    assert.deepEqual(classifyChanges([path]), { app: true, web: true, full: false }, path);
+  ]) {
+    assert.deepEqual(
+      classifyChanges([path]),
+      {
+        app: true,
+        web: true,
+        webKmp: true,
+        webBrowser: false,
+        coreWebTest: true,
+        full: false,
+        appTasks: [...ANDROID_FULL_VERIFY_TASKS, ...CORE_WEB_TEST_TASKS],
+      },
+      path,
+    );
+  }
+
+  assert.deepEqual(classifyChanges(["scripts/repo-tools/scripts/android-task.ts"]), {
+    app: true,
+    web: false,
+    webKmp: false,
+    webBrowser: false,
+    coreWebTest: false,
+    full: false,
+    appTasks: [...ANDROID_FULL_VERIFY_TASKS],
+  });
 });
 
-test("根配置、锁文件、流水线或未知基线触发全量回归", () => {
+test("根配置、锁文件、主流水线或未知基线触发全量回归", () => {
+  const fullSet = {
+    app: true,
+    web: true,
+    webKmp: true,
+    webBrowser: true,
+    coreWebTest: true,
+    full: true,
+    appTasks: [...ANDROID_FULL_VERIFY_TASKS, ...CORE_WEB_TEST_TASKS],
+  };
   for (const path of [
     "package.json",
     "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
     "turbo.json",
+    ".npmrc",
     ".oxlintrc.json",
+    ".oxfmtrc.json",
     ".github/workflows/pipeline.yml",
-  ])
-    assert.deepEqual(classifyChanges([path]), { app: true, web: true, full: true }, path);
-  assert.deepEqual(classifyChanges(null), { app: true, web: true, full: true });
-  assert.deepEqual(classifyChanges(["apps/web/package.json"]), { app: false, web: true, full: false });
+    ".github/actions/setup/action.yml",
+  ]) {
+    assert.deepEqual(classifyChanges([path]), fullSet, path);
+  }
+  assert.deepEqual(classifyChanges(null), fullSet);
+  assert.deepEqual(classifyChanges(["apps/web/package.json"]), {
+    app: false,
+    web: true,
+    webKmp: false,
+    webBrowser: true,
+    coreWebTest: false,
+    full: false,
+    appTasks: [],
+  });
 });
 
 function responder(table: Record<string, [number, string?]>) {

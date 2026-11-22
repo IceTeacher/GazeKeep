@@ -52,7 +52,11 @@ android {
     // 通知文案测试按资源键读取各语言字符串。
     isIncludeAndroidResources = true
     // Robolectric 的 Parcel/FileDescriptor 拦截需要访问 JDK 内部 API。
-    all { it.jvmArgs("--add-opens=java.base/jdk.internal.access=ALL-UNNAMED") }
+    all {
+      it.maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, 2)
+      it.maxHeapSize = "1536m"
+      it.jvmArgs("--add-opens=java.base/jdk.internal.access=ALL-UNNAMED")
+    }
   }
   packaging {
     resources {

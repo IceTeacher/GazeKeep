@@ -1,10 +1,15 @@
 import { appendFileSync } from "node:fs";
+import { ANDROID_FULL_VERIFY_TASKS, CORE_WEB_TEST_TASKS, selectAndroidVerifyTasks } from "./android-modules.ts";
 import { cli, context, isMain, run } from "./common.ts";
 
 export interface ChangeSet {
   app: boolean;
   web: boolean;
+  webKmp: boolean;
+  webBrowser: boolean;
+  coreWebTest: boolean;
   full: boolean;
+  appTasks: string[];
 }
 const FULL_FILES = new Set([
   "package.json",
@@ -14,20 +19,78 @@ const FULL_FILES = new Set([
   ".npmrc",
   ".oxlintrc.json",
   ".oxfmtrc.json",
+  ".github/workflows/pipeline.yml",
 ]);
-const APP_TOOLS = new Set(["scripts/repo-tools/scripts/android-task.ts", "scripts/repo-tools/scripts/check-apk.ts"]);
-// 官网构建经 Gradle 生成 KMP Showcase；shared、版本目录、JS 锁文件和 Gradle 根配置都会改变其产物。
-const WEB_PREFIXES = ["apps/web/", "apps/app/shared/", "apps/app/gradle/", "apps/app/kotlin-js-store/"];
-const isAppRootFile = (path: string) => path.startsWith("apps/app/") && !path.slice("apps/app/".length).includes("/");
+const FULL_PREFIXES = [".github/actions/"];
+const WEB_DOC_FILES = new Set(["docs/CHANGELOG.md", "docs/CHANGELOG.en.md", "docs/product.md"]);
+// 官网 KMP Showcase 经 Gradle 生成；core/shared、版本目录、JS 锁文件、Gradle 根配置与 versionName 都会改变其产物。
+const WEB_KMP_PREFIXES = ["apps/app/core/", "apps/app/shared/", "apps/app/gradle/", "apps/app/kotlin-js-store/"];
+const WEB_KMP_FILES = new Set([
+  "apps/app/android/build.gradle.kts",
+  "apps/web/scripts/build-kmp.ts",
+  "apps/web/scripts/kmp-preload.ts",
+  "apps/web/scripts/kmp-showcase.ts",
+]);
+const WEB_BROWSER_PREFIXES = [
+  "apps/web/src/",
+  "apps/web/public/",
+  "apps/web/tests/scenarios/",
+  "apps/web/tests/_support/",
+  "apps/web/tests/fixtures/",
+  "apps/app/shared/src/commonMain/composeResources/",
+];
+const WEB_BROWSER_FILES = new Set([
+  "apps/web/vitest.config.ts",
+  "apps/web/astro.config.ts",
+  "apps/web/package.json",
+  "apps/web/scripts/sync-kmp-strings.ts",
+  "apps/web/scripts/privacy.ts",
+  "apps/web/scripts/test-browser-docker.ts",
+  "apps/web/scripts/build-performance.ts",
+  ...WEB_DOC_FILES,
+]);
+const CORE_WEB_TEST_PREFIXES = ["apps/app/core/", "apps/app/gradle/", "apps/app/kotlin-js-store/"];
+const isAppRootBuildFile = (path: string) =>
+  path.startsWith("apps/app/") && !path.slice("apps/app/".length).includes("/") && !path.endsWith(".md");
 
 // 基线未知（首次推送、强推或手动触发）时无法证明影响范围，按全量回归处理。
 export function classifyChanges(files: readonly string[] | null): ChangeSet {
-  if (files === null || files.some((path) => FULL_FILES.has(path) || path.startsWith(".github/")))
-    return { app: true, web: true, full: true };
+  if (
+    files === null ||
+    files.some((path) => FULL_FILES.has(path) || FULL_PREFIXES.some((prefix) => path.startsWith(prefix)))
+  ) {
+    return {
+      app: true,
+      web: true,
+      webKmp: true,
+      webBrowser: true,
+      coreWebTest: true,
+      full: true,
+      appTasks: [...ANDROID_FULL_VERIFY_TASKS, ...CORE_WEB_TEST_TASKS],
+    };
+  }
+  const androidTasks = selectAndroidVerifyTasks(files, false);
+  const webKmp = files.some(
+    (path) =>
+      WEB_KMP_PREFIXES.some((prefix) => path.startsWith(prefix)) || WEB_KMP_FILES.has(path) || isAppRootBuildFile(path),
+  );
+  const webBrowser = files.some(
+    (path) => WEB_BROWSER_PREFIXES.some((prefix) => path.startsWith(prefix)) || WEB_BROWSER_FILES.has(path),
+  );
+  const web = webKmp || webBrowser || files.some((path) => path.startsWith("apps/web/") || WEB_DOC_FILES.has(path));
+  const coreWebTest = files.some(
+    (path) => CORE_WEB_TEST_PREFIXES.some((prefix) => path.startsWith(prefix)) || isAppRootBuildFile(path),
+  );
+  // 与 Android 构建、lint、宿主测试并入同一 app_tasks，在单次 Gradle 调用中共享配置并并发执行。
+  const appTasks = coreWebTest ? [...androidTasks, ...CORE_WEB_TEST_TASKS] : androidTasks;
   return {
-    app: files.some((path) => path.startsWith("apps/app/") || APP_TOOLS.has(path)),
-    web: files.some((path) => WEB_PREFIXES.some((prefix) => path.startsWith(prefix)) || isAppRootFile(path)),
+    app: appTasks.length > 0,
+    web,
+    webKmp,
+    webBrowser,
+    coreWebTest,
     full: false,
+    appTasks,
   };
 }
 
@@ -80,12 +143,19 @@ if (isMain(import.meta.url))
     });
     if (!values.head) throw new Error("用法：ci-changes.ts --head <SHA> [--base <SHA>] [--reuse] [--output <文件>]");
     const source = values.reuse ? await verifiedSource(root, values.head, pipelinePassed) : undefined;
-    const changes = {
-      ...classifyChanges(changedFiles(root, values.base, values.head)),
+    const changes = classifyChanges(changedFiles(root, values.base, values.head));
+    if (source) console.log(`复用已验证提交：${source}`);
+    const fields: Record<string, string | boolean> = {
+      app: changes.app,
+      app_tasks: changes.appTasks.join(" "),
+      core_web_test: changes.coreWebTest,
+      web: changes.web,
+      web_kmp: changes.webKmp,
+      web_browser: changes.webBrowser,
+      full: changes.full,
       verified: source !== undefined,
     };
-    if (source) console.log(`复用已验证提交：${source}`);
-    const lines = Object.entries(changes).map(([name, value]) => `${name}=${value}`);
+    const lines = Object.entries(fields).map(([name, value]) => `${name}=${value}`);
     console.log(lines.join("\n"));
     if (values.output) appendFileSync(values.output, `${lines.join("\n")}\n`, "utf8");
   });

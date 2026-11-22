@@ -115,6 +115,9 @@ tasks.withType<Test>().configureEach {
     val record = recordScreenshots.get()
     systemProperty("roborazzi.test.record", record.toString())
     systemProperty("roborazzi.test.verify", (!record).toString())
+    // 按历史耗时仅对多类 UI/Robolectric 宿主测试开启受控并行，兼顾 4 核 CI 内存安全。
+    maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, 2)
+    maxHeapSize = "1536m"
     // Robolectric 的 Parcel/FileDescriptor 拦截需要访问 JDK 内部 API。
     jvmArgs("--add-opens=java.base/jdk.internal.access=ALL-UNNAMED")
   }
