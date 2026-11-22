@@ -23,17 +23,6 @@
     "verify:agent-assets": { "cache": false },
     "verify:architecture": { "cache": false },
     "verify:lsposed-repo": { "cache": false },
-    "@gazekeep/repo-tools#verify:docs": {
-      "inputs": [
-        "$TURBO_DEFAULT$",
-        "$TURBO_ROOT$/**/*.md",
-        "!$TURBO_ROOT$/node_modules/**",
-        "!$TURBO_ROOT$/apps/**/node_modules/**",
-        "!$TURBO_ROOT$/apps/**/build/**",
-        "!$TURBO_ROOT$/apps/**/dist/**"
-      ],
-      "outputs": []
-    },
     "@gazekeep/repo-tools#verify:agent-assets": {
       "inputs": [
         "$TURBO_DEFAULT$",
@@ -107,7 +96,18 @@
       ],
       "outputs": ["public/kmp-showcase/**"]
     },
+    "web#sync:privacy": {
+      "inputs": [
+        "scripts/sync-kmp-strings.ts",
+        "scripts/privacy.ts",
+        "$TURBO_ROOT$/apps/app/shared/src/commonMain/composeResources/values/strings.xml",
+        "$TURBO_ROOT$/apps/app/shared/src/commonMain/composeResources/values-en/strings.xml",
+        "$TURBO_ROOT$/docs/product.md"
+      ],
+      "outputs": ["src/data/privacy.generated.json"]
+    },
     "web#build:site": {
+      "dependsOn": ["sync:privacy"],
       "inputs": [
         "$TURBO_DEFAULT$",
         "!dist/**",
@@ -125,28 +125,29 @@
           "globs": ["public/kmp-showcase/**"]
         }
       ],
-      "outputs": ["dist/**", "src/data/privacy.generated.json"]
+      "outputs": ["dist/**"]
     },
     "web#lint": {
       "inputs": ["$TURBO_DEFAULT$", "!dist/**", "!.astro/**", "!public/kmp-showcase/**", "$TURBO_ROOT$/.oxlintrc.json"],
       "outputs": []
     },
     "web#check": {
+      "dependsOn": ["sync:privacy"],
       "inputs": [
         "$TURBO_DEFAULT$",
         "!dist/**",
         "!.astro/**",
         "!public/kmp-showcase/**",
-        "!tests/**",
         "$TURBO_ROOT$/apps/app/shared/src/commonMain/composeResources/values/strings.xml",
         "$TURBO_ROOT$/apps/app/shared/src/commonMain/composeResources/values-en/strings.xml",
         "$TURBO_ROOT$/docs/product.md",
         "$TURBO_ROOT$/docs/CHANGELOG.md",
         "$TURBO_ROOT$/docs/CHANGELOG.en.md"
       ],
-      "outputs": ["src/data/privacy.generated.json"]
+      "outputs": []
     },
     "web#test:unit": {
+      "dependsOn": ["sync:privacy"],
       "inputs": [
         "$TURBO_DEFAULT$",
         "!dist/**",

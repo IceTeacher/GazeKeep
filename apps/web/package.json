@@ -13,6 +13,7 @@
     "deploy": "pnpm run build && pnpm run package:edgeone && edgeone makers deploy .edgeone -n gazekeep -e production",
     "preview": "astro preview --host 127.0.0.1",
     "astro": "astro",
+    "sync:privacy": "node scripts/sync-kmp-strings.ts",
     "build:site": "node scripts/sync-kmp-strings.ts && astro build",
     "check": "node scripts/sync-kmp-strings.ts && astro check",
     "lint": "oxlint --config ../../.oxlintrc.json --deny-warnings .",
