@@ -1,21 +1,9 @@
 import { readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
+import { ANDROID_MODULE_DEPS } from "./android-modules.ts";
 import { cli, context, isMain, report, walk } from "./common.ts";
 
-const ALLOWED: Record<string, string[]> = {
-  android: ["shared", "engine", "backend:a11y", "backend:shizuku", "backend:lsposed", "xposed"],
-  // 自插桩实机套件只通过 targetProjectPath 指向 :android，不引入任何模块依赖。
-  e2e: [],
-  shared: ["core"],
-  core: [],
-  engine: ["core"],
-  "backend:a11y": ["core"],
-  "backend:shizuku": ["core"],
-  "backend:lsposed": ["core", "bridge:protocol"],
-  xposed: ["bridge:protocol", "hidden-api-stubs"],
-  "hidden-api-stubs": [],
-  "bridge:protocol": [],
-};
+const ALLOWED = ANDROID_MODULE_DEPS;
 const FORBIDDEN: Record<string, string[]> = {
   core: ["android.", "androidx."],
   shared: ["android.", "cn.rainafter.app.gazekeep.engine.", "cn.rainafter.app.gazekeep.backend."],
