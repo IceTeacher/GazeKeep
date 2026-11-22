@@ -35,6 +35,10 @@ kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotl
 kotlin-testJunit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
 junit = { module = "junit:junit", version.ref = "junit" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
+# 与 Robolectric 4.17 对应的预装 SDK jar；交由 Gradle 依赖缓存统一拉取并离线注入测试 JVM，避免多进程并发直连 Maven Central 触发限流或锁文件竞争。
+robolectric-sdk32 = { module = "org.robolectric:android-all-instrumented", version = "12.1-robolectric-8229987-i7" }
+robolectric-sdk35 = { module = "org.robolectric:android-all-instrumented", version = "15-robolectric-13954326-i7" }
+robolectric-sdk36 = { module = "org.robolectric:android-all-instrumented", version = "16-robolectric-13921718-i7" }
 roborazzi = { module = "io.github.takahirom.roborazzi:roborazzi", version.ref = "roborazzi" }
 roborazzi-compose = { module = "io.github.takahirom.roborazzi:roborazzi-compose", version.ref = "roborazzi" }
 androidx-compose-uiTestJunit4 = { module = "androidx.compose.ui:ui-test-junit4", version.ref = "androidx-compose-uiTest" }
