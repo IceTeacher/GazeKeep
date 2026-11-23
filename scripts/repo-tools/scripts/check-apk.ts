@@ -137,7 +137,7 @@ export function validateApk(snapshot: ApkSnapshot, expected: ApkExpectation) {
   for (const permission of list(manifest["uses-permission"])) {
     const name = permission["@_android:name"] ?? "";
     if (
-      /^android\.permission\.(INTERNET|QUERY_ALL_PACKAGES|SYSTEM_ALERT_WINDOW|READ_PHONE_STATE|READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE|MANAGE_EXTERNAL_STORAGE|MANAGE_MEDIA|READ_MEDIA_.*)$/.test(
+      /^android\.permission\.(INTERNET|ACCESS_NETWORK_STATE|QUERY_ALL_PACKAGES|SYSTEM_ALERT_WINDOW|READ_PHONE_STATE|REQUEST_IGNORE_BATTERY_OPTIMIZATIONS|READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE|MANAGE_EXTERNAL_STORAGE|MANAGE_MEDIA|READ_MEDIA_.*)$/.test(
         name,
       )
     ) {
