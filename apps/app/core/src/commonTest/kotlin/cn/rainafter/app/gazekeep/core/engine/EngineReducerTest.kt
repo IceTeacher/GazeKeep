@@ -492,4 +492,232 @@ class EngineReducerTest {
     assertEquals(EngineState.Disabled, late.snapshot.state)
     assertTrue(late.effects.isEmpty())
   }
+
+  @Test
+  fun chargingHoldExemptionSkipsLimitAndPreservesAwayAndUnknownYields() {
+    val config = GazeConfig(enabled = true, maxHoldMinutes = 10, unlimitedHoldWhileCharging = true)
+    val extending = EngineReducer.reduce(
+      capturing(ready(context = EngineContext(isCharging = true), config = config)),
+      EngineEvent.CaptureFinished(Attention.Looking, emptyList(), 25L),
+      13_000L,
+    ).snapshot
+    val done = EngineReducer.reduce(extending, EngineEvent.ExtendFinished(ExtendResult.Done), 13_001L)
+    assertEquals(null, done.snapshot.context.holdStartUptime)
+    assertFalse(done.snapshot.context.forcedYieldPending)
+    assertTrue(done.effects.none { it is EngineEffect.ScheduleHoldLimit })
+
+    val gated = EngineReducer.reduce(
+      done.snapshot.copy(state = EngineState.Gating(deadline)),
+      EngineEvent.GateResult(GateDecision.Proceed, isCharging = true),
+      99_999_999L,
+    )
+    assertIs<EngineState.Capturing>(gated.snapshot.state)
+
+    val ignoredTimer = EngineReducer.reduce(gated.snapshot, EngineEvent.HoldLimitReached(13_001L), 99_999_999L)
+    assertIs<EngineState.Capturing>(ignoredTimer.snapshot.state)
+
+    val away = EngineReducer.reduce(
+      gated.snapshot,
+      EngineEvent.CaptureFinished(Attention.Away, emptyList(), 30L),
+      100_000_030L,
+    )
+    assertEquals(EngineState.Yielded(YieldReason.NotLooking(Attention.Away)), away.snapshot.state)
+    assertTrue(away.effects.none { it is EngineEffect.Extend })
+    assertTrue(EngineEffect.Release in away.effects)
+
+    val unknown = EngineReducer.reduce(
+      capturing(ready(context = EngineContext(isCharging = true), config = config)),
+      EngineEvent.CaptureFinished(Attention.Unknown, emptyList(), 30L),
+      100_000_100L,
+    )
+    assertEquals(EngineState.Yielded(YieldReason.NotLooking(Attention.Unknown)), unknown.snapshot.state)
+    assertTrue(unknown.effects.none { it is EngineEffect.Extend })
+    assertTrue(EngineEffect.Release in unknown.effects)
+  }
+
+  @Test
+  fun pluggingInClearsActiveTimerAndUnlocksMaxHold() {
+    val config = GazeConfig(enabled = true, maxHoldMinutes = 10, unlimitedHoldWhileCharging = true)
+    val active = ready(
+      context = EngineContext(holdStartUptime = 1_000L, isCharging = false),
+      config = config,
+    )
+    val plugged = EngineReducer.reduce(active, EngineEvent.ChargingChanged(true), 500_000L)
+    assertTrue(plugged.snapshot.context.isCharging)
+    assertEquals(null, plugged.snapshot.context.holdStartUptime)
+    assertFalse(plugged.snapshot.context.forcedYieldPending)
+    assertTrue(EngineEffect.CancelHoldLimit in plugged.effects)
+    val staleTimer = EngineReducer.reduce(plugged.snapshot, EngineEvent.HoldLimitReached(1_000L), 601_000L)
+    assertEquals(plugged.snapshot, staleTimer.snapshot)
+
+    val locked = ready(
+      state = EngineState.Yielded(YieldReason.MaxHold),
+      context = EngineContext(holdStartUptime = 1_000L, forcedYieldPending = true, isCharging = false),
+      config = config,
+    )
+    val unlocked = EngineReducer.reduce(locked, EngineEvent.ChargingChanged(true), 700_000L)
+    assertEquals(EngineState.Yielded(YieldReason.WaitingDeadline), unlocked.snapshot.state)
+    assertEquals(null, unlocked.snapshot.context.holdStartUptime)
+    assertFalse(unlocked.snapshot.context.forcedYieldPending)
+    assertTrue(EngineEffect.CancelHoldLimit in unlocked.effects)
+    val nextWindow = EngineReducer.reduce(unlocked.snapshot, EngineEvent.DeadlineUpdated(deadline), 0L)
+    assertIs<EngineState.Armed>(nextWindow.snapshot.state)
+
+    val lockedChargingDisabled = ready(
+      state = EngineState.Yielded(YieldReason.MaxHold),
+      context = EngineContext(holdStartUptime = 1_000L, forcedYieldPending = true, isCharging = true),
+      config = config.copy(unlimitedHoldWhileCharging = false),
+    )
+    val unlockedByConfig = EngineReducer.reduce(lockedChargingDisabled, EngineEvent.ConfigChanged(config), 700_500L)
+    assertEquals(EngineState.Yielded(YieldReason.WaitingDeadline), unlockedByConfig.snapshot.state)
+    assertFalse(unlockedByConfig.snapshot.context.forcedYieldPending)
+    assertTrue(EngineEffect.CancelHoldLimit in unlockedByConfig.effects)
+
+    val gatedPluggedIn = EngineReducer.reduce(
+      ready(
+        state = EngineState.Gating(deadline),
+        context = EngineContext(holdStartUptime = 1_000L, forcedYieldPending = true, isCharging = false),
+        config = config,
+      ),
+      EngineEvent.GateResult(GateDecision.Proceed, isCharging = true),
+      701_000L,
+    )
+    assertIs<EngineState.Capturing>(gatedPluggedIn.snapshot.state)
+    assertTrue(gatedPluggedIn.snapshot.context.isCharging)
+    assertEquals(null, gatedPluggedIn.snapshot.context.holdStartUptime)
+    assertFalse(gatedPluggedIn.snapshot.context.forcedYieldPending)
+    assertTrue(EngineEffect.CancelHoldLimit in gatedPluggedIn.effects)
+    assertTrue(gatedPluggedIn.effects.any { it is EngineEffect.StartCapture })
+  }
+
+  @Test
+  fun unpluggingRestartsFullHoldLimitWithoutCountingChargingTime() {
+    val config = GazeConfig(enabled = true, maxHoldMinutes = 10, unlimitedHoldWhileCharging = true)
+    val chargedExtend = EngineReducer.reduce(
+      capturing(ready(context = EngineContext(isCharging = true), config = config)),
+      EngineEvent.CaptureFinished(Attention.Looking, emptyList(), 20L),
+      13_000L,
+    ).snapshot.let {
+      EngineReducer.reduce(it, EngineEvent.ExtendFinished(ExtendResult.Done), 13_050L).snapshot
+    }
+    assertEquals(null, chargedExtend.context.holdStartUptime)
+
+    val unplugged = EngineReducer.reduce(chargedExtend, EngineEvent.ChargingChanged(false), 3_600_000L).snapshot
+    assertFalse(unplugged.context.isCharging)
+    assertEquals(null, unplugged.context.holdStartUptime)
+
+    val nextExtendReady = EngineReducer.reduce(
+      capturing(unplugged),
+      EngineEvent.CaptureFinished(Attention.Looking, emptyList(), 20L),
+      3_613_000L,
+    ).snapshot
+    val firstUnpluggedDone = EngineReducer.reduce(
+      nextExtendReady,
+      EngineEvent.ExtendFinished(ExtendResult.Done),
+      3_613_050L,
+    )
+    assertEquals(3_613_050L, firstUnpluggedDone.snapshot.context.holdStartUptime)
+    assertTrue(
+      EngineEffect.ScheduleHoldLimit(3_613_050L, 3_613_050L + 600_000L) in firstUnpluggedDone.effects,
+    )
+
+    val expired = EngineReducer.reduce(
+      firstUnpluggedDone.snapshot,
+      EngineEvent.HoldLimitReached(3_613_050L),
+      4_213_050L,
+    )
+    assertEquals(EngineState.Yielded(YieldReason.MaxHold), expired.snapshot.state)
+    assertTrue(EngineEffect.ForceRelease in expired.effects)
+
+    // 即使未先收到广播，门控轮次检测到拔电同样立即同步 isCharging 并自后续首次 Extend 重新计时。
+    val gateUnplugged = EngineReducer.reduce(
+      chargedExtend.copy(state = EngineState.Gating(deadline)),
+      EngineEvent.GateResult(GateDecision.Proceed, isCharging = false),
+      3_620_000L,
+    )
+    assertIs<EngineState.Capturing>(gateUnplugged.snapshot.state)
+    assertFalse(gateUnplugged.snapshot.context.isCharging)
+    val gateUnpluggedDone = EngineReducer.reduce(
+      EngineReducer.reduce(
+        gateUnplugged.snapshot,
+        EngineEvent.CaptureFinished(Attention.Looking, emptyList(), 20L),
+        3_620_500L,
+      ).snapshot,
+      EngineEvent.ExtendFinished(ExtendResult.Done),
+      3_620_550L,
+    )
+    assertEquals(3_620_550L, gateUnpluggedDone.snapshot.context.holdStartUptime)
+    assertTrue(
+      EngineEffect.ScheduleHoldLimit(3_620_550L, 3_620_550L + 600_000L) in gateUnpluggedDone.effects,
+    )
+  }
+
+  @Test
+  fun chargingStateSurvivesScreenOffAndScreenOn() {
+    val start = ready(
+      context = EngineContext(isCharging = true, darkUnknownStreak = 1, holdStartUptime = 100L),
+    )
+    val off = EngineReducer.reduce(start, EngineEvent.ScreenOff, 2_000L).snapshot
+    assertTrue(off.context.isCharging)
+    assertEquals(1, off.context.darkUnknownStreak)
+    assertEquals(null, off.context.holdStartUptime)
+
+    val on = EngineReducer.reduce(off, EngineEvent.ScreenOn, 3_000L).snapshot
+    assertTrue(on.context.isCharging)
+  }
+
+  @Test
+  fun exemptionClearsPendingMaxHoldAcrossDisabledBackendRecoveryAndDeadlineUpdated() {
+    val config = GazeConfig(enabled = true, maxHoldMinutes = 10, unlimitedHoldWhileCharging = false)
+    val lockedWhileCharging = ready(
+      state = EngineState.Yielded(YieldReason.MaxHold),
+      context = EngineContext(holdStartUptime = 1_000L, forcedYieldPending = true, isCharging = true),
+      config = config,
+    )
+    // 路径 1：在无后端禁用期间满足充电豁免，恢复后端后首轮 DeadlineUpdated 不得误锁 MaxHold。
+    val noBackend = EngineReducer.reduce(lockedWhileCharging, EngineEvent.BackendSelected(null), 50_000L).snapshot
+    assertEquals(EngineState.Disabled, noBackend.state)
+    val exemptWhileDisabled = EngineReducer.reduce(
+      noBackend,
+      EngineEvent.ConfigChanged(config.copy(unlimitedHoldWhileCharging = true)),
+      50_100L,
+    )
+    assertEquals(null, exemptWhileDisabled.snapshot.context.holdStartUptime)
+    assertFalse(exemptWhileDisabled.snapshot.context.forcedYieldPending)
+    val recovered = EngineReducer.reduce(
+      exemptWhileDisabled.snapshot,
+      EngineEvent.BackendSelected(BackendId.Shizuku),
+      50_200L,
+    ).snapshot
+    val afterRecoveryDeadline = EngineReducer.reduce(recovered, EngineEvent.DeadlineUpdated(deadline), 0L)
+    assertIs<EngineState.Armed>(afterRecoveryDeadline.snapshot.state)
+
+    // 路径 2：deadlineUpdated 入口直遇 forcedYieldPending 且当前豁免时，清理待锁定状态并正常预约。
+    val directPendingWhileExempt = ready(
+      state = EngineState.Yielded(YieldReason.WaitingDeadline),
+      context = EngineContext(holdStartUptime = 1_000L, forcedYieldPending = true, isCharging = true),
+      config = config.copy(unlimitedHoldWhileCharging = true),
+    )
+    val directDeadline = EngineReducer.reduce(directPendingWhileExempt, EngineEvent.DeadlineUpdated(deadline), 0L)
+    assertFalse(directDeadline.snapshot.context.forcedYieldPending)
+    assertEquals(null, directDeadline.snapshot.context.holdStartUptime)
+    assertTrue(EngineEffect.CancelHoldLimit in directDeadline.effects)
+    assertIs<EngineState.Armed>(directDeadline.snapshot.state)
+
+    // 路径 3：未满足豁免时，后端闪断恢复仍保守维持 MaxHold 约束，不因重连绕过一次熄屏。
+    val unexemptLocked = ready(
+      state = EngineState.Yielded(YieldReason.MaxHold),
+      context = EngineContext(holdStartUptime = 1_000L, forcedYieldPending = true, isCharging = false),
+      config = config,
+    )
+    val droppedUnexempt = EngineReducer.reduce(unexemptLocked, EngineEvent.BackendSelected(null), 60_000L).snapshot
+    val reconnectedUnexempt = EngineReducer.reduce(
+      droppedUnexempt,
+      EngineEvent.BackendSelected(BackendId.Shizuku),
+      60_100L,
+    ).snapshot
+    val stillLocked = EngineReducer.reduce(reconnectedUnexempt, EngineEvent.DeadlineUpdated(deadline), 0L)
+    assertEquals(EngineState.Yielded(YieldReason.MaxHold), stillLocked.snapshot.state)
+    assertTrue(stillLocked.snapshot.context.forcedYieldPending)
+  }
 }

@@ -13,6 +13,8 @@ data class GazeConfig(
   val lowBatteryThreshold: Int = 15,
   val debugLogEnabled: Boolean = false,
   val hideCameraIndicator: Boolean = false,
+  val unlimitedHoldWhileCharging: Boolean = false,
+  val faceDownGateEnabled: Boolean = true,
 ) {
   init {
     require(leadMillis >= 0L)

@@ -20,10 +20,12 @@ sealed interface EngineEvent {
   data class UserActivity(val uptime: Long) : EngineEvent
   data class ScheduledWakeFired(val atUptime: Long) : EngineEvent
   data class HoldLimitReached(val startUptime: Long) : EngineEvent
+  data class ChargingChanged(val isCharging: Boolean) : EngineEvent
   data class GateResult(
     val result: GateDecision,
     val foregroundPackage: String? = null,
     val deadline: TimeoutDeadline? = null,
+    val isCharging: Boolean? = null,
   ) : EngineEvent
   data class CaptureFinished(
     val attention: Attention,

@@ -22,6 +22,8 @@ class ConfigBackupCodecTest {
       lowBatteryThreshold = 20,
       debugLogEnabled = true,
       hideCameraIndicator = true,
+      unlimitedHoldWhileCharging = true,
+      faceDownGateEnabled = false,
     )
 
     val json = assertIs<ConfigExportResult.Success>(ConfigBackupCodec.encode(source)).json
@@ -45,21 +47,28 @@ class ConfigBackupCodecTest {
         "self_test_passed_at": 1760000000000,
         "selfTestPassedAt": 1760000000000,
         "pendingTimeoutRestore": 60000,
-        "unlimitedHoldWhileCharging": true,
-        "faceDownGateEnabled": false,
+        "futureFlag": true,
         "futureNested": { "a": [1, true, null, "ok"] },
         "leadMillis": 5000,
         "sensitivity": "Loose"
       }
     """.trimIndent()
 
-    val current = GazeConfig(enabled = false, maxHoldMinutes = 60, whitelistPackages = setOf("com.keep.me"))
+    val current = GazeConfig(
+      enabled = false,
+      maxHoldMinutes = 60,
+      whitelistPackages = setOf("com.keep.me"),
+      unlimitedHoldWhileCharging = true,
+      faceDownGateEnabled = false,
+    )
     val decoded = assertIs<ConfigImportResult.Success>(ConfigBackupCodec.decode(json, current))
     assertFalse(decoded.config.enabled)
     assertEquals(5_000L, decoded.config.leadMillis)
     assertEquals(Sensitivity.Loose, decoded.config.sensitivity)
     assertEquals(60, decoded.config.maxHoldMinutes)
     assertEquals(setOf("com.keep.me"), decoded.config.whitelistPackages)
+    assertTrue(decoded.config.unlimitedHoldWhileCharging)
+    assertFalse(decoded.config.faceDownGateEnabled)
   }
 
   @Test
@@ -119,6 +128,10 @@ class ConfigBackupCodecTest {
       """{"schemaVersion": 1, "lowBatteryThreshold": 12}""",
       """{"schemaVersion": 1, "debugLogEnabled": 1}""",
       """{"schemaVersion": 1, "hideCameraIndicator": null}""",
+      """{"schemaVersion": 1, "unlimitedHoldWhileCharging": "true"}""",
+      """{"schemaVersion": 1, "unlimitedHoldWhileCharging": 1}""",
+      """{"schemaVersion": 1, "faceDownGateEnabled": "false"}""",
+      """{"schemaVersion": 1, "faceDownGateEnabled": null}""",
     )
     for (input in badInputs) {
       assertIs<ConfigImportResult.InvalidFormat>(

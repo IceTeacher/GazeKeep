@@ -42,7 +42,7 @@ object EngineReducer {
       Transition(snapshot)
     }
 
-    is EngineEvent.HoldLimitReached -> if (snapshot.config.maxHoldMinutes > 0 &&
+    is EngineEvent.HoldLimitReached -> if (!isHoldLimitExempt(snapshot.config, snapshot.context) &&
       snapshot.context.holdStartUptime == event.startUptime
     ) {
       maxHold(snapshot, now)
@@ -52,16 +52,24 @@ object EngineReducer {
 
     is EngineEvent.UserActivity -> userActivity(snapshot, event.uptime)
 
+    is EngineEvent.ChargingChanged -> chargingChanged(snapshot, event.isCharging)
+
     is EngineEvent.GateResult -> if (event.deadline != null &&
       (snapshot.state as? EngineState.Gating)?.deadline != event.deadline
     ) {
       Transition(snapshot)
+    } else if (snapshot.state !is EngineState.Gating) {
+      Transition(snapshot)
     } else {
-      gateResult(
-        snapshot.copy(context = snapshot.context.copy(foregroundPackage = event.foregroundPackage)),
-        event.result,
-        now,
+      val synced = snapshot.copy(
+        context = snapshot.context.copy(
+          foregroundPackage = event.foregroundPackage,
+          isCharging = event.isCharging ?: snapshot.context.isCharging,
+        ),
       )
+      val cleared = clearHoldLimitIfExempt(synced)
+      val next = gateResult(cleared.snapshot, event.result, now)
+      next.copy(effects = cleared.effects + next.effects)
     }
 
     is EngineEvent.CaptureFinished -> captureFinished(snapshot, event, now)
@@ -85,11 +93,18 @@ object EngineReducer {
     EngineEvent.CameraPermissionLost -> disabled(snapshot, Alert.CameraPermissionLost)
   }
 
+  private fun clearExemptHoldContext(snapshot: EngineSnapshot): EngineSnapshot =
+    if (isHoldLimitExempt(snapshot.config, snapshot.context)) {
+      snapshot.copy(context = snapshot.context.copy(holdStartUptime = null, forcedYieldPending = false))
+    } else {
+      snapshot
+    }
+
   private fun configChanged(snapshot: EngineSnapshot, config: GazeConfig): Transition {
     val updated = snapshot.copy(config = config)
     return if (!config.enabled) {
       disabled(
-        updated,
+        clearExemptHoldContext(updated),
         alert = null,
         clearAlerts = listOf(
           Alert.BackendUnavailable,
@@ -100,26 +115,16 @@ object EngineReducer {
       )
     } else if (!updated.cameraPermissionGranted || updated.backend == null) {
       disabled(
-        updated,
+        clearExemptHoldContext(updated),
         if (updated.backend == null) Alert.BackendUnavailable else Alert.CameraPermissionLost,
       )
-    } else if (config.maxHoldMinutes == 0 && updated.context.forcedYieldPending) {
-      val nextState = if (updated.state == EngineState.Yielded(YieldReason.MaxHold)) {
-        EngineState.Yielded(YieldReason.WaitingDeadline)
-      } else {
-        updated.state
-      }
-      Transition(
-        updated.copy(state = nextState, context = updated.context.copy(forcedYieldPending = false)),
-        listOf(EngineEffect.CancelHoldLimit),
-      )
     } else {
-      Transition(updated)
+      clearHoldLimitIfExempt(updated)
     }
   }
 
   private fun backendChanged(snapshot: EngineSnapshot, backend: BackendId?): Transition {
-    val updated = snapshot.copy(backend = backend)
+    val updated = clearExemptHoldContext(snapshot.copy(backend = backend))
     return if (backend == null || !updated.config.enabled || !updated.cameraPermissionGranted) {
       val alert = when {
         !updated.config.enabled -> null
@@ -160,7 +165,10 @@ object EngineReducer {
   private fun screenOff(snapshot: EngineSnapshot): Transition = Transition(
     snapshot.copy(
       state = EngineState.ScreenOff,
-      context = EngineContext(darkUnknownStreak = snapshot.context.darkUnknownStreak),
+      context = EngineContext(
+        darkUnknownStreak = snapshot.context.darkUnknownStreak,
+        isCharging = snapshot.context.isCharging,
+      ),
     ),
     listOf(EngineEffect.CancelCapture, EngineEffect.CancelWake, EngineEffect.CancelHoldLimit, EngineEffect.Release),
   )
@@ -190,26 +198,33 @@ object EngineReducer {
       val next = deadlineUpdated(activity.snapshot, deadline, now)
       return next.copy(effects = activity.effects + next.effects)
     }
-    if (snapshot.context.forcedYieldPending) return maxHold(snapshot, now)
-    val skippedAt = snapshot.context.skippedScreenOffAtUptime
-    val current = snapshot.state
+    val cleared = clearHoldLimitIfExempt(snapshot)
+    val base = cleared.snapshot
+    if (!isHoldLimitExempt(base.config, base.context) && base.context.forcedYieldPending) {
+      return maxHold(base, now).let { it.copy(effects = cleared.effects + it.effects) }
+    }
+    val skippedAt = base.context.skippedScreenOffAtUptime
+    val current = base.state
     if (current is EngineState.Yielded &&
       current.reason is YieldReason.Gate &&
       skippedAt != null &&
       kotlin.math.abs(deadline.screenOffAtUptime - skippedAt) < GATE_SKIP_JITTER_MS
     ) {
-      return Transition(snapshot.copy(context = snapshot.context.copy(foregroundPackage = deadline.foregroundPackage)))
+      return Transition(
+        base.copy(context = base.context.copy(foregroundPackage = deadline.foregroundPackage)),
+        cleared.effects,
+      )
     }
     val remaining = deadline.screenOffAtUptime - now
     // 保留真实熄屏截止时间，只将检测提前到降亮之前。
     val wakeAt = deadline.captureWakeAtUptime(
       LeadBackoff.settings(
-        snapshot.config,
-        snapshot.context.lookingStreak,
+        base.config,
+        base.context.lookingStreak,
       ).leadMillis,
     )
-    val updated = snapshot.copy(context = snapshot.context.copy(foregroundPackage = deadline.foregroundPackage))
-    return when {
+    val updated = base.copy(context = base.context.copy(foregroundPackage = deadline.foregroundPackage))
+    val next = when {
       wakeAt > now -> {
         Transition(
           updated.copy(state = EngineState.Armed(deadline, wakeAt)),
@@ -230,6 +245,7 @@ object EngineReducer {
         ),
       )
     }
+    return next.copy(effects = cleared.effects + next.effects)
   }
 
   private fun wakeTimer(snapshot: EngineSnapshot): Transition = when (val state = snapshot.state) {
@@ -291,7 +307,11 @@ object EngineReducer {
         ),
       )
     }
-    if (snapshot.context.forcedYieldPending || holdExpired(snapshot, now)) return maxHold(snapshot, now)
+    if (!isHoldLimitExempt(snapshot.config, snapshot.context) &&
+      (snapshot.context.forcedYieldPending || holdExpired(snapshot, now))
+    ) {
+      return maxHold(snapshot, now)
+    }
     val settings = LeadBackoff.settings(
       snapshot.config,
       snapshot.context.lookingStreak,
@@ -392,9 +412,10 @@ object EngineReducer {
     if (snapshot.state !is EngineState.Extending) return Transition(snapshot)
     return when (result) {
       ExtendResult.Done -> {
-        val start = snapshot.context.holdStartUptime ?: now
+        val exempt = isHoldLimitExempt(snapshot.config, snapshot.context)
+        val start = if (exempt) null else snapshot.context.holdStartUptime ?: now
         val maxHoldMs = snapshot.config.maxHoldMinutes * 60_000L
-        val forced = maxHoldMs > 0L && now - start >= maxHoldMs
+        val forced = !exempt && start != null && maxHoldMs > 0L && now - start >= maxHoldMs
         val context = snapshot.context.copy(
           holdStartUptime = start,
           lookingStreak = snapshot.context.lookingStreak + 1,
@@ -406,7 +427,7 @@ object EngineReducer {
         Transition(
           next,
           buildList {
-            if (snapshot.context.holdStartUptime == null && maxHoldMs > 0L) {
+            if (!exempt && snapshot.context.holdStartUptime == null && maxHoldMs > 0L && start != null) {
               add(EngineEffect.ScheduleHoldLimit(start, start + maxHoldMs))
             }
             add(EngineEffect.ClearAlert(Alert.BackendUnavailable))
@@ -454,7 +475,36 @@ object EngineReducer {
     }
   }
 
+  private fun chargingChanged(snapshot: EngineSnapshot, isCharging: Boolean): Transition {
+    val updated = snapshot.copy(context = snapshot.context.copy(isCharging = isCharging))
+    return clearHoldLimitIfExempt(updated)
+  }
+
+  private fun isHoldLimitExempt(config: GazeConfig, context: EngineContext): Boolean =
+    config.maxHoldMinutes <= 0 || (config.unlimitedHoldWhileCharging && context.isCharging)
+
+  private fun clearHoldLimitIfExempt(snapshot: EngineSnapshot): Transition {
+    if (!isHoldLimitExempt(snapshot.config, snapshot.context)) return Transition(snapshot)
+    val hasPendingLimit = snapshot.context.holdStartUptime != null ||
+      snapshot.context.forcedYieldPending ||
+      snapshot.state == EngineState.Yielded(YieldReason.MaxHold)
+    if (!hasPendingLimit) return Transition(snapshot)
+    val nextState = if (snapshot.state == EngineState.Yielded(YieldReason.MaxHold)) {
+      EngineState.Yielded(YieldReason.WaitingDeadline)
+    } else {
+      snapshot.state
+    }
+    return Transition(
+      snapshot.copy(
+        state = nextState,
+        context = snapshot.context.copy(holdStartUptime = null, forcedYieldPending = false),
+      ),
+      listOf(EngineEffect.CancelHoldLimit),
+    )
+  }
+
   private fun holdExpired(snapshot: EngineSnapshot, now: Long): Boolean {
+    if (isHoldLimitExempt(snapshot.config, snapshot.context)) return false
     val maxHoldMs = snapshot.config.maxHoldMinutes * 60_000L
     if (maxHoldMs <= 0L) return false
     return snapshot.context.holdStartUptime?.let { now - it >= maxHoldMs } == true
