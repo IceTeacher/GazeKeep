@@ -47,6 +47,8 @@ class ConfigStoreTest {
       assertTrue(initial.config.blacklistPackages.isEmpty())
       assertTrue(initial.config.pauseOnPowerSave)
       assertEquals(15, initial.config.lowBatteryThreshold)
+      assertFalse(initial.config.unlimitedHoldWhileCharging)
+      assertTrue(initial.config.faceDownGateEnabled)
       assertNull(initial.selfTestPassedAt)
     } finally {
       job.cancelAndJoin()
@@ -72,6 +74,8 @@ class ConfigStoreTest {
       lowBatteryThreshold = 20,
       debugLogEnabled = true,
       hideCameraIndicator = true,
+      unlimitedHoldWhileCharging = true,
+      faceDownGateEnabled = false,
     )
     first.update { expected }
     first.completeSelfTest()
@@ -271,6 +275,8 @@ class ConfigStoreTest {
         lowBatteryThreshold = 10,
         debugLogEnabled = true,
         hideCameraIndicator = true,
+        unlimitedHoldWhileCharging = true,
+        faceDownGateEnabled = false,
       )
 
       // 未通过自检的设备绝不能因导入而变为 enabled = true。

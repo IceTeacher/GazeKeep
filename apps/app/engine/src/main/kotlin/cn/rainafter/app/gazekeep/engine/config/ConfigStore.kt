@@ -68,6 +68,8 @@ class ConfigStore internal constructor(private val store: DataStore<Preferences>
     private val MAX_HOLD = intPreferencesKey("max_hold_minutes")
     private val PAUSE_ON_POWER_SAVE = booleanPreferencesKey("pause_on_power_save")
     private val LOW_BATTERY_THRESHOLD = intPreferencesKey("low_battery_threshold")
+    private val UNLIMITED_HOLD_WHILE_CHARGING = booleanPreferencesKey("unlimited_hold_while_charging")
+    private val FACE_DOWN_GATE_ENABLED = booleanPreferencesKey("face_down_gate_enabled")
     private val SELF_TEST = longPreferencesKey("self_test_passed_at")
     internal val MIGRATED = booleanPreferencesKey("m4_migrated")
 
@@ -105,6 +107,8 @@ class ConfigStore internal constructor(private val store: DataStore<Preferences>
         maxHoldMinutes = values[MAX_HOLD]?.takeIf(::isValidMaxHoldMinutes) ?: 30,
         pauseOnPowerSave = values[PAUSE_ON_POWER_SAVE] ?: true,
         lowBatteryThreshold = values[LOW_BATTERY_THRESHOLD]?.takeIf(::isValidLowBatteryThreshold) ?: 15,
+        unlimitedHoldWhileCharging = values[UNLIMITED_HOLD_WHILE_CHARGING] ?: false,
+        faceDownGateEnabled = values[FACE_DOWN_GATE_ENABLED] ?: true,
       ),
       selfTestPassedAt = values[SELF_TEST],
     )
@@ -127,6 +131,8 @@ class ConfigStore internal constructor(private val store: DataStore<Preferences>
       values[MAX_HOLD] = config.maxHoldMinutes
       values[PAUSE_ON_POWER_SAVE] = config.pauseOnPowerSave
       values[LOW_BATTERY_THRESHOLD] = config.lowBatteryThreshold
+      values[UNLIMITED_HOLD_WHILE_CHARGING] = config.unlimitedHoldWhileCharging
+      values[FACE_DOWN_GATE_ENABLED] = config.faceDownGateEnabled
     }
   }
 }

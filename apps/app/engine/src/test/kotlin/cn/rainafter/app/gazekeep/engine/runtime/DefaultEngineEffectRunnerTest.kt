@@ -104,14 +104,15 @@ class DefaultEngineEffectRunnerTest {
     val deadline = TimeoutDeadline(10_000L)
     val gate = object : GateProbe {
       override suspend fun collect() = proceedingInput.copy(interactive = false)
-      override suspend fun withEnvironment(input: GateInput): GateInput = error("sensor window must stay closed")
+      override suspend fun withEnvironment(input: GateInput, includeFaceDown: Boolean): GateInput =
+        error("sensor window must stay closed")
     }
     val runner = runner(scope, gate = gate, config = GazeConfig(appFilterMode = AppFilterMode.All))
     val events = mutableListOf<EngineEvent>()
     try {
       runner.run(EngineEffect.RunGates(deadline), events::add)
       assertEquals(
-        listOf<EngineEvent>(EngineEvent.GateResult(GateDecision.Skip(SkipReason.ScreenOff), "app", deadline)),
+        listOf<EngineEvent>(EngineEvent.GateResult(GateDecision.Skip(SkipReason.ScreenOff), "app", deadline, false)),
         events,
       )
     } finally {
@@ -127,7 +128,7 @@ class DefaultEngineEffectRunnerTest {
     var sampled = 0
     val gate = object : GateProbe {
       override suspend fun collect() = proceedingInput
-      override suspend fun withEnvironment(input: GateInput): GateInput {
+      override suspend fun withEnvironment(input: GateInput, includeFaceDown: Boolean): GateInput {
         sampled++
         return input.copy(proximityNear = true)
       }
@@ -138,11 +139,52 @@ class DefaultEngineEffectRunnerTest {
       runner.run(EngineEffect.RunGates(deadline), events::add)
       assertEquals(1, sampled)
       assertEquals(
-        listOf<EngineEvent>(EngineEvent.GateResult(GateDecision.Skip(SkipReason.Pocket), "app", deadline)),
+        listOf<EngineEvent>(EngineEvent.GateResult(GateDecision.Skip(SkipReason.Pocket), "app", deadline, false)),
         events,
       )
     } finally {
       runner.close()
+      scope.cancel()
+    }
+  }
+
+  @Test
+  fun runGatesForwardsChargingFlagAndSkipsFaceDownWhenDisabled() = runBlocking {
+    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+    val deadline = TimeoutDeadline(10_000L)
+    val observedIncludeFaceDown = mutableListOf<Boolean>()
+    val gate = object : GateProbe {
+      override suspend fun collect() = proceedingInput.copy(isCharging = true)
+      override suspend fun withEnvironment(input: GateInput, includeFaceDown: Boolean): GateInput {
+        observedIncludeFaceDown += includeFaceDown
+        return input
+      }
+    }
+    val relaxedRunner = runner(
+      scope,
+      gate = gate,
+      config = GazeConfig(appFilterMode = AppFilterMode.All, faceDownGateEnabled = false),
+    )
+    val strictRunner = runner(
+      scope,
+      gate = gate,
+      config = GazeConfig(appFilterMode = AppFilterMode.All, faceDownGateEnabled = true),
+    )
+    val events = mutableListOf<EngineEvent>()
+    try {
+      relaxedRunner.run(EngineEffect.RunGates(deadline), events::add)
+      strictRunner.run(EngineEffect.RunGates(deadline), events::add)
+      assertEquals(listOf(false, true), observedIncludeFaceDown)
+      assertEquals(
+        listOf<EngineEvent>(
+          EngineEvent.GateResult(GateDecision.Proceed, "app", deadline, isCharging = true),
+          EngineEvent.GateResult(GateDecision.Proceed, "app", deadline, isCharging = true),
+        ),
+        events,
+      )
+    } finally {
+      relaxedRunner.close()
+      strictRunner.close()
       scope.cancel()
     }
   }

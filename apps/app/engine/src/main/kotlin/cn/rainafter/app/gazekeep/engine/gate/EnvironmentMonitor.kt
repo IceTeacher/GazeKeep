@@ -72,9 +72,9 @@ internal class EnvironmentMonitor(context: Context) :
     }
   }
 
-  /** 打开一个短采样窗口：等每个传感器上报一次（朝下需持续 300 ms），超时则缺失值保持未知。 */
-  suspend fun sample(timeoutMs: Long = SAMPLE_WINDOW_MS): EnvironmentReading {
-    val (opened, expected) = openWindow() ?: return EnvironmentReading()
+  /** 打开一个短采样窗口：等每个传感器上报一次（启用朝下判定时需持续 300 ms），超时则缺失值保持未知。 */
+  suspend fun sample(timeoutMs: Long = SAMPLE_WINDOW_MS, includeFaceDown: Boolean = true): EnvironmentReading {
+    val (opened, expected) = openWindow(includeFaceDown) ?: return EnvironmentReading()
     try {
       withTimeoutOrNull(timeoutMs) {
         while (!window.settled(expected)) delay(POLL_MS)
@@ -82,18 +82,22 @@ internal class EnvironmentMonitor(context: Context) :
       val near = window.value(Kind.Proximity)?.let { distance ->
         proximityRange?.let { distance < minOf(5f, it) }
       }
-      return EnvironmentReading(near, window.value(Kind.Light), window.faceDown())
+      return EnvironmentReading(
+        proximityNear = near,
+        lux = window.value(Kind.Light),
+        faceDown = if (includeFaceDown) window.faceDown() else null,
+      )
     } finally {
       closeWindow(opened)
     }
   }
 
-  @Synchronized private fun openWindow(): Pair<Int, Set<Kind>>? {
+  @Synchronized private fun openWindow(includeFaceDown: Boolean): Pair<Int, Set<Kind>>? {
     if (!interactive) return null
     if (windowUsers++ == 0) {
       window.reset()
       val kinds = mutableSetOf<Kind>()
-      for ((type, kind) in SENSOR_KINDS) {
+      for ((type, kind) in sensorKindsForWindow(includeFaceDown)) {
         val sensor = sensors?.getDefaultSensor(type) ?: continue
         val ok = runCatching { sensors.registerListener(this, sensor, SensorManager.SENSOR_DELAY_UI) }
           .getOrDefault(false)
@@ -140,7 +144,7 @@ internal class EnvironmentMonitor(context: Context) :
     available.clear()
   }
 
-  private companion object {
+  internal companion object {
     // 覆盖朝下 300 ms 与首个样本延迟：Xiaomi 12 Pro 的超声波接近传感器注册后约 0.56 s 才首报，
     // 三个传感器约 0.58 s 齐全。唤醒点距熄屏至少 2.5 s，窗口超时后采集仍有约 1.3 s 预算。
     const val SAMPLE_WINDOW_MS = 1_000L
@@ -150,5 +154,8 @@ internal class EnvironmentMonitor(context: Context) :
       Sensor.TYPE_LIGHT to Kind.Light,
       Sensor.TYPE_ACCELEROMETER to Kind.Accel,
     )
+
+    fun sensorKindsForWindow(includeFaceDown: Boolean): List<Pair<Int, Kind>> =
+      if (includeFaceDown) SENSOR_KINDS else SENSOR_KINDS.filter { it.second != Kind.Accel }
   }
 }
