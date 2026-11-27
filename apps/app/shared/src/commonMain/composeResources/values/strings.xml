@@ -19,6 +19,10 @@
     <string name="settings_self_test">相机自检</string>
     <string name="settings_background_policy">后台运行</string>
     <string name="settings_background_policy_summary">请将省电策略设为「无限制」，否则使用系统相机后注视保亮可能失效</string>
+    <string name="settings_background_policy_oplus_summary">点此打开应用信息，在「耗电管理」中允许后台行为与自启动，避免服务被系统冻结</string>
+    <string name="settings_background_policy_vivo_summary">点此打开应用信息，在「电量」中开启允许后台高耗电与自启动，避免服务被系统冻结</string>
+    <string name="settings_background_policy_samsung_summary">点此打开应用信息，进入「电池」并设为「不受限制」，防止后台检测被系统休眠</string>
+    <string name="settings_background_policy_huawei_summary">点此打开应用信息，在「应用启动管理」或「耗电详情」中改为手动管理并允许后台活动</string>
     <string name="settings_back">返回</string>
     <string name="settings_loading">正在读取设置…</string>
     <string name="settings_off">已关闭</string>
@@ -73,6 +77,9 @@
     <string name="settings_hold_custom_value">自定义（%1$d 分钟）</string>
     <string name="settings_hold_custom_hint">输入 1～1440 分钟整数</string>
     <string name="settings_hold_unlimited">无限制</string>
+    <string name="settings_unlimited_hold_charging">充电时不计保亮上限</string>
+    <string name="settings_unlimited_hold_charging_summary">连接电源时豁免单次最长保亮，拔电后恢复上限保护；转头或看不清仍正常熄屏。</string>
+    <string name="settings_unlimited_hold_charging_disabled_summary">单次最长保亮已设为无限制，无需单独豁免。</string>
     <string name="settings_dialog_cancel">取消</string>
     <string name="settings_dialog_confirm">确定</string>
     <string name="settings_camera_pause">相机占用时暂停</string>
@@ -255,6 +262,8 @@
     <string name="settings_low_battery_threshold_summary">未充电且电量不高于此值时暂停保亮。</string>
     <string name="settings_low_battery_off">关闭</string>
     <string name="settings_low_battery_level">低于 %1$d%</string>
+    <string name="settings_face_down_pause">手机倒扣时暂停</string>
+    <string name="settings_face_down_pause_summary">屏幕朝下放桌面时跳过检测；若常平躺举手机仰视阅读（需微光环境）可关闭。</string>
     <string name="backend_open_app_info">打开应用信息（受限设置）</string>
     <string name="backend_restricted_hint">Android 13+ 侧载安装若无法开启无障碍，可先到应用信息右上角允许“受限设置”。</string>
     <string name="self_test_select_apps">去选择保亮应用（白名单）</string>

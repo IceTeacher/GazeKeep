@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import cn.rainafter.app.gazekeep.core.model.ConfigExportResult
+import cn.rainafter.app.gazekeep.core.policy.RomBackgroundPolicy
 import cn.rainafter.app.gazekeep.ui.contract.AppLanguage
 import cn.rainafter.app.gazekeep.ui.contract.ConfigReadResult
 import cn.rainafter.app.gazekeep.ui.contract.ConfigTransferResult
@@ -22,13 +23,14 @@ import kotlinx.coroutines.runBlocking
 /** 平台能力的测试实现：返回键走真实 BackHandler，自检预览与应用图标用无内容的占位块，截图不含相机画面。 */
 class FakePlatformActions(
   language: AppLanguage? = AppLanguage.System,
-  private val romBackgroundPolicy: Boolean = false,
+  romBackgroundPolicy: RomBackgroundPolicy? = null,
   private var showSystemApps: Boolean = false,
   private val configBackupSupported: Boolean = true,
   private val controller: GazeKeepController? = null,
 ) : PlatformActions {
   val calls = mutableListOf<String>()
   private var language by mutableStateOf(language)
+  var romBackgroundPolicy by mutableStateOf(romBackgroundPolicy)
   var previewMounted = false
     private set
 
@@ -112,7 +114,7 @@ class FakePlatformActions(
 
   override fun appLanguage(): AppLanguage? = language
 
-  override fun hasRomBackgroundPolicy(): Boolean = romBackgroundPolicy
+  override fun romBackgroundPolicy(): RomBackgroundPolicy? = romBackgroundPolicy
 
   override fun openRomBackgroundPolicy() {
     calls += "openRomBackgroundPolicy"

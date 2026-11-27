@@ -18,6 +18,7 @@ import cn.rainafter.app.gazekeep.core.model.ConfigBackupCodec
 import cn.rainafter.app.gazekeep.core.model.ConfigExportResult
 import cn.rainafter.app.gazekeep.core.model.GazeConfig
 import cn.rainafter.app.gazekeep.core.model.Sensitivity
+import cn.rainafter.app.gazekeep.core.policy.RomBackgroundPolicy
 import cn.rainafter.app.gazekeep.ui.contract.AppLanguage
 import cn.rainafter.app.gazekeep.ui.contract.ConfigReadResult
 import cn.rainafter.app.gazekeep.ui.contract.ConfigTransferResult
@@ -42,6 +43,11 @@ import gazekeep.shared.generated.resources.settings_app_scope_whitelist_summary
 import gazekeep.shared.generated.resources.settings_apps
 import gazekeep.shared.generated.resources.settings_back
 import gazekeep.shared.generated.resources.settings_background_policy
+import gazekeep.shared.generated.resources.settings_background_policy_huawei_summary
+import gazekeep.shared.generated.resources.settings_background_policy_oplus_summary
+import gazekeep.shared.generated.resources.settings_background_policy_samsung_summary
+import gazekeep.shared.generated.resources.settings_background_policy_summary
+import gazekeep.shared.generated.resources.settings_background_policy_vivo_summary
 import gazekeep.shared.generated.resources.settings_blacklist_empty
 import gazekeep.shared.generated.resources.settings_config_export_too_large
 import gazekeep.shared.generated.resources.settings_config_exported
@@ -50,6 +56,8 @@ import gazekeep.shared.generated.resources.settings_config_import_too_large
 import gazekeep.shared.generated.resources.settings_config_imported
 import gazekeep.shared.generated.resources.settings_dialog_cancel
 import gazekeep.shared.generated.resources.settings_export_config
+import gazekeep.shared.generated.resources.settings_face_down_pause
+import gazekeep.shared.generated.resources.settings_face_down_pause_summary
 import gazekeep.shared.generated.resources.settings_hold_10
 import gazekeep.shared.generated.resources.settings_hold_unlimited
 import gazekeep.shared.generated.resources.settings_import_config
@@ -67,6 +75,9 @@ import gazekeep.shared.generated.resources.settings_need_self_test
 import gazekeep.shared.generated.resources.settings_power_save_pause
 import gazekeep.shared.generated.resources.settings_privacy
 import gazekeep.shared.generated.resources.settings_self_test
+import gazekeep.shared.generated.resources.settings_unlimited_hold_charging
+import gazekeep.shared.generated.resources.settings_unlimited_hold_charging_disabled_summary
+import gazekeep.shared.generated.resources.settings_unlimited_hold_charging_summary
 import org.junit.Rule
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -74,6 +85,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 @RunWith(RobolectricTestRunner::class)
@@ -132,11 +144,23 @@ class SettingsUiTest {
   }
 
   @Test
-  fun backgroundPolicyEntryOpensRomSettingsWhenPlatformHasIt() {
-    val app = rule.launchApp(readyState(), romBackgroundPolicy = true)
+  fun backgroundPolicyEntryShowsRomSpecificSummaryAndOpensSettings() {
+    val app = rule.launchApp(readyState(), romBackgroundPolicy = RomBackgroundPolicy.Xiaomi)
     app.openTab(text(Res.string.nav_settings))
-    app.click(text(Res.string.settings_background_policy))
-    assertEquals(listOf("openRomBackgroundPolicy"), app.actions.calls)
+    val cases = listOf(
+      RomBackgroundPolicy.Xiaomi to Res.string.settings_background_policy_summary,
+      RomBackgroundPolicy.Oplus to Res.string.settings_background_policy_oplus_summary,
+      RomBackgroundPolicy.Vivo to Res.string.settings_background_policy_vivo_summary,
+      RomBackgroundPolicy.Samsung to Res.string.settings_background_policy_samsung_summary,
+      RomBackgroundPolicy.HuaweiHonor to Res.string.settings_background_policy_huawei_summary,
+    )
+    cases.forEachIndexed { index, (policy, summaryRes) ->
+      app.actions.romBackgroundPolicy = policy
+      rule.waitForIdle()
+      app.assertShown(text(summaryRes))
+      app.click(text(Res.string.settings_background_policy))
+      assertEquals(index + 1, app.actions.calls.count { it == "openRomBackgroundPolicy" })
+    }
   }
 
   @Test
@@ -144,6 +168,51 @@ class SettingsUiTest {
     val app = rule.launchApp(readyState())
     app.openTab(text(Res.string.nav_settings))
     app.assertNotShown(text(Res.string.settings_background_policy))
+  }
+
+  @Test
+  fun chargingHoldExemptionDisablesAtUnlimitedAndPreservesSavedPreference() {
+    val app = rule.launchApp(readyState())
+    app.openTab(text(Res.string.nav_settings))
+    val chargingTitle = text(Res.string.settings_unlimited_hold_charging)
+    app.assertShown(text(Res.string.settings_unlimited_hold_charging_summary))
+    rule.onNodeWithText(chargingTitle).performScrollTo().assertHasClickAction()
+    app.click(chargingTitle)
+    assertTrue(app.controller.state.value.config.unlimitedHoldWhileCharging)
+
+    // 设为无限制时开关置灰禁用，但不擦除底层已保存的开关偏好。
+    app.choose(text(Res.string.settings_max_hold), text(Res.string.settings_hold_unlimited))
+    assertEquals(0, app.controller.state.value.config.maxHoldMinutes)
+    app.assertShown(text(Res.string.settings_unlimited_hold_charging_disabled_summary))
+    val disabledNode = rule.onNodeWithText(chargingTitle).performScrollTo()
+    disabledNode.assertHasNoClickAction()
+    disabledNode.performClick()
+    rule.waitForIdle()
+    assertTrue(app.controller.state.value.config.unlimitedHoldWhileCharging)
+
+    // 切回正数上限后自动恢复可用态与先前已勾选状态。
+    app.choose(text(Res.string.settings_max_hold), text(Res.string.settings_hold_10))
+    assertEquals(10, app.controller.state.value.config.maxHoldMinutes)
+    app.assertShown(text(Res.string.settings_unlimited_hold_charging_summary))
+    rule.onNodeWithText(chargingTitle).performScrollTo().assertHasClickAction()
+    assertTrue(app.controller.state.value.config.unlimitedHoldWhileCharging)
+    app.click(chargingTitle)
+    assertFalse(app.controller.state.value.config.unlimitedHoldWhileCharging)
+  }
+
+  @Test
+  fun faceDownGateToggleUpdatesConfig() {
+    val app = rule.launchApp(readyState())
+    app.openTab(text(Res.string.nav_settings))
+    val faceDownTitle = text(Res.string.settings_face_down_pause)
+    rule.onNodeWithText(faceDownTitle).performScrollTo()
+    app.assertShown(text(Res.string.settings_face_down_pause_summary))
+    assertTrue(app.controller.state.value.config.faceDownGateEnabled)
+
+    app.click(faceDownTitle)
+    assertFalse(app.controller.state.value.config.faceDownGateEnabled)
+    app.click(faceDownTitle)
+    assertTrue(app.controller.state.value.config.faceDownGateEnabled)
   }
 
   @Test
@@ -247,6 +316,8 @@ class SettingsUiTest {
           enabled = true,
           leadMillis = 10_000L,
           whitelistPackages = setOf("com.example.reader"),
+          unlimitedHoldWhileCharging = true,
+          faceDownGateEnabled = false,
         ),
       ),
     )
@@ -259,6 +330,8 @@ class SettingsUiTest {
     val json = requireNotNull(app.actions.exportedConfigJson)
     assertTrue(json.contains("\"schemaVersion\": 1"))
     assertTrue(json.contains("\"leadMillis\": 10000"))
+    assertTrue(json.contains("\"unlimitedHoldWhileCharging\": true"))
+    assertTrue(json.contains("\"faceDownGateEnabled\": false"))
     assertTrue(json.contains("\"com.example.reader\""))
     assertTrue(!json.contains("\"enabled\""))
     app.assertShown(text(Res.string.settings_config_exported))
@@ -273,6 +346,8 @@ class SettingsUiTest {
           sensitivity = Sensitivity.Loose,
           whitelistPackages = setOf("com.new.reader"),
           maxHoldMinutes = 60,
+          unlimitedHoldWhileCharging = true,
+          faceDownGateEnabled = false,
         ),
       ) as ConfigExportResult.Success
       ).json
@@ -303,6 +378,8 @@ class SettingsUiTest {
     assertEquals(5_000L, app.controller.state.value.config.leadMillis)
     assertEquals(Sensitivity.Loose, app.controller.state.value.config.sensitivity)
     assertEquals(setOf("com.new.reader"), app.controller.state.value.config.whitelistPackages)
+    assertTrue(app.controller.state.value.config.unlimitedHoldWhileCharging)
+    assertFalse(app.controller.state.value.config.faceDownGateEnabled)
     assertEquals(false, app.controller.state.value.config.enabled)
     app.assertShown(text(Res.string.settings_config_imported))
   }

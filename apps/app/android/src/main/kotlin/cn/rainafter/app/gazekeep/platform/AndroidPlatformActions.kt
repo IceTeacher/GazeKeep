@@ -40,6 +40,8 @@ import cn.rainafter.app.gazekeep.applist.AppIconCache
 import cn.rainafter.app.gazekeep.controller.AndroidGazeKeepController
 import cn.rainafter.app.gazekeep.core.model.ConfigBackupCodec
 import cn.rainafter.app.gazekeep.core.model.ConfigExportResult
+import cn.rainafter.app.gazekeep.core.policy.RomBackgroundPolicy
+import cn.rainafter.app.gazekeep.core.policy.resolveRomBackgroundPolicy
 import cn.rainafter.app.gazekeep.engine.config.ConfigStore
 import cn.rainafter.app.gazekeep.ui.contract.AppLanguage
 import cn.rainafter.app.gazekeep.ui.contract.ConfigReadResult
@@ -70,6 +72,28 @@ internal fun readBoundedUtf8(input: InputStream, maxBytes: Int = ConfigBackupCod
     out.write(buffer, 0, read)
   }
   return ConfigReadResult.Loaded(out.toByteArray().decodeToString())
+}
+
+/**
+ * 仅对已真机验证的小米 HyperOS 保留私有省电策略直达（失败回退应用详情页）；
+ * 其余未真机覆盖的 ROM 统一直达系统公开应用详情页，避免误跳或崩溃。
+ */
+internal fun launchRomBackgroundPolicy(
+  policy: RomBackgroundPolicy?,
+  packageName: String,
+  appLabel: String,
+  startIntent: (Intent) -> Unit,
+  fallbackAppDetails: () -> Unit,
+) {
+  if (policy == RomBackgroundPolicy.Xiaomi) {
+    val intent = Intent()
+      .setClassName("com.miui.powerkeeper", "com.miui.powerkeeper.ui.HiddenAppsConfigActivity")
+      .putExtra("package_name", packageName)
+      .putExtra("package_label", appLabel)
+    runCatching { startIntent(intent) }.onFailure { fallbackAppDetails() }
+    return
+  }
+  fallbackAppDetails()
 }
 
 /**
@@ -263,18 +287,17 @@ class AndroidPlatformActions(
 
   override fun setShowSystemApps(show: Boolean) = uiPrefs.edit { putBoolean(KEY_SHOW_SYSTEM_APPS, show) }
 
-  // Xiaomi 12 Pro / HyperOS OS2.0.6 实测：默认「智能」策略会在系统相机使用后冻结前台服务进程，只有「无限制」可避免。
-  override fun hasRomBackgroundPolicy(): Boolean = Build.MANUFACTURER.equals("Xiaomi", ignoreCase = true)
+  // Xiaomi 12 Pro / HyperOS OS2.0.6 实测保留直达入口；其余 ROM 家族统一引导至系统公开应用详情页。
+  override fun romBackgroundPolicy(): RomBackgroundPolicy? = resolveRomBackgroundPolicy(Build.MANUFACTURER, Build.BRAND)
 
   override fun openRomBackgroundPolicy() {
-    val policy = Intent()
-      .setClassName("com.miui.powerkeeper", "com.miui.powerkeeper.ui.HiddenAppsConfigActivity")
-      .putExtra("package_name", activity.packageName)
-      .putExtra("package_label", activity.applicationInfo.loadLabel(activity.packageManager).toString())
-    // 省电策略页属于 ROM 私有入口，不可用时退回应用详情页，由用户手动进入省电策略。
-    runCatching { activity.startActivity(policy) }.onFailure {
-      openAppDetailsSettings()
-    }
+    launchRomBackgroundPolicy(
+      policy = romBackgroundPolicy(),
+      packageName = activity.packageName,
+      appLabel = activity.applicationInfo.loadLabel(activity.packageManager).toString(),
+      startIntent = activity::startActivity,
+      fallbackAppDetails = ::openAppDetailsSettings,
+    )
   }
 
   override fun copyToClipboard(text: String) {
