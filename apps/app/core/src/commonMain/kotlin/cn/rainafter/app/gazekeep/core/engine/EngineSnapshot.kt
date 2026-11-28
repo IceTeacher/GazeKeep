@@ -15,6 +15,7 @@ data class EngineContext(
   val captureLatencyMs: Long? = null,
   /** 最近一次门控跳过对应的熄屏截止时间；同一截止周期内的微小抖动不再重新门控。 */
   val skippedScreenOffAtUptime: Long? = null,
+  val isCharging: Boolean = false,
 )
 
 data class EngineSnapshot(

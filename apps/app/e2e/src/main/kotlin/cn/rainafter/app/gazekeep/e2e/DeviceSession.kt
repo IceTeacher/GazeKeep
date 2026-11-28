@@ -1,9 +1,12 @@
 package cn.rainafter.app.gazekeep.e2e
 
+import android.graphics.Rect
 import android.os.Build
 import android.os.ParcelFileDescriptor
+import android.os.SystemClock
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.StaleObjectException
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
@@ -102,25 +105,48 @@ class DeviceSession {
 
   fun require(text: String): UiObject2 = checkNotNull(find(text)) { "未找到文本：$text" }
 
-  /** 文本可能位于顶部导航栏或底部悬浮导航栏遮挡区，按需小步滚入视口安全区后再返回。 */
+  private fun safeVisibleBounds(node: UiObject2?): Rect? = try {
+    node?.visibleBounds
+  } catch (_: StaleObjectException) {
+    null
+  }
+
+  /** 等待滚动惯性停止，直到目标连续两次坐标一致后再返回，避免点击仅用来刹停滑行。 */
+  private fun awaitSettledText(text: String): UiObject2? {
+    var previous: Rect? = null
+    var candidate: UiObject2? = null
+    repeat(8) {
+      candidate = device.findObject(By.text(text))
+      val bounds = safeVisibleBounds(candidate)
+      if (bounds != null && bounds.height() > 0 && bounds == previous) {
+        return candidate
+      }
+      previous = bounds
+      SystemClock.sleep(120L)
+    }
+    return candidate
+  }
+
+  /** 文本可能位于顶部导航栏或底部悬浮导航栏遮挡区，按需小步滚入视口安全区并待静止后再返回。 */
   fun scrollToText(text: String): UiObject2 {
     val safeTop = device.displayHeight / 5
     val safeBottom = device.displayHeight * 3 / 4
-    var lastBounds: android.graphics.Rect? = null
+    var lastBounds: Rect? = null
     repeat(10) {
       val obj = device.findObject(By.text(text))
-      if (obj != null) {
-        val bounds = obj.visibleBounds
-        if (bounds.height() > 0 && bounds.centerY() in safeTop..safeBottom) return obj
-        if (bounds == lastBounds) return obj
+      val bounds = safeVisibleBounds(obj)
+      if (obj != null && bounds != null) {
+        if ((bounds.height() > 0 && bounds.centerY() in safeTop..safeBottom) || bounds == lastBounds) {
+          return awaitSettledText(text) ?: obj
+        }
         lastBounds = bounds
         if (bounds.centerY() < safeTop) {
           device.swipe(
             device.displayWidth / 2,
-            device.displayHeight / 3,
+            device.displayHeight * 2 / 5,
             device.displayWidth / 2,
-            device.displayHeight * 2 / 3,
-            40,
+            device.displayHeight * 3 / 5,
+            80,
           )
           device.waitForIdle()
           return@repeat
@@ -128,25 +154,38 @@ class DeviceSession {
       }
       device.swipe(
         device.displayWidth / 2,
-        device.displayHeight * 2 / 3,
+        device.displayHeight * 3 / 5,
         device.displayWidth / 2,
-        device.displayHeight / 3,
-        40,
+        device.displayHeight * 2 / 5,
+        80,
       )
       device.waitForIdle()
     }
-    return require(text)
+    return awaitSettledText(text) ?: require(text)
   }
 
   fun tap(text: String) {
+    repeat(3) {
+      try {
+        scrollToText(text).click()
+        device.waitForIdle()
+        return
+      } catch (_: StaleObjectException) {
+        device.waitForIdle()
+      }
+    }
     scrollToText(text).click()
     device.waitForIdle()
   }
 
-  /** 部分 ROM 在启动动画期间会丢弃注入的首次点击，切换后以设置页独有条目确认，未切换则重试。 */
+  /** 部分 ROM 在启动动画期间会丢弃注入的首次点击或触发视图重组，切换后以设置页独有条目确认，未切换则重试。 */
   fun openSettingsTab() {
     repeat(5) {
-      checkNotNull(device.wait(Until.findObject(appText("nav_settings")), TIMEOUT_MS)) { "未找到应用底部导航" }.click()
+      try {
+        checkNotNull(device.wait(Until.findObject(appText("nav_settings")), TIMEOUT_MS)) { "未找到应用底部导航" }.click()
+      } catch (_: StaleObjectException) {
+        // 刚启动后状态流刷新可能重建底部导航节点，进入下一轮重新查找。
+      }
       device.waitForIdle()
       if (device.wait(Until.hasObject(appText("settings_backend")), 4_000L)) return
     }

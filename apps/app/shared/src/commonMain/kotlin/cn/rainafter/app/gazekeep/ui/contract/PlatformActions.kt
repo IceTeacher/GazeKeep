@@ -2,6 +2,7 @@ package cn.rainafter.app.gazekeep.ui.contract
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import cn.rainafter.app.gazekeep.core.policy.RomBackgroundPolicy
 
 sealed interface ConfigTransferResult {
   data object Saved : ConfigTransferResult
@@ -43,8 +44,8 @@ interface PlatformActions {
   fun showSystemApps(): Boolean
   fun setShowSystemApps(show: Boolean)
 
-  /** ROM 是否提供需用户放开的后台省电策略入口（如 HyperOS）；false 时设置页不显示该项。 */
-  fun hasRomBackgroundPolicy(): Boolean
+  /** 返回当前 ROM 对应的后台省电策略引导家族；null 时设置页不显示该项。 */
+  fun romBackgroundPolicy(): RomBackgroundPolicy?
   fun openRomBackgroundPolicy()
 
   @Composable fun HandleBack(enabled: Boolean, onBack: () -> Unit)

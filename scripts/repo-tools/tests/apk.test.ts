@@ -111,6 +111,24 @@ test("编译权限、资源、版本和无参反射入口的缺陷被拒绝", ()
     ],
     [
       (s) => {
+        s.manifest = s.manifest.replace(
+          "<application",
+          '<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/><application',
+        );
+      },
+      /禁止权限/,
+    ],
+    [
+      (s) => {
+        s.manifest = s.manifest.replace(
+          "<application",
+          '<uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/><application',
+        );
+      },
+      /禁止权限/,
+    ],
+    [
+      (s) => {
         s.manifest = s.manifest.replace('versionCode="2"', 'versionCode="1"');
       },
       /版本/,

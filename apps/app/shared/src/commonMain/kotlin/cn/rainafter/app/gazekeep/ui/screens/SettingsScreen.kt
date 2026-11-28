@@ -33,6 +33,7 @@ import cn.rainafter.app.gazekeep.core.model.AppFilterMode
 import cn.rainafter.app.gazekeep.core.model.GazeConfig
 import cn.rainafter.app.gazekeep.core.model.Sensitivity
 import cn.rainafter.app.gazekeep.core.model.scopedPackages
+import cn.rainafter.app.gazekeep.core.policy.RomBackgroundPolicy
 import cn.rainafter.app.gazekeep.core.policy.canConfigureHideCameraIndicator
 import cn.rainafter.app.gazekeep.ui.components.AppScaffold
 import cn.rainafter.app.gazekeep.ui.components.ExperimentalSwitchPreference
@@ -61,7 +62,11 @@ import gazekeep.shared.generated.resources.settings_app_scope_whitelist_summary
 import gazekeep.shared.generated.resources.settings_apps
 import gazekeep.shared.generated.resources.settings_backend
 import gazekeep.shared.generated.resources.settings_background_policy
+import gazekeep.shared.generated.resources.settings_background_policy_huawei_summary
+import gazekeep.shared.generated.resources.settings_background_policy_oplus_summary
+import gazekeep.shared.generated.resources.settings_background_policy_samsung_summary
 import gazekeep.shared.generated.resources.settings_background_policy_summary
+import gazekeep.shared.generated.resources.settings_background_policy_vivo_summary
 import gazekeep.shared.generated.resources.settings_blacklist_count
 import gazekeep.shared.generated.resources.settings_blacklist_empty
 import gazekeep.shared.generated.resources.settings_config_export_failed
@@ -78,6 +83,8 @@ import gazekeep.shared.generated.resources.settings_dialog_cancel
 import gazekeep.shared.generated.resources.settings_dialog_confirm
 import gazekeep.shared.generated.resources.settings_export_config
 import gazekeep.shared.generated.resources.settings_export_config_summary
+import gazekeep.shared.generated.resources.settings_face_down_pause
+import gazekeep.shared.generated.resources.settings_face_down_pause_summary
 import gazekeep.shared.generated.resources.settings_hide_camera_indicator
 import gazekeep.shared.generated.resources.settings_hide_camera_indicator_disabled_summary
 import gazekeep.shared.generated.resources.settings_hide_camera_indicator_summary
@@ -118,6 +125,9 @@ import gazekeep.shared.generated.resources.settings_self_test
 import gazekeep.shared.generated.resources.settings_sensitivity
 import gazekeep.shared.generated.resources.settings_standard
 import gazekeep.shared.generated.resources.settings_title
+import gazekeep.shared.generated.resources.settings_unlimited_hold_charging
+import gazekeep.shared.generated.resources.settings_unlimited_hold_charging_disabled_summary
+import gazekeep.shared.generated.resources.settings_unlimited_hold_charging_summary
 import gazekeep.shared.generated.resources.settings_view_logs
 import gazekeep.shared.generated.resources.settings_view_logs_summary
 import kotlinx.coroutines.CoroutineScope
@@ -302,11 +312,17 @@ internal fun SettingsTabScreen(
             startAction = { StartSettingIcon(MiuixIcons.Scan) },
             onClick = { onNavigate(SettingsScreen.SelfTest) },
           )
-          if (actions.hasRomBackgroundPolicy()) {
-            // HyperOS 默认省电策略会在系统相机使用后冻结服务进程，且无公开接口读取当前策略，只能常驻引导。
+          actions.romBackgroundPolicy()?.let { policy ->
+            val summaryRes = when (policy) {
+              RomBackgroundPolicy.Xiaomi -> Res.string.settings_background_policy_summary
+              RomBackgroundPolicy.Oplus -> Res.string.settings_background_policy_oplus_summary
+              RomBackgroundPolicy.Vivo -> Res.string.settings_background_policy_vivo_summary
+              RomBackgroundPolicy.Samsung -> Res.string.settings_background_policy_samsung_summary
+              RomBackgroundPolicy.HuaweiHonor -> Res.string.settings_background_policy_huawei_summary
+            }
             ArrowPreference(
               title = stringResource(Res.string.settings_background_policy),
-              summary = stringResource(Res.string.settings_background_policy_summary),
+              summary = stringResource(summaryRes),
               startAction = { StartSettingIcon(MiuixIcons.Info) },
               onClick = actions::openRomBackgroundPolicy,
             )
@@ -392,6 +408,23 @@ internal fun SettingsTabScreen(
 
                 else -> scope.launch { controller.updateConfig { it.copy(maxHoldMinutes = 0) } }
               }
+            },
+          )
+          val canExemptChargingHold = state.config.maxHoldMinutes > 0
+          SwitchPreference(
+            title = stringResource(Res.string.settings_unlimited_hold_charging),
+            summary = stringResource(
+              if (canExemptChargingHold) {
+                Res.string.settings_unlimited_hold_charging_summary
+              } else {
+                Res.string.settings_unlimited_hold_charging_disabled_summary
+              },
+            ),
+            startAction = { StartSettingIcon(MiuixIcons.Stopwatch) },
+            enabled = canExemptChargingHold,
+            checked = state.config.unlimitedHoldWhileCharging && canExemptChargingHold,
+            onCheckedChange = { enabled ->
+              scope.launch { controller.updateConfig { it.copy(unlimitedHoldWhileCharging = enabled) } }
             },
           )
           ExperimentalSwitchPreference(
@@ -488,6 +521,15 @@ internal fun SettingsTabScreen(
             onSelectedIndexChange = { index ->
               val selectedLevel = lowBatteryLevels[index]
               scope.launch { controller.updateConfig { it.copy(lowBatteryThreshold = selectedLevel) } }
+            },
+          )
+          SwitchPreference(
+            title = stringResource(Res.string.settings_face_down_pause),
+            summary = stringResource(Res.string.settings_face_down_pause_summary),
+            startAction = { StartSettingIcon(MiuixIcons.Scan) },
+            checked = state.config.faceDownGateEnabled,
+            onCheckedChange = { enabled ->
+              scope.launch { controller.updateConfig { it.copy(faceDownGateEnabled = enabled) } }
             },
           )
         }

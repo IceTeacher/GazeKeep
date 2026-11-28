@@ -13,6 +13,7 @@ import androidx.test.ext.junit.rules.ActivityScenarioRule
 import cn.rainafter.app.gazekeep.core.model.BackendId
 import cn.rainafter.app.gazekeep.core.model.Readiness
 import cn.rainafter.app.gazekeep.core.model.SetupStep
+import cn.rainafter.app.gazekeep.core.policy.RomBackgroundPolicy
 import cn.rainafter.app.gazekeep.ui.App
 import cn.rainafter.app.gazekeep.ui.contract.AppLanguage
 import cn.rainafter.app.gazekeep.ui.contract.ControllerState
@@ -95,7 +96,7 @@ fun ActivityComposeRule.launchApp(
   state: ControllerState,
   selfTest: SelfTestState = SelfTestState(),
   language: AppLanguage? = AppLanguage.System,
-  romBackgroundPolicy: Boolean = false,
+  romBackgroundPolicy: RomBackgroundPolicy? = null,
   showSystemApps: Boolean = false,
 ): UiTestSession {
   val controller = FakeGazeKeepController(state, selfTest)

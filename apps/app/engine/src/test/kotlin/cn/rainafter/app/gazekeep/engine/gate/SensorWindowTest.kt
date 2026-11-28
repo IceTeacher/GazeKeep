@@ -58,4 +58,12 @@ class SensorWindowTest {
     assertNull(window.faceDown())
     assertFalse(window.settled(setOf(Kind.Light)))
   }
+
+  @Test fun skippingFaceDownExcludesAccelerometerAndSettlesWithoutHoldDelay() {
+    val kinds = EnvironmentMonitor.sensorKindsForWindow(includeFaceDown = false).map { it.second }.toSet()
+    assertEquals(setOf(Kind.Proximity, Kind.Light), kinds)
+    window.offer(Kind.Proximity, 5f)
+    window.offer(Kind.Light, 50f)
+    assertTrue(window.settled(kinds))
+  }
 }

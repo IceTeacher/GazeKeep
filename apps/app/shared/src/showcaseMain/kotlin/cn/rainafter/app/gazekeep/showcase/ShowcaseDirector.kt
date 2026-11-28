@@ -19,6 +19,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseDriver
+import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseKeys
 import cn.rainafter.app.gazekeep.ui.showcase.ShowcasePause
 import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseScroll
 import cn.rainafter.app.gazekeep.ui.showcase.ShowcaseSettings
@@ -76,7 +77,24 @@ internal class ShowcaseDirector(
       is ShowcaseStep.Wait -> pause.delay(step.millis)
 
       is ShowcaseStep.Tap -> {
-        val bounds = await { anchors[step.key] } ?: return
+        var bounds = await { anchors[step.key] } ?: return
+        if (step.key in SETTINGS_ROW_ANCHORS && windowHeight < Float.MAX_VALUE) {
+          scrolls[ShowcaseKeys.SETTINGS]?.let { target ->
+            val topSafe = 96f * density
+            val bottomSafe = windowHeight - 88f * density
+            val shift = when {
+              bounds.bottom > bottomSafe -> -(bounds.bottom - bottomSafe + 24f * density)
+              bounds.top < topSafe -> topSafe - bounds.top + 24f * density
+              else -> 0f
+            }
+            if (shift != 0f) {
+              drag(target, shift)
+              withFrameMillis {}
+              withFrameMillis {}
+              bounds = anchors[step.key] ?: bounds
+            }
+          }
+        }
         val x = bounds.left + bounds.width * (step.column + 0.5f) / step.columns
         tap(Offset(x, bounds.center.y))
       }
@@ -206,6 +224,12 @@ internal class ShowcaseDirector(
     val POPUP_ANCHOR = 9.dp
     val POPUP_MARGIN = 8.dp
     val POPUP_TAP_INSET = 72.dp
+    val SETTINGS_ROW_ANCHORS = setOf(
+      ShowcaseKeys.LEAD,
+      ShowcaseKeys.SENSITIVITY,
+      ShowcaseKeys.MAX_HOLD,
+      ShowcaseKeys.HIDE_INDICATOR,
+    )
   }
 }
 

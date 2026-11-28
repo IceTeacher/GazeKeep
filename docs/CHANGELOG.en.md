@@ -1,3 +1,43 @@
+# v1.1.8
+
+## Changelog
+
+### Added
+
+- Added an "Ignore limit while charging" toggle (off by default): bypasses the maximum keep-awake cap while plugged in for long desktop-stand reading sessions; looking away or uncertain results still let the screen sleep normally, and unplugging immediately restores the limit starting from the first subsequent extension (automatically grayed out while preserving your stored preference when maximum keep-awake time is set to Unlimited).
+- Added a "Pause when face down" toggle (on by default): skips checks while the phone rests screen-down on a desk; turn it off if you frequently read lying flat holding the phone overhead (requires sufficient ambient light and upright forward gaze), while proximity and dark-scene checks continue to enforce sleep when truly covered or placed down.
+
+### Improved
+
+- Expanded multi-ROM background operation guidance: beyond opening the Xiaomi / HyperOS battery saver screen directly, added per-ROM guidance for OPPO / OnePlus / realme (ColorOS), vivo / iQOO (OriginOS), Samsung (One UI), and Huawei / Honor (HarmonyOS / MagicOS), opening system App Info with tailored path hints and zero extra permissions.
+- Skipping accelerometer registration when "Pause when face down" is turned off avoids wasted 300 ms face-down hold waits during overhead reading.
+- Local settings backup (export and import) now includes both "Ignore limit while charging" and "Pause when face down" while remaining backward-compatible with older backup files.
+
+### Fixed
+
+- Tightened battery charging detection so a residual `BATTERY_STATUS_FULL` state at the moment an unplugged phone hits 100% no longer triggers a false charging exemption.
+
+## Setup
+
+- Root environment: Enable the module in LSPosed, select the System Framework in scope, reboot, then return to the app to confirm the bridge is ready.
+- Non-root environment: Enable the GazeKeep service in system Accessibility settings, or start Shizuku and grant GazeKeep permission, then return to the app to confirm backend readiness. On Android 13 and later, if the Accessibility toggle is grayed out with "Restricted setting", open App Info, tap the top-right menu to allow restricted settings, then return to Accessibility settings.
+- For both environments: grant camera permission, complete the self-test (looking forward shows "Looking at screen"; looking away shows "Not looking"), choose an app scope and select whitelist/blacklist apps in Settings (or restore a backup via "Settings → Import settings"), then turn on the main toggle (or use the Quick Settings tile).
+- Background battery policy: on Xiaomi / HyperOS, tap "Background operation" in Settings and choose "No restrictions" (the system force-stops GazeKeep when changing this policy; reopen the app once afterward). On OPPO / OnePlus / realme, vivo / iQOO, Samsung, and Huawei / Honor, tap "Background operation" to open App Info and allow unrestricted background usage per the on-screen hint.
+
+### Tuning Tips
+
+| Setting                     | Default                      | Recommendation                                                                                                       |
+| :-------------------------- | :--------------------------- | :------------------------------------------------------------------------------------------------------------------- |
+| Detection lead time         | 8 s                          | Choose 5 s, 8 s, or custom 0–60 s. Increase on devices with slower camera startup or quick dimming                   |
+| Sensitivity                 | Standard: forward, eyes open | Standard requires facing forward with eyes open; switch to Relaxed if reflective glasses make eye detection unstable |
+| Maximum keep-awake time     | 30 min                       | Recommended as a safeguard if you fall asleep; customizable or set to unlimited                                      |
+| Ignore limit while charging | Off                          | Enable for long plugged-in desktop reading; unplugging immediately restores the cap and looking away still sleeps    |
+| App scope                   | Whitelist only               | Best battery life by checking only selected apps; choose "All apps" for global use (camera apps still skipped)       |
+| Pause on Battery Saver      | On                           | Automatically yields camera and keep-awake while system Battery Saver is active                                      |
+| Low battery threshold       | 15% or below                 | Pauses keep-awake while unplugged at or below the threshold; resumes automatically when charging                     |
+| Pause when face down        | On                           | Keep on for normal use; turn off in sufficient light if you often read lying flat holding the phone overhead         |
+| Detailed logs               | Off                          | Enable only while troubleshooting; keeps the last 24 hours and clears immediately when turned off                    |
+
 # v1.1.7
 
 ## Changelog

@@ -95,7 +95,7 @@ object GatePolicy {
       return GateDecision.Skip(SkipReason.CameraBusy)
     }
     if (input.proximityNear == true) return GateDecision.Skip(SkipReason.Pocket)
-    if (input.faceDown == true) return GateDecision.Skip(SkipReason.FaceDown)
+    if (config.faceDownGateEnabled && input.faceDown == true) return GateDecision.Skip(SkipReason.FaceDown)
     if (context.darkUnknownStreak >= 2 && input.lux != null && input.lux < 3f) {
       return GateDecision.Skip(SkipReason.TooDarkRepeatedly)
     }

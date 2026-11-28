@@ -37,6 +37,7 @@ import cn.rainafter.app.gazekeep.core.model.ConfigExportResult
 import cn.rainafter.app.gazekeep.core.model.GazeConfig
 import cn.rainafter.app.gazekeep.core.model.Readiness
 import cn.rainafter.app.gazekeep.core.model.Sensitivity
+import cn.rainafter.app.gazekeep.core.policy.RomBackgroundPolicy
 import cn.rainafter.app.gazekeep.ui.contract.AppEntry
 import cn.rainafter.app.gazekeep.ui.contract.AppLanguage
 import cn.rainafter.app.gazekeep.ui.contract.AppListLoadState
@@ -185,7 +186,7 @@ private object DemoActions : PlatformActions {
   override fun setAppLanguage(language: AppLanguage) {}
   override fun showSystemApps(): Boolean = false
   override fun setShowSystemApps(show: Boolean) {}
-  override fun hasRomBackgroundPolicy(): Boolean = false
+  override fun romBackgroundPolicy(): RomBackgroundPolicy? = null
   override fun openRomBackgroundPolicy() {}
 
   override fun openAppDetailsSettings() {}

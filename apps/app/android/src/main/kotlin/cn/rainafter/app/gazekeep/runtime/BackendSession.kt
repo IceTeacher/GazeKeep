@@ -17,6 +17,7 @@ import cn.rainafter.app.gazekeep.core.backend.KeepAwakeBackend
 import cn.rainafter.app.gazekeep.core.backend.TimeoutOracle
 import cn.rainafter.app.gazekeep.core.engine.Alert
 import cn.rainafter.app.gazekeep.core.engine.DecisionRecord
+import cn.rainafter.app.gazekeep.core.engine.EngineContext
 import cn.rainafter.app.gazekeep.core.engine.EngineEvent
 import cn.rainafter.app.gazekeep.core.engine.EngineSnapshot
 import cn.rainafter.app.gazekeep.core.engine.EngineState
@@ -130,6 +131,7 @@ class BackendSession(
     effects = runner
     engine = GazeEngine(
       EngineSnapshot(
+        context = EngineContext(isCharging = AndroidGateProbe.currentChargingState(context)),
         config = config,
         backend = null,
         cameraPermissionGranted = permission,
@@ -190,6 +192,9 @@ class BackendSession(
     writer.println("whitelistCount=${snapshot?.config?.whitelistPackages?.size}")
     writer.println("blacklistCount=${snapshot?.config?.blacklistPackages?.size}")
     writer.println("maxHoldMinutes=${snapshot?.config?.maxHoldMinutes}")
+    writer.println("unlimitedHoldWhileCharging=${snapshot?.config?.unlimitedHoldWhileCharging}")
+    writer.println("faceDownGateEnabled=${snapshot?.config?.faceDownGateEnabled}")
+    writer.println("isCharging=${snapshot?.context?.isCharging}")
     writer.println("hideCameraIndicator=${snapshot?.config?.hideCameraIndicator}")
     writer.println("backend=${snapshot?.backend}")
     writer.println("state=${snapshot?.state?.let(::logName)}")
@@ -358,6 +363,10 @@ class BackendSession(
             idleOracle?.markActivity()
             powerOracle?.requestRead()
           }
+
+          Intent.ACTION_POWER_CONNECTED -> engine?.submit(EngineEvent.ChargingChanged(true))
+
+          Intent.ACTION_POWER_DISCONNECTED -> engine?.submit(EngineEvent.ChargingChanged(false))
         }
       }
     }
@@ -365,6 +374,8 @@ class BackendSession(
       addAction(Intent.ACTION_SCREEN_OFF)
       addAction(Intent.ACTION_SCREEN_ON)
       addAction(Intent.ACTION_USER_PRESENT)
+      addAction(Intent.ACTION_POWER_CONNECTED)
+      addAction(Intent.ACTION_POWER_DISCONNECTED)
     }
     if (Build.VERSION.SDK_INT >= 33) {
       context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)

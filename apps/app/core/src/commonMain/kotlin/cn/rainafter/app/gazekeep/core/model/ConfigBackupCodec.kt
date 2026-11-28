@@ -44,7 +44,9 @@ object ConfigBackupCodec {
       appendField("pauseOnPowerSave", config.pauseOnPowerSave.toString(), trailingComma = true)
       appendField("lowBatteryThreshold", config.lowBatteryThreshold.toString(), trailingComma = true)
       appendField("debugLogEnabled", config.debugLogEnabled.toString(), trailingComma = true)
-      appendField("hideCameraIndicator", config.hideCameraIndicator.toString(), trailingComma = false)
+      appendField("hideCameraIndicator", config.hideCameraIndicator.toString(), trailingComma = true)
+      appendField("unlimitedHoldWhileCharging", config.unlimitedHoldWhileCharging.toString(), trailingComma = true)
+      appendField("faceDownGateEnabled", config.faceDownGateEnabled.toString(), trailingComma = false)
       append("}\n")
     }
     return ConfigExportResult.Success(json)
@@ -96,6 +98,16 @@ object ConfigBackupCodec {
       ?: return ConfigImportResult.InvalidFormat("invalid debugLogEnabled")
     val hideCameraIndicator = parseBoolean(parsed, "hideCameraIndicator", current.hideCameraIndicator)
       ?: return ConfigImportResult.InvalidFormat("invalid hideCameraIndicator")
+    val unlimitedHoldWhileCharging = parseBoolean(
+      parsed,
+      "unlimitedHoldWhileCharging",
+      current.unlimitedHoldWhileCharging,
+    ) ?: return ConfigImportResult.InvalidFormat("invalid unlimitedHoldWhileCharging")
+    val faceDownGateEnabled = parseBoolean(
+      parsed,
+      "faceDownGateEnabled",
+      current.faceDownGateEnabled,
+    ) ?: return ConfigImportResult.InvalidFormat("invalid faceDownGateEnabled")
 
     // 显式保留当前设备的 enabled 状态，外部 JSON 严禁越权开启服务。
     return ConfigImportResult.Success(
@@ -112,6 +124,8 @@ object ConfigBackupCodec {
         lowBatteryThreshold = lowBatteryThreshold,
         debugLogEnabled = debugLogEnabled,
         hideCameraIndicator = hideCameraIndicator,
+        unlimitedHoldWhileCharging = unlimitedHoldWhileCharging,
+        faceDownGateEnabled = faceDownGateEnabled,
       ),
     )
   }

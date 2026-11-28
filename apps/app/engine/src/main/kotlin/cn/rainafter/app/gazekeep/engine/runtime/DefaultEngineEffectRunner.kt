@@ -84,7 +84,7 @@ class DefaultEngineEffectRunner(
           var sensorMs: Long? = null
           if (decision == GateDecision.Proceed) {
             val opened = System.nanoTime()
-            input = gateProbe.withEnvironment(base)
+            input = gateProbe.withEnvironment(base, includeFaceDown = config.faceDownGateEnabled)
             sensorMs = (System.nanoTime() - opened) / 1_000_000
             currentCoroutineContext().ensureActive()
             decision = GatePolicy.decide(input, context, config)
@@ -99,7 +99,7 @@ class DefaultEngineEffectRunner(
                 "faceDown=${input.faceDown != null}",
             )
           }
-          emit(EngineEvent.GateResult(decision, input.foregroundPackage, effect.deadline))
+          emit(EngineEvent.GateResult(decision, input.foregroundPackage, effect.deadline, input.isCharging))
         }
       }
 

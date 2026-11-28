@@ -71,7 +71,7 @@ test("更新日志页面渲染全部版本、表格与可折叠启用步骤，�
   mounted = await mountChangelog("zh");
 
   const versions = [...document.querySelectorAll<HTMLElement>(".changelog-card")].map((el) => el.dataset.version);
-  expect(versions).toEqual(["v1.1.7", "v1.1.6", "v1.1.5", "v1.1.4", "v1.1.3", "v1.1.2"]);
+  expect(versions).toEqual(["v1.1.8", "v1.1.7", "v1.1.6", "v1.1.5", "v1.1.4", "v1.1.3", "v1.1.2"]);
   expect(document.documentElement.dataset.page).toBe("changelog");
   expect(getComputedStyle(document.documentElement).scrollSnapType).toBe("none");
   expect(document.querySelector<HTMLElement>(".nav-wrap")!.dataset.zone).toBe("content");

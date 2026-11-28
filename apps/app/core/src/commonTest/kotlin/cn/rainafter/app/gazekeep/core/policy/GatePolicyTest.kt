@@ -152,4 +152,24 @@ class GatePolicyTest {
       assertEquals(skip(SkipReason.CameraSensitiveApp), decide(input(pkg), config(AppFilterMode.All)), pkg)
     }
   }
+
+  @Test fun faceDownGateRespectsToggleWhileKeepingPocketAndDarkFallbacks() {
+    val defaultCfg = config(AppFilterMode.All)
+    assertEquals(skip(SkipReason.FaceDown), decide(input(reader).copy(faceDown = true), defaultCfg))
+
+    val relaxedFaceDown = defaultCfg.copy(faceDownGateEnabled = false)
+    assertEquals(GateDecision.Proceed, decide(input(reader).copy(faceDown = true), relaxedFaceDown))
+    assertEquals(
+      skip(SkipReason.Pocket),
+      decide(input(reader).copy(faceDown = true, proximityNear = true), relaxedFaceDown),
+    )
+    assertEquals(
+      skip(SkipReason.TooDarkRepeatedly),
+      GatePolicy.decide(
+        input(reader).copy(faceDown = true, lux = 1f),
+        GateContext(darkUnknownStreak = 2),
+        relaxedFaceDown,
+      ),
+    )
+  }
 }

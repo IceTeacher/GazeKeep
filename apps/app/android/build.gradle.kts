@@ -45,8 +45,8 @@ android {
     applicationId = "cn.rainafter.app.gazekeep"
     minSdk = libs.versions.android.minSdk.get().toInt()
     targetSdk = libs.versions.android.targetSdk.get().toInt()
-    versionCode = 9
-    versionName = "1.1.7"
+    versionCode = 10
+    versionName = "1.1.8"
   }
   testOptions.unitTests {
     // 通知文案测试按资源键读取各语言字符串。

@@ -15,8 +15,8 @@ interface GateProbe {
   /** 不打开传感器的门控输入；接近、光照与朝下保持 null。 */
   suspend fun collect(): GateInput
 
-  /** 补齐传感器读数；只在其余门控已放行时调用，避免必然跳过的轮次也打开传感器。 */
-  suspend fun withEnvironment(input: GateInput): GateInput = input
+  /** 按需补齐传感器读数；只在其余门控已放行时调用，关闭倒扣门控时不打开加速度计。 */
+  suspend fun withEnvironment(input: GateInput, includeFaceDown: Boolean = true): GateInput = input
 }
 
 fun interface ForegroundAppSource {
@@ -51,24 +51,30 @@ class AndroidGateProbe(private val context: Context, private val foreground: For
 
   internal data class BatteryState(val percent: Int?, val charging: Boolean)
 
-  internal companion object {
-    fun readBatteryState(intent: Intent?): BatteryState {
+  companion object {
+    internal fun readBatteryState(intent: Intent?): BatteryState {
       if (intent == null) return BatteryState(percent = null, charging = false)
-      val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
-      val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+      return parseBatteryState(
+        level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1),
+        scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1),
+        plugged = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0),
+        status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1),
+      )
+    }
+
+    fun currentChargingState(context: Context): Boolean =
+      readBatteryState(context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))).charging
+
+    internal fun parseBatteryState(level: Int, scale: Int, plugged: Int, status: Int): BatteryState {
       val percent = if (level >= 0 && scale > 0) ((level * 100) / scale).coerceIn(0, 100) else null
-      val plugged = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0)
-      val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
-      val charging =
-        plugged != 0 ||
-          status == BatteryManager.BATTERY_STATUS_CHARGING ||
-          status == BatteryManager.BATTERY_STATUS_FULL
+      // 不单独把 BATTERY_STATUS_FULL 判为充电中，避免 100% 拔线瞬态残留 FULL 导致误豁免。
+      val charging = plugged != 0 || status == BatteryManager.BATTERY_STATUS_CHARGING
       return BatteryState(percent = percent, charging = charging)
     }
   }
 
-  override suspend fun withEnvironment(input: GateInput): GateInput {
-    val reading = environment.sample()
+  override suspend fun withEnvironment(input: GateInput, includeFaceDown: Boolean): GateInput {
+    val reading = environment.sample(includeFaceDown = includeFaceDown)
     return input.copy(proximityNear = reading.proximityNear, lux = reading.lux, faceDown = reading.faceDown)
   }
 
