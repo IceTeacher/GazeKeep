@@ -70,7 +70,10 @@ class ConfigPersistenceTest {
 
   /** 从设置页进入应用列表，按被测应用自身的包名搜索，返回当前名单的已选数量。 */
   private fun openAppsAndSearchSelf(): Int {
-    session.scrollToText(session.label("settings_apps")).click()
+    for (attempt in 1..3) {
+      session.tap(session.label("settings_apps"))
+      if (session.device.wait(Until.hasObject(session.appText("settings_apps_blacklist_title")), 4_000L)) break
+    }
     session.require(session.label("settings_apps_blacklist_title"))
     checkNotNull(session.device.wait(Until.findObject(By.clazz("android.widget.EditText")), 10_000L)) {
       "未找到应用搜索框"
