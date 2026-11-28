@@ -35,7 +35,7 @@ android → xposed（唯一 APK 打包）
 - **唯一决策入口**：`EngineReducer` 接收显式 `uptime` 与 `EngineEvent`，纯函数输出 `EngineSnapshot` 与 `EngineEffect` 列表。`DefaultEngineEffectRunner` 串行执行门控、采集与 `Extend` 副作用并将结果回灌 reducer；其他组件（含 `RuntimeStatusStore`）严禁绕过 reducer 直接触发保亮。
 - **轮次与令牌隔离**：采集与 `Extend` 结果携带本轮 `token`，门控结果携带 `deadline`；会话取消或进入新轮次后，迟到回调即使忽略协程取消返回成功，也会在回灌前被拦截丢弃。`Extend`、`Release` 与 `ForceRelease` 通过互斥锁串行执行。
 - **唤醒窗口与退避**：`TimeoutDeadline` 优先按 `dim - 有效 lead`（未知 `dim` 时按 `off - lead`）调度，唤醒时刻不晚于 `off - 2500 ms`，单次采集绝对截止为 `min(off - 200 ms, now + 1600 ms)`。默认最多 3 帧、2 票 `Looking` 通过；连续两轮 `Looking` 后进入稳态退避，提前量缩短 `3000 ms`（下限 `4000 ms` 且不超过用户设定值）并开启单帧快判（仅首帧即 `Looking` 时提前结束，首帧非 `Looking` 自动回退标准 3 帧 2 票）。
-- **单次保亮上限（`MaxHold`）**：当 `maxHoldMinutes > 0` 时，首次成功 `Extend` 记录 `holdStartUptime` 并调度带起点的独立定时；到点发出 `ForceRelease` 解除后端保亮并锁定 `MaxHold`，后续轮次一律跳过，直到 `ScreenOff` 或外部真实用户活动重置。
+- **单次保亮上限（`MaxHold`）**：当 `maxHoldMinutes > 0` 时，首次成功 `Extend` 记录 `holdStartUptime` 并调度带起点的独立定时；到点发出 `ForceRelease` 解除后端保亮并锁定 `MaxHold`，后续轮次一律跳过，直到 `ScreenOff` 或外部真实用户活动重置。若开启 `unlimitedHoldWhileCharging`，系统处于充电状态时豁免 `MaxHold`（即时清除已有计时与锁定，仍保持 `Away`/`Unknown` 正常熄屏）；由 `BackendSession` 监听 `ACTION_POWER_CONNECTED` / `ACTION_POWER_DISCONNECTED` 实时投递 `ChargingChanged`，并由每轮 `GateResult` 携带 `isCharging` 周期校对（`ScreenOff` 跨息屏保留已知充电态）；拔电后不追溯充电时长，自拔电后首次 `ExtendResult.Done` 重新计满 `maxHoldMinutes`。
 
 ### 门控顺序与暗光累计
 
@@ -45,7 +45,7 @@ android → xposed（唯一 APK 打包）
    - 系统省电模式（`PowerSaveMode`）与未充电低电量（`LowBattery`，通过 `PowerManager` 与粘性电池广播只读获取）。
    - 生效范围过滤：`Whitelist` 与 `Blacklist` 均要求当前前台包名已知（未知则 `ForegroundUnknown` 不放行）；只要前台已知，三种范围均强制跳过主流原生系统相机包名（`CameraSensitiveApp`）。
    - 通话状态（`InCall`）与前摄/公开逻辑摄像头外部占用（`CameraUnavailable`）。
-2. **按需短窗传感器门控**：前序门控全部放行后才打开传感器采样窗口（见下节 ADR），判定口袋（`Pocket`）、倒扣（`FaceDown`）与连续暗光（`TooDarkRepeatedly`）。
+2. **按需短窗传感器门控**：前序门控全部放行后才打开传感器采样窗口（见下节 ADR），判定口袋（`Pocket`）、倒扣（`FaceDown`）与连续暗光（`TooDarkRepeatedly`）。当用户关闭 `faceDownGateEnabled`（兼容平躺举手机仰视阅读）时，`GateProbe.withEnvironment(..., includeFaceDown = false)` 跳过注册加速度计，避免平躺场景白等 `300 ms` 朝下保持窗，同时保持 `Pocket` 与 `TooDarkRepeatedly` 兜底生效。
 3. **截止周期去重与暗光保持**：同一截止周期内（新 `deadline` 差值 `< 1 s` 且无外部活动）仅刷新前台包名，不重复触发门控（避免锁屏微调截止时间反复空转）。`darkUnknownStreak` 仅在采集结果为 `Unknown` 且至少 2 帧 `TooDark` 时递增；因暗光不保亮后必然伴随用户触摸或重新亮屏，**触摸与息屏均保留 `darkUnknownStreak`**，仅在非暗光采集结果或后端切换时清零；当 `darkUnknownStreak >= 2` 且环境光 `< 3 lux` 时直接跳过不开相机。
 
 ## 采集、分类与硬件实测取舍（ADR）
@@ -69,7 +69,7 @@ android → xposed（唯一 APK 打包）
 - **快捷设置磁贴（`GazeQuickTileService`）**：通过 `TileService` 同步开关与运行状态；未授权或未自检时点击拉起 `MainActivity` 引导，绝不静默越权开启；Android 14+ 从关闭态点击开启时经 `PendingIntent` 拉起 `MainActivity`（等待配置与后端就绪加载后启动服务）以满足前台相机服务限制，关闭态可在后台直接停止服务。
 - **配置持久化、SAF 备份与降级兼容**：
   - `ConfigStore` 经单例 DataStore 维护 `gazekeep_settings`。写入生效范围时主动删除旧键 `whitelist_enabled`：若旧键存在（说明刚从旧版升级或降级后由旧版写入）则优先按旧键推导，否则读取 `app_filter_mode`，确保版本升降级时白名单与黑名单分离且不意外扩大为全局保亮。
-  - **零权限 SAF 配置备份（`ConfigBackupCodec`）**：`core` 层纯函数读写 `schemaVersion = 1` JSON，仅包含可迁移参数与清洗后名单（导出遇有效包名超 500 条直接拒绝 `PackageListTooLarge` 而不静默截断，导入单份名单上限 500 条），读取强制限制 512 KB（严格覆盖双名单满额最坏体积 ~257 KB）且忽略未知顶层字段；严禁导出或恢复 `enabled`、`self_test_passed_at`、`pendingTimeoutRestore`，导入经 `ConfigStore.importConfig` 原子合入并强制维持未自检设备 `enabled = false`；SAF 协调器无易失实例状态且在进程级作用域执行读写与持久化，支持选择器打开期间及返回后发生 Activity 旋转重建时继续完成传输与反馈。
+  - **零权限 SAF 配置备份（`ConfigBackupCodec`）**：`core` 层纯函数读写 `schemaVersion = 1` JSON，仅包含全部 13 项可迁移参数与清洗后名单（导出遇有效包名超 500 条直接拒绝 `PackageListTooLarge` 而不静默截断，导入单份名单上限 500 条），读取强制限制 512 KB（严格覆盖双名单满额最坏体积 ~257 KB）；缺失字段沿用当前配置以兼容旧版备份，且忽略未知顶层字段；严禁导出或恢复 `enabled`、`self_test_passed_at`、`pendingTimeoutRestore`，导入经 `ConfigStore.importConfig` 原子合入并强制维持未自检设备 `enabled = false`；SAF 协调器无易失实例状态且在进程级作用域执行读写与持久化，支持选择器打开期间及返回后发生 Activity 旋转重建时继续完成传输与反馈。
   - 应用列表「显示系统应用」偏好存于独立 `gazekeep_ui_prefs`；Shizuku 超时恢复记录存于独立 `gazekeep_timeout_restore`（同步 `commit`）。
 - **应用内语言（`AppLocales`）**：不引入 AppCompat；Android 13+ 读写系统 `LocaleManager`（`localeConfig` 声明 `zh-CN` 与 `en`），Android 12 及以下持久化至 `gazekeep_app_locale` 并在 `attachBaseContext` 与进程默认 `LocaleList` 同步。语言切换时 `GazeService` 实时刷新通知渠道名与在展常驻通知；系统无障碍设置与 LSPosed 管理器中的模块描述由宿主系统按系统语言读取。
 - **诊断日志（`DecisionLogs`）**：进程单例通过无界 IO 队列串行处理读写与清理，事件时间戳取调用时刻而非写盘时刻，写入后增量插入内存列表头部；存储于 `noBackupFilesDir/decisions`，启动、读取及每分钟自动清理超 24 小时文件，支持 `.txt` 导出。
